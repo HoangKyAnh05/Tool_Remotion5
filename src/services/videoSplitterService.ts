@@ -417,6 +417,8 @@ export function convertSegmentsToScenes(segments: VideoSegment[]): Scene[] {
     sourceVideoUrl: seg.sourceUrl,
     videoStartOffset: seg.isStandalone ? 0 : seg.startOffset,
     videoEndOffset: seg.isStandalone ? seg.duration : seg.endOffset,
+    videoMuted: false, // Mặc định GIỮ LẠI TIẾNG của video gốc
+    videoVolume: 1.0,  // Âm lượng 100%
     audioDuration: seg.duration,
     words: [],
     transition: 'fade',

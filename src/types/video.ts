@@ -176,10 +176,12 @@ export interface Scene {
   chatMessages?: ChatMessage[];
   orbitTitle?: string;
   orbitIcon?: string;
-  // Video Trimming & Clip Segmenting
+  // Video Trimming & Audio Controls
   videoStartOffset?: number; // Giây bắt đầu cắt từ video gốc (dùng cho Remotion startFrom)
   videoEndOffset?: number;   // Giây kết thúc cắt từ video gốc
   sourceVideoUrl?: string;   // URL của video gốc dài
+  videoMuted?: boolean;      // Mặc định false (giữ tiếng gốc của video). Nếu true thì tắt tiếng video
+  videoVolume?: number;     // Âm lượng video gốc (0.0 đến 1.0)
   // Motion Edit & Gesture Layering
   motionEdit?: MotionEditConfig;
 }

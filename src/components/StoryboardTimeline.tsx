@@ -14,6 +14,7 @@ import {
   Film,
   Image as ImageIcon,
   Volume2,
+  VolumeX,
   Sparkles,
   Plus,
   Trash2,
@@ -1671,13 +1672,43 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                     )}
 
                     {/* Badges */}
-                    <div className="absolute top-2 left-2 flex items-center gap-1.5">
+                    <div className="absolute top-2 left-2 flex items-center gap-1.5 flex-wrap">
                       <span className="px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md text-[11px] font-bold text-white border border-white/10">
                         Cảnh {scene.order}
                       </span>
                       <span className="px-2 py-0.5 rounded-md bg-indigo-500/80 backdrop-blur-md text-[10px] font-semibold text-white uppercase">
                         {scene.visualType && scene.visualType !== 'media' ? scene.visualType.replace('_', ' ') : scene.mediaType}
                       </span>
+                      {scene.mediaType === 'video' && (
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const isMuted = scene.videoMuted === true;
+                            updateScene(scene.id, {
+                              videoMuted: !isMuted,
+                              videoVolume: !isMuted ? 0 : 1.0
+                            });
+                          }}
+                          className={`px-1.5 py-0.5 rounded-md backdrop-blur-md text-[10px] font-bold flex items-center gap-1 cursor-pointer border transition-all ${
+                            scene.videoMuted
+                              ? 'bg-rose-950/80 text-rose-300 border-rose-500/40 hover:bg-rose-900'
+                              : 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40 hover:bg-emerald-900'
+                          }`}
+                          title={scene.videoMuted ? 'Đang tắt tiếng video gốc. Nhấp để bật lại.' : 'Đang giữ tiếng gốc. Nhấp để tắt tiếng.'}
+                        >
+                          {scene.videoMuted ? (
+                            <>
+                              <VolumeX className="w-3 h-3 text-rose-400" />
+                              <span>Tắt tiếng</span>
+                            </>
+                          ) : (
+                            <>
+                              <Volume2 className="w-3 h-3 text-emerald-400" />
+                              <span>Tiếng gốc</span>
+                            </>
+                          )}
+                        </span>
+                      )}
                     </div>
 
                     <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md text-[11px] font-mono text-indigo-300">
@@ -1708,6 +1739,38 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                       <span>Từ PC</span>
                     </button>
                   </div>
+
+                  {/* Nút Bật / Tắt Âm Thanh Video Gốc Riêng Cho Từng Đoạn */}
+                  {scene.mediaType === 'video' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const isMuted = scene.videoMuted === true;
+                        updateScene(scene.id, {
+                          videoMuted: !isMuted,
+                          videoVolume: !isMuted ? 0 : 1.0
+                        });
+                      }}
+                      className={`w-full py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-bold transition-all border shadow-sm cursor-pointer active:scale-95 ${
+                        scene.videoMuted
+                          ? 'bg-rose-950/30 hover:bg-rose-900/50 border-rose-500/40 text-rose-300'
+                          : 'bg-emerald-950/30 hover:bg-emerald-900/50 border-emerald-500/40 text-emerald-300'
+                      }`}
+                      title={scene.videoMuted ? 'Đang TẮT tiếng video gốc của clip này. Nhấp để BẬT lại tiếng.' : 'Đang GIỮ tiếng video gốc của clip này. Nhấp để TẮT tiếng.'}
+                    >
+                      {scene.videoMuted ? (
+                        <>
+                          <VolumeX className="w-3.5 h-3.5 text-rose-400" />
+                          <span>🔇 Tắt tiếng video gốc (Nhấp để bật)</span>
+                        </>
+                      ) : (
+                        <>
+                          <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>🔊 Đang giữ tiếng gốc (Nhấp để tắt)</span>
+                        </>
+                      )}
+                    </button>
+                  )}
 
                   {/* Thanh Công Cụ Nâng Cao: Chữ 3D & CapCut FX (Thu gọn/Mở rộng để UI cực kỳ gọn gàng) */}
                   <div className="pt-0.5">

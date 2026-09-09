@@ -226,7 +226,7 @@ export const SceneMedia: React.FC<SceneMediaProps> = ({
           className="w-full h-full object-cover"
           style={mediaStyle}
           startFrom={Math.round((scene.videoStartOffset || 0) * fps)}
-          volume={0}
+          volume={scene.videoMuted ? 0 : (scene.videoVolume !== undefined ? scene.videoVolume : 1)}
         />
       ) : (
         <Img
