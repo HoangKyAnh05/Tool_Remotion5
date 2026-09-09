@@ -331,15 +331,6 @@ export const Roadmap100Canvas: React.FC<Roadmap100CanvasProps> = ({
               <span>📥 Dán JSON</span>
             </button>
 
-            {/* Regenerate Sample */}
-            <button
-              onClick={handleRegenerateSample}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 text-xs font-bold transition shadow-sm"
-              title="Tạo lại 100 ngày mẫu sinh động theo chủ đề"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Tạo Mẫu Tức Thì</span>
-            </button>
 
             {/* Kho Dự Án Đã Lưu */}
             <button
