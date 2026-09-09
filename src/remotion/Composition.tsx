@@ -9,6 +9,38 @@ import { CinematicOverlay } from './components/CinematicOverlay';
 
 const WHOOSH_SFX_URL = 'audio/whoosh.wav';
 
+const blobUrlCache = new Map<string, string>();
+
+/**
+ * Chuyển đổi data:audio/ base64 URL thành blob: URL có khả năng seek chuẩn xác trên Chrome
+ * Giúp Remotion Player không bị giật, không bị lặp chữ hay khựng tiếng khi sync frame
+ */
+export function toSeekableAudioUrl(url?: string): string {
+  if (!url) return '';
+  if (typeof window !== 'undefined' && url.startsWith('data:audio/')) {
+    if (blobUrlCache.has(url)) {
+      return blobUrlCache.get(url)!;
+    }
+    try {
+      const parts = url.split(',');
+      const mime = parts[0].match(/:(.*?);/)?.[1] || 'audio/mp3';
+      const bstr = atob(parts[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      const blob = new Blob([u8arr], { type: mime });
+      const blobUrl = URL.createObjectURL(blob);
+      blobUrlCache.set(url, blobUrl);
+      return blobUrl;
+    } catch (e) {
+      return url;
+    }
+  }
+  return url;
+}
+
 export const MainComposition: React.FC<RemotionVideoProps> = ({ project }) => {
   const { fps } = useVideoConfig();
 
@@ -25,7 +57,7 @@ export const MainComposition: React.FC<RemotionVideoProps> = ({ project }) => {
         return url;
       }
     }
-    return url;
+    return toSeekableAudioUrl(url);
   };
 
   const bgmUrl = resolveAudioSource(project.bgm?.url);

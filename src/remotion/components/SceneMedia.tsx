@@ -225,7 +225,7 @@ export const SceneMedia: React.FC<SceneMediaProps> = ({
           src={mediaSource}
           className="w-full h-full object-cover"
           style={mediaStyle}
-          startFrom={0}
+          startFrom={Math.round((scene.videoStartOffset || 0) * fps)}
           volume={0}
         />
       ) : (

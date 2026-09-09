@@ -176,8 +176,30 @@ export interface Scene {
   chatMessages?: ChatMessage[];
   orbitTitle?: string;
   orbitIcon?: string;
+  // Video Trimming & Clip Segmenting
+  videoStartOffset?: number; // Giây bắt đầu cắt từ video gốc (dùng cho Remotion startFrom)
+  videoEndOffset?: number;   // Giây kết thúc cắt từ video gốc
+  sourceVideoUrl?: string;   // URL của video gốc dài
   // Motion Edit & Gesture Layering
   motionEdit?: MotionEditConfig;
+}
+
+export type TrimSide = 'left' | 'right';
+export type TrimOverflowOption = 'shift_to_next' | 'shift_to_prev' | 'discard';
+
+export interface VideoSegment {
+  id: string;
+  order: number;
+  title: string;
+  sourceUrl: string;
+  startOffset: number;       // Giây bắt đầu trong video gốc (vd: 0.0)
+  endOffset: number;         // Giây kết thúc trong video gốc (vd: 10.0)
+  duration: number;          // Độ dài của clip con (endOffset - startOffset)
+  originalStartOffset?: number; // Mốc giây gốc trong video dài ban đầu
+  originalEndOffset?: number;
+  isStandalone?: boolean;    // Đã được tách thành file video độc lập siêu mượt
+  thumbnail?: string;        // Ảnh chụp thumbnail đại diện của đoạn clip
+  narration?: string;        // Kịch bản / lời dẫn (nếu có)
 }
 
 export interface VideoProject {
@@ -271,7 +293,7 @@ export const DEFAULT_SUBTITLE_STYLE: SubtitleStyle = {
 
 export const DEFAULT_WATERMARK: WatermarkConfig = {
   enabled: true,
-  text: '@KenhKienThuc',
+  text: '@LaDoHomestaySaPa',
   position: 'top-right',
   opacity: 0.85
 };

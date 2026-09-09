@@ -30,6 +30,14 @@ const MIME_TYPES = {
   '.ico': 'image/x-icon'
 };
 
+process.on('uncaughtException', (err) => {
+  console.error('[Remotion Server] Uncaught exception caught safely:', err?.message || err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[Remotion Server] Unhandled rejection caught safely:', reason);
+});
+
 const server = http.createServer(async (req, res) => {
   // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');

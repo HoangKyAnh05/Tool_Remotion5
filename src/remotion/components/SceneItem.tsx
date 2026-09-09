@@ -1,6 +1,7 @@
 import React from 'react';
 import { Audio, AbsoluteFill, useVideoConfig, useCurrentFrame, Img, Video } from 'remotion';
 import { Scene, SubtitleStyle } from '../../types/video';
+import { toSeekableAudioUrl } from '../Composition';
 import { SceneMedia } from './SceneMedia';
 import { SubtitlesRenderer } from './SubtitlesRenderer';
 import { HeaderBadge } from './visuals/HeaderBadge';
@@ -382,7 +383,7 @@ export const SceneItem: React.FC<SceneItemProps> = ({
       {/* Custom Scene Transition Sound FX */}
       {scene.transitionAudioUrl && (
         <Audio
-          src={scene.transitionAudioUrl}
+          src={toSeekableAudioUrl(scene.transitionAudioUrl)}
           volume={0.75}
           startFrom={0}
         />
@@ -391,7 +392,7 @@ export const SceneItem: React.FC<SceneItemProps> = ({
       {/* Voiceover Narration Audio */}
       {scene.audioUrl && (
         <Audio
-          src={scene.audioUrl}
+          src={toSeekableAudioUrl(scene.audioUrl)}
           volume={1.0}
         />
       )}

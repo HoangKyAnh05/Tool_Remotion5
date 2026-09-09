@@ -181,7 +181,13 @@ export const RenderModal: React.FC<RenderModalProps> = ({ project, isOpen, onClo
                 </span>
                 <span className="font-mono font-bold text-white ml-2">{progress}%</span>
               </div>
-              <div className="w-full bg-gray-800 h-2.5 rounded-full overflow-hidden">
+              <div
+                className="w-full bg-gray-800 h-2.5 rounded-full overflow-hidden"
+                role="progressbar"
+                aria-valuenow={progress}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              >
                 <div
                   className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 h-full rounded-full transition-all duration-300"
                   style={{ width: `${progress}%` }}

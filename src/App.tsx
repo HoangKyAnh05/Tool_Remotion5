@@ -2,15 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { ScriptGenerator } from './components/ScriptGenerator';
 import { StoryboardTimeline } from './components/StoryboardTimeline';
-import { PlayerStudio } from './components/PlayerStudio';
+import { CenterPlayerStage } from './components/CenterPlayerStage';
+import { InspectorPanel } from './components/InspectorPanel';
 import { RenderModal } from './components/RenderModal';
 import { SettingsModal } from './components/SettingsModal';
 import { BatchVocabularyModal } from './components/BatchVocabularyModal';
 import { Roadmap100Canvas } from './components/Roadmap100Canvas';
+import { VideoSplitterModal } from './components/VideoSplitterModal';
 import { VideoProject } from './types/video';
 import { defaultProject } from './remotion/Root';
 import { maxShowcaseProject } from './remotion/sampleShowcaseProject';
+import { sampleHomestayProject } from './remotion/sampleHomestayProject';
 import { synthesizeEdgeTTS } from './services/edgeTtsService';
+import { WorkflowMode } from './components/SparkleBadge';
 
 export const App: React.FC = () => {
   const [project, setProject] = useState<VideoProject>(() => {
@@ -26,15 +30,17 @@ export const App: React.FC = () => {
         console.error('Failed to parse saved project', e);
       }
     }
-    return maxShowcaseProject;
+    return sampleHomestayProject;
   });
 
+  const [workflowMode, setWorkflowMode] = useState<WorkflowMode>('fast');
   const [isGenerating, setIsGenerating] = useState(false);
   const [statusText, setStatusText] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isRenderOpen, setIsRenderOpen] = useState(false);
   const [isBatchVocabOpen, setIsBatchVocabOpen] = useState(false);
-  const [activeView, setActiveView] = useState<'editor' | 'roadmap100'>('roadmap100');
+  const [isVideoSplitterOpen, setIsVideoSplitterOpen] = useState(false);
+  const [activeView, setActiveView] = useState<'editor' | 'roadmap100'>('editor');
 
   const [apiKeyGemini, setApiKeyGemini] = useState(
     () => localStorage.getItem('GEMINI_API_KEY') || ''
@@ -134,16 +140,19 @@ export const App: React.FC = () => {
   }, [project]);
 
   return (
-    <div className="h-screen max-h-screen overflow-hidden bg-[#0B0F19] text-gray-100 flex flex-col">
-      {/* Top Navbar */}
+    <div className="h-screen max-h-screen overflow-hidden bg-zinc-950 text-zinc-100 flex flex-col">
+      {/* Top Navbar with Workflow Mode Selector */}
       <Navbar
         project={project}
         setProject={setProject}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenRender={() => setIsRenderOpen(true)}
+        onOpenVideoSplitter={() => setIsVideoSplitterOpen(true)}
         isGenerating={isGenerating}
         activeView={activeView}
         setActiveView={setActiveView}
+        workflowMode={workflowMode}
+        setWorkflowMode={setWorkflowMode}
       />
 
       {/* Main Body: Either Roadmap 100 Days or Studio Video Editor */}
@@ -156,41 +165,61 @@ export const App: React.FC = () => {
           />
         </main>
       ) : (
-        <main className="flex-1 overflow-hidden p-4 lg:p-6 max-w-[1750px] w-full mx-auto">
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 h-full items-stretch">
-            {/* Left Column: Script Generation & Storyboard Timeline (7 cols) - Independently scrollable */}
-            <div className="xl:col-span-7 h-full overflow-y-auto pr-3 space-y-6">
-              <ScriptGenerator
-                project={project}
-                setProject={setProject}
-                apiKeyGemini={apiKeyGemini}
-                apiKeyPexels={apiKeyPexels}
-                isGenerating={isGenerating}
-                setIsGenerating={setIsGenerating}
-                statusText={statusText}
-                setStatusText={setStatusText}
-                onOpenBatchVocab={() => setIsBatchVocabOpen(true)}
-              />
+        <main className="flex-1 overflow-hidden w-full h-[calc(100vh-64px)] flex flex-col xl:flex-row">
+          {/* CỘT TRÁI (28% Width): Phân cảnh & Kịch bản - Cuộn dọc độc lập */}
+          <div className="w-full xl:w-[28%] h-full overflow-y-auto p-3 sm:p-4 space-y-4 border-r border-zinc-850/80 shrink-0">
+            {/* Kịch bản AI / Soạn kịch bản */}
+            <ScriptGenerator
+              project={project}
+              setProject={setProject}
+              apiKeyGemini={apiKeyGemini}
+              apiKeyPexels={apiKeyPexels}
+              isGenerating={isGenerating}
+              setIsGenerating={setIsGenerating}
+              statusText={statusText}
+              setStatusText={setStatusText}
+              onOpenBatchVocab={() => setIsBatchVocabOpen(true)}
+              workflowMode={workflowMode}
+            />
 
-              <StoryboardTimeline
-                project={project}
-                setProject={setProject}
-                apiKeyGemini={apiKeyGemini}
-                apiKeyPexels={apiKeyPexels}
-                onOpenBatchVocab={() => setIsBatchVocabOpen(true)}
-              />
-            </div>
+            {/* Danh sách phân cảnh Storyboard */}
+            <StoryboardTimeline
+              project={project}
+              setProject={setProject}
+              apiKeyGemini={apiKeyGemini}
+              apiKeyPexels={apiKeyPexels}
+              onOpenBatchVocab={() => setIsBatchVocabOpen(true)}
+              onOpenVideoSplitter={() => setIsVideoSplitterOpen(true)}
+              workflowMode={workflowMode}
+            />
+          </div>
 
-            {/* Right Column: Remotion Live Preview Studio & Customizer (5 cols) - Independently scrollable */}
-            <div className="xl:col-span-5 h-full overflow-y-auto pl-1 space-y-6">
-              <PlayerStudio
-                project={project}
-                setProject={setProject}
-              />
-            </div>
+          {/* CỘT GIỮA (44% Width): KHUNG PREVIEW TRUNG TÂM (Remotion Player Canvas + Controls) */}
+          <div className="w-full xl:w-[44%] h-full overflow-hidden shrink-0 flex flex-col">
+            <CenterPlayerStage
+              project={project}
+              setProject={setProject}
+            />
+          </div>
+
+          {/* CỘT PHẢI (28% Width): BẢNG ĐIỀU KHIỂN THUỘC TÍNH & HIỆU ỨNG (Inspector 3 Tabs) */}
+          <div className="w-full xl:w-[28%] h-full overflow-y-auto shrink-0 border-l border-zinc-850/80">
+            <InspectorPanel
+              project={project}
+              setProject={setProject}
+              workflowMode={workflowMode}
+            />
           </div>
         </main>
       )}
+
+      {/* Video Splitter & Trimmer Modal */}
+      <VideoSplitterModal
+        isOpen={isVideoSplitterOpen}
+        onClose={() => setIsVideoSplitterOpen(false)}
+        project={project}
+        setProject={setProject}
+      />
 
       {/* Batch Vocabulary & Script Modal (Root Level to prevent Stacking Context clipping) */}
       <BatchVocabularyModal

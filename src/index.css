@@ -59,3 +59,20 @@
 .animate-pulse-subtle {
   animation: pulse-subtle 3s infinite ease-in-out;
 }
+
+/* Glowing sparkling badge for workflow step priority numbers */
+@keyframes sparkle-glow {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.9), 0 0 18px rgba(236, 72, 153, 0.7);
+  }
+  50% {
+    transform: scale(1.12);
+    box-shadow: 0 0 18px rgba(245, 158, 11, 1), 0 0 28px rgba(236, 72, 153, 0.95), 0 0 35px rgba(168, 85, 247, 0.8);
+  }
+}
+
+.sparkle-badge {
+  animation: sparkle-glow 2s infinite ease-in-out;
+}
+

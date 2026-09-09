@@ -2,8 +2,8 @@ import { VideoProject, DEFAULT_SUBTITLE_STYLE, DEFAULT_WATERMARK, DEFAULT_SOUND_
 
 export const maxShowcaseProject: VideoProject = {
   id: 'max-showcase-storytelling',
-  title: '✨ KỂ CHUYỆN ĐỈNH CAO: BẢN LĨNH TỰ THÂN (MINIMALIST CINEMATIC)',
-  topic: 'Kể chuyện tự giới thiệu bản thân phong cách điện ảnh cao cấp, chữ chạy mượt mà, không rối mắt',
+  title: '✨ Kịch bản mẫu: Giới thiệu Homestay (Cinematic Showcase)',
+  topic: 'Kịch bản giới thiệu homestay phong cách điện ảnh cao cấp, chữ chạy mượt mà, không rối mắt',
   aspectRatio: '9:16',
   fps: 30,
   totalDuration: 22.0,

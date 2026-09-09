@@ -11,6 +11,7 @@
     "build": "tsc && vite build && node scripts/ensure-render-entry.mjs",
     "preview": "vite preview",
     "electron:start": "electron dist-electron/main.js",
+    "test": "node run-tests.mjs",
     "remotion:preview": "remotion preview src/remotion/index.ts",
     "remotion:render": "remotion render src/remotion/index.ts MainComposition out/video.mp4"
   },

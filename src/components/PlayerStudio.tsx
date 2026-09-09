@@ -29,17 +29,17 @@ interface PlayerStudioProps {
 const BGM_OPTIONS = [
   {
     id: 'bgm-lofi-1',
-    name: '🎵 Lo-Fi Chill & Study (Nhẹ nhàng, thư thái)',
+    name: '🎵 Lo-Fi Chill & Nghỉ Dưỡng (Nhẹ nhàng, thư thái)',
     url: '/audio/bgm-lofi.wav'
   },
   {
     id: 'bgm-tech-1',
-    name: '⚡ Công nghệ & Hiện đại (Futuristic Tech)',
+    name: '⚡ Năng động & Trải nghiệm (Upbeat Travel)',
     url: '/audio/bgm-tech.wav'
   },
   {
     id: 'bgm-cinematic-1',
-    name: '🌌 Điện ảnh & Bí ẩn (Cinematic Mystery)',
+    name: '🏔️ Điện ảnh Săn Mây Sa Pa (Cinematic Landscape)',
     url: '/audio/bgm-cinematic.wav'
   },
   {
@@ -309,7 +309,7 @@ export const PlayerStudio: React.FC<PlayerStudioProps> = ({ project, setProject 
                 type="text"
                 value={project.watermark.text || ''}
                 onChange={(e) => updateWatermark({ text: e.target.value })}
-                placeholder="@TênKênhCủaBạn"
+                placeholder="@LaDoHomestaySaPa"
                 className="bg-gray-950 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-indigo-500"
               />
               <select
