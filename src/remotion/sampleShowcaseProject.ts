@@ -19,8 +19,7 @@ export const maxShowcaseProject: VideoProject = {
     textColor: '#FFFFFF',
     strokeWidth: 2,
     strokeColor: '#000000',
-    positionY: 80,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)'
+    positionY: 80
   },
   watermark: DEFAULT_WATERMARK,
   showProgressBar: true,

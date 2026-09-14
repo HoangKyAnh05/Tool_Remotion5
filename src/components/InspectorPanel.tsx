@@ -12,7 +12,9 @@ import {
   Volume2,
   Activity,
   Layers,
-  HelpCircle
+  HelpCircle,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 interface InspectorPanelProps {
@@ -66,7 +68,7 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
   setProject,
   workflowMode = 'fast'
 }) => {
-  const [activeTab, setActiveTab] = useState<'branding' | 'effects' | 'audio'>('branding');
+  const [activeTab, setActiveTab] = useState<'branding' | 'audio'>('branding');
 
   const updateSubtitleStyle = (updates: Partial<SubtitleStyle>) => {
     setProject((prev) => ({
@@ -136,23 +138,23 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col bg-zinc-950 p-3 sm:p-4 overflow-hidden select-none">
+    <div className="h-full flex flex-col bg-white p-3 sm:p-4 overflow-hidden select-none border-l border-slate-200">
       {workflowMode === 'quality' && (
-        <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl bg-indigo-950/60 border border-indigo-500/30 text-indigo-200 text-xs shadow-md">
+        <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs shadow-sm">
           <SparkleBadge step={5} label="Chỉnh Thương hiệu & Nhạc nền" />
           <span className="font-bold text-[11.5px]">Tinh chỉnh Logo, Màu phụ đề & Nhạc nền</span>
         </div>
       )}
 
-      {/* 3 Tabs Điều Hướng Gọn Gàng */}
-      <div className="flex items-center p-1 bg-zinc-900 rounded-xl border border-zinc-800 mb-4 gap-1">
+      {/* 2 Tabs Điều Hướng Gọn Gàng */}
+      <div className="flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200 mb-4 gap-1">
         <button
           type="button"
           onClick={() => setActiveTab('branding')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
             activeTab === 'branding'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60'
+              ? 'bg-white text-slate-900 shadow-sm border border-slate-200'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
           }`}
         >
           <Type className="w-3.5 h-3.5" />
@@ -161,24 +163,11 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
 
         <button
           type="button"
-          onClick={() => setActiveTab('effects')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
-            activeTab === 'effects'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60'
-          }`}
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          <span className="truncate">Hiệu ứng & Chuyển động</span>
-        </button>
-
-        <button
-          type="button"
           onClick={() => setActiveTab('audio')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
             activeTab === 'audio'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60'
+              ? 'bg-white text-slate-900 shadow-sm border border-slate-200'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
           }`}
         >
           <Music className="w-3.5 h-3.5" />
@@ -194,10 +183,10 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
         {activeTab === 'branding' && (
           <div className="space-y-4 animate-in fade-in duration-150">
             {/* Logo / Watermark Card */}
-            <div className="bg-zinc-900/90 rounded-xl p-3.5 border border-zinc-800 space-y-3">
+            <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-zinc-200 flex items-center gap-1.5">
-                  <Tag className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5 text-emerald-700" />
                   Logo / Tên thương hiệu góc video
                 </span>
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -207,29 +196,29 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                     onChange={(e) => updateWatermark({ enabled: e.target.checked })}
                     className="sr-only peer"
                   />
-                  <div className="w-8 h-4 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-indigo-600"></div>
+                  <div className="w-8 h-4 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-emerald-700"></div>
                 </label>
               </div>
 
               {project.watermark?.enabled && (
-                <div className="space-y-2 pt-1 border-t border-zinc-800/80">
+                <div className="space-y-2 pt-1 border-t border-slate-200">
                   <div>
-                    <label className="text-[11px] text-zinc-400">Tên thương hiệu / Kênh:</label>
+                    <label className="text-[11px] font-medium text-slate-600">Tên thương hiệu / Kênh:</label>
                     <input
                       type="text"
                       value={project.watermark.text || ''}
                       onChange={(e) => updateWatermark({ text: e.target.value })}
-                      placeholder="@LaDoHomestaySaPa"
-                      className="w-full mt-1 bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500"
+                      placeholder="Nhập tên thương hiệu / kênh của bạn..."
+                      className="w-full mt-1 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[11px] text-zinc-400">Vị trí hiển thị trên video:</label>
+                    <label className="text-[11px] font-medium text-slate-600">Vị trí hiển thị trên video:</label>
                     <select
                       value={project.watermark.position}
                       onChange={(e) => updateWatermark({ position: e.target.value as any })}
-                      className="w-full mt-1 bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500"
+                      className="w-full mt-1 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
                     >
                       <option value="top-right">Góc trên bên phải (Khuyên dùng)</option>
                       <option value="top-left">Góc trên bên trái</option>
@@ -241,214 +230,459 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
               )}
             </div>
 
-            {/* Phụ đề Karaoke Card */}
-            <div className="bg-zinc-900/90 rounded-xl p-3.5 border border-zinc-800 space-y-3.5">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-200 pb-2 border-b border-zinc-800">
-                <Type className="w-3.5 h-3.5 text-indigo-400" />
-                Cài đặt phụ đề nhảy chữ (Karaoke)
-              </div>
-
-              {/* Font chữ */}
-              <div className="space-y-1">
-                <label className="text-[11px] text-zinc-400">Phông chữ hiển thị:</label>
-                <select
-                  value={project.subtitleStyle.fontFamily}
-                  onChange={(e) => updateSubtitleStyle({ fontFamily: e.target.value })}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500"
+            {/* Chữ Tiêu Đề / Huy Hiệu Phía Trên (Header Badge) */}
+            <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
+                  Chữ tiêu đề / Huy hiệu phía trên
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setProject(prev => ({ ...prev, showHeaderBadge: !prev.showHeaderBadge }))}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shadow-xs active:scale-95 cursor-pointer ${
+                    project.showHeaderBadge
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
+                  }`}
+                  title={project.showHeaderBadge ? 'Đang BẬT chữ tiêu đề phía trên video. Bấm để TẮT.' : 'Đang TẮT chữ phía trên. Bấm để BẬT.'}
                 >
-                  {PRESET_FONTS.map((f) => (
-                    <option key={f.value} value={f.value}>
-                      {f.name}
-                    </option>
-                  ))}
-                </select>
+                  {project.showHeaderBadge ? (
+                    <>
+                      <Eye className="w-3 h-3" />
+                      <span>Đang BẬT</span>
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="w-3 h-3" />
+                      <span>Đã TẮT</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                {project.showHeaderBadge
+                  ? 'Hiển thị huy hiệu / tiêu đề ngắn gọn nổi bật ở đỉnh khung hình.'
+                  : '🟢 Đã tắt chữ ở trên đỉnh — chỉ hiển thị phụ đề karaoke chạy từng chữ một ở dưới.'}
+              </p>
+            </div>
+
+            {/* Phụ đề Karaoke Card */}
+            <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 space-y-3.5">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                  <Type className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Cài đặt phụ đề (Karaoke)</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateSubtitleStyle({ enabled: project.subtitleStyle.enabled === false ? true : false })}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer ${
+                    project.subtitleStyle.enabled !== false
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      : 'bg-rose-100 hover:bg-rose-200 text-rose-800 border border-rose-300'
+                  }`}
+                  title={project.subtitleStyle.enabled !== false ? 'Bấm để TẮT chữ, không hiển thị bất kỳ phụ đề nào trên video' : 'Bấm để BẬT lại hiển thị chữ phụ đề trên video'}
+                >
+                  {project.subtitleStyle.enabled !== false ? (
+                    <>
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Đang HIỆN chữ</span>
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="w-3.5 h-3.5 text-rose-700" />
+                      <span>Đã TẮT chữ</span>
+                    </>
+                  )}
+                </button>
               </div>
 
-              {/* Bảng màu Highlight chữ Karaoke */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] text-zinc-400">Màu chữ phát sáng khi đọc tới:</label>
-                <div className="flex items-center gap-2.5">
-                  {PRESET_HIGHLIGHT_COLORS.map((c) => (
-                    <button
-                      key={c.color}
-                      type="button"
-                      onClick={() => updateSubtitleStyle({ highlightColor: c.color })}
-                      className={`w-7 h-7 rounded-full border-2 transition-all flex items-center justify-center ${
-                        project.subtitleStyle.highlightColor === c.color
-                          ? 'border-white scale-110 shadow-lg'
-                          : 'border-transparent hover:scale-105'
-                      }`}
-                      style={{ backgroundColor: c.color }}
-                      title={c.name}
+              {project.subtitleStyle.enabled === false ? (
+                <div className="p-3 bg-rose-50/80 border border-rose-200 rounded-xl text-center space-y-1 animate-in fade-in duration-150">
+                  <p className="text-xs font-bold text-rose-800 flex items-center justify-center gap-1.5">
+                    <EyeOff className="w-4 h-4 text-rose-600" />
+                    <span>Đã tắt hiển thị chữ trên toàn bộ video</span>
+                  </p>
+                  <p className="text-[11px] text-rose-600">
+                    Video khi phát thử và xuất file sẽ hoàn toàn không có phụ đề. Bấm nút <strong>"Đã TẮT chữ"</strong> ở trên để mở lại bất cứ lúc nào!
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Kiểu hiển thị chữ phụ đề (Cụm từ Karaoke vs Chạy từ trái sang phải vs 1 chữ nhảy) */}
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-medium text-slate-600">Kiểu chạy chữ phụ đề:</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 p-1 bg-slate-200/70 rounded-xl">
+                      <button
+                        type="button"
+                        onClick={() => updateSubtitleStyle({ displayMode: 'single_word', maxWordsPerLine: 4 })}
+                        className={`flex flex-col items-center justify-center py-2 px-1 rounded-lg text-center transition-all ${
+                          (project.subtitleStyle.displayMode || 'single_word') === 'single_word'
+                            ? 'bg-white text-emerald-800 font-bold shadow-xs border border-emerald-300 ring-1 ring-emerald-500/20'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                        title="Chữ xuất hiện lần lượt từ trái sang phải theo nhịp nói"
+                      >
+                        <span className="text-xs">⚡ Chạy Trái ➔ Phải</span>
+                        <span className="text-[9.5px] text-slate-500 font-normal">Xuất hiện nối tiếp</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => updateSubtitleStyle({ displayMode: 'single_word_spotlight', maxWordsPerLine: 4 })}
+                        className={`flex flex-col items-center justify-center py-2 px-1 rounded-lg text-center transition-all ${
+                          project.subtitleStyle.displayMode === 'single_word_spotlight'
+                            ? 'bg-white text-emerald-800 font-bold shadow-xs border border-emerald-300 ring-1 ring-emerald-500/20'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                        title="Chỉ hiện 1 chữ duy nhất tại vị trí chạy từ trái qua phải"
+                      >
+                        <span className="text-xs">🎯 Nhảy Trái ➔ Phải</span>
+                        <span className="text-[9.5px] text-slate-500 font-normal">1 chữ di chuyển</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => updateSubtitleStyle({ displayMode: 'phrase_karaoke', maxWordsPerLine: 4 })}
+                        className={`flex flex-col items-center justify-center py-2 px-1 rounded-lg text-center transition-all ${
+                          project.subtitleStyle.displayMode === 'phrase_karaoke'
+                            ? 'bg-white text-emerald-800 font-bold shadow-xs border border-emerald-300 ring-1 ring-emerald-500/20'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                        title="Hiện sẵn cả cụm từ 3-4 chữ, chữ đọc tới đâu phát sáng tới đó"
+                      >
+                        <span className="text-xs">💬 Cụm Karaoke</span>
+                        <span className="text-[9.5px] text-slate-500 font-normal">Hiện đủ, sáng theo từ</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Font chữ */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-medium text-slate-600">Phông chữ hiển thị:</label>
+                    <select
+                      value={project.subtitleStyle.fontFamily}
+                      onChange={(e) => updateSubtitleStyle({ fontFamily: e.target.value })}
+                      className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
                     >
-                      {project.subtitleStyle.highlightColor === c.color && (
-                        <Check className="w-3.5 h-3.5 text-black stroke-[3]" />
-                      )}
+                      {PRESET_FONTS.map((f) => (
+                        <option key={f.value} value={f.value}>
+                          {f.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Bảng màu Highlight chữ Karaoke */}
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-medium text-slate-600">Màu chữ phát sáng khi đọc tới:</label>
+                    <div className="flex items-center gap-2.5">
+                      {PRESET_HIGHLIGHT_COLORS.map((c) => (
+                        <button
+                          key={c.color}
+                          type="button"
+                          onClick={() => updateSubtitleStyle({ highlightColor: c.color })}
+                          className={`w-7 h-7 rounded-full border-2 transition-all flex items-center justify-center ${
+                            project.subtitleStyle.highlightColor === c.color
+                              ? 'border-slate-900 scale-110 shadow-sm'
+                              : 'border-slate-300 hover:scale-105'
+                          }`}
+                          style={{ backgroundColor: c.color }}
+                          title={c.name}
+                        >
+                          {project.subtitleStyle.highlightColor === c.color && (
+                            <Check className="w-3.5 h-3.5 text-black stroke-[3]" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Sliders: Kích thước, Trục Y & Trục X */}
+                  <div className="space-y-3 pt-1">
+                    {/* Kích thước chữ */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px] text-slate-600 font-medium">
+                        <span>Kích thước chữ:</span>
+                        <span className="text-emerald-700 font-mono font-bold">{project.subtitleStyle.fontSize}px</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => updateSubtitleStyle({ fontSize: Math.max(20, (project.subtitleStyle.fontSize || 40) - 2) })}
+                          className="px-2 py-0.5 rounded bg-slate-200 hover:bg-slate-300 text-xs font-bold text-slate-700"
+                          title="Giảm kích thước chữ"
+                        >
+                          A-
+                        </button>
+                        <input
+                          type="range"
+                          min="20"
+                          max="72"
+                          value={project.subtitleStyle.fontSize}
+                          onChange={(e) => updateSubtitleStyle({ fontSize: parseInt(e.target.value) })}
+                          className="flex-1 accent-emerald-700 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => updateSubtitleStyle({ fontSize: Math.min(80, (project.subtitleStyle.fontSize || 40) + 2) })}
+                          className="px-2 py-0.5 rounded bg-slate-200 hover:bg-slate-300 text-xs font-bold text-slate-700"
+                          title="Tăng kích thước chữ"
+                        >
+                          A+
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Vị trí Lên / Xuống theo trục Y */}
+                    <div className="space-y-1.5 p-2 bg-slate-100 rounded-xl border border-slate-200">
+                      <div className="flex justify-between items-center text-[11px] font-medium text-slate-700">
+                        <span className="flex items-center gap-1">
+                          <span>↕️</span>
+                          <span>Vị trí Lên / Xuống (Trục Y):</span>
+                        </span>
+                        <span className="text-emerald-700 font-mono font-bold">{project.subtitleStyle.positionY}%</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => updateSubtitleStyle({ positionY: Math.max(5, (project.subtitleStyle.positionY || 75) - 3) })}
+                          className="px-2 py-1 rounded bg-white hover:bg-slate-50 border border-slate-300 text-[11px] font-bold text-slate-700 shadow-xs active:scale-95"
+                          title="Dịch chữ LÊN TRÊN"
+                        >
+                          ⬆️ Lên
+                        </button>
+                        <input
+                          type="range"
+                          min="5"
+                          max="95"
+                          value={project.subtitleStyle.positionY}
+                          onChange={(e) => updateSubtitleStyle({ positionY: parseInt(e.target.value) })}
+                          className="flex-1 accent-emerald-700 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => updateSubtitleStyle({ positionY: Math.min(95, (project.subtitleStyle.positionY || 75) + 3) })}
+                          className="px-2 py-1 rounded bg-white hover:bg-slate-50 border border-slate-300 text-[11px] font-bold text-slate-700 shadow-xs active:scale-95"
+                          title="Dịch chữ XUỐNG DƯỚI"
+                        >
+                          ⬇️ Xuống
+                        </button>
+                      </div>
+                      {/* Nút đặt nhanh độ cao */}
+                      <div className="flex items-center gap-1.5 pt-1">
+                        <span className="text-[10px] text-slate-500">Mốc nhanh:</span>
+                        <button
+                          type="button"
+                          onClick={() => updateSubtitleStyle({ positionY: 20 })}
+                          className="px-1.5 py-0.5 rounded text-[10px] bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 font-medium"
+                        >
+                          🔝 Trên (20%)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateSubtitleStyle({ positionY: 50 })}
+                          className="px-1.5 py-0.5 rounded text-[10px] bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 font-medium"
+                        >
+                          🎯 Giữa (50%)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateSubtitleStyle({ positionY: 75 })}
+                          className="px-1.5 py-0.5 rounded text-[10px] bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 font-medium"
+                        >
+                          🔻 Đáy (75%)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Vị trí Trái / Phải theo trục X */}
+                    <div className="space-y-1.5 p-2 bg-slate-100 rounded-xl border border-slate-200">
+                      <div className="flex justify-between items-center text-[11px] font-medium text-slate-700">
+                        <span className="flex items-center gap-1">
+                          <span>↔️</span>
+                          <span>Vị trí Trái / Phải (Trục X):</span>
+                        </span>
+                        <span className="text-emerald-700 font-mono font-bold">{project.subtitleStyle.positionX ?? 50}%</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => updateSubtitleStyle({ positionX: Math.max(5, (project.subtitleStyle.positionX ?? 50) - 3) })}
+                          className="px-2 py-1 rounded bg-white hover:bg-slate-50 border border-slate-300 text-[11px] font-bold text-slate-700 shadow-xs active:scale-95"
+                          title="Dịch chữ SANG TRÁI"
+                        >
+                          ⬅️ Trái
+                        </button>
+                        <input
+                          type="range"
+                          min="5"
+                          max="95"
+                          value={project.subtitleStyle.positionX ?? 50}
+                          onChange={(e) => updateSubtitleStyle({ positionX: parseInt(e.target.value) })}
+                          className="flex-1 accent-emerald-700 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => updateSubtitleStyle({ positionX: Math.min(95, (project.subtitleStyle.positionX ?? 50) + 3) })}
+                          className="px-2 py-1 rounded bg-white hover:bg-slate-50 border border-slate-300 text-[11px] font-bold text-slate-700 shadow-xs active:scale-95"
+                          title="Dịch chữ SANG PHẢI"
+                        >
+                          ➡️ Phải
+                        </button>
+                      </div>
+                      {/* Nút đặt nhanh trục X */}
+                      <div className="flex items-center gap-1.5 pt-1">
+                        <span className="text-[10px] text-slate-500">Mốc nhanh:</span>
+                        <button
+                          type="button"
+                          onClick={() => updateSubtitleStyle({ positionX: 25 })}
+                          className="px-1.5 py-0.5 rounded text-[10px] bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 font-medium"
+                        >
+                          ⬅️ Trái (25%)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateSubtitleStyle({ positionX: 50 })}
+                          className="px-1.5 py-0.5 rounded text-[10px] bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 font-medium"
+                        >
+                          🎯 Chính Giữa (50%)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateSubtitleStyle({ positionX: 75 })}
+                          className="px-1.5 py-0.5 rounded text-[10px] bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 font-medium"
+                        >
+                          ➡️ Phải (75%)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Trục Xoay (Góc nghiêng Rotate) */}
+                    <div className="space-y-1.5 p-2 bg-slate-100 rounded-xl border border-slate-200">
+                      <div className="flex justify-between items-center text-[11px] font-medium text-slate-700">
+                        <span className="flex items-center gap-1">
+                          <span>🔄</span>
+                          <span>Trục Xoay / Góc Nghiêng:</span>
+                        </span>
+                        <span className="text-emerald-700 font-mono font-bold">
+                          {project.subtitleStyle.rotation ?? project.subtitleStyle.rotate ?? 0}°
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const cur = project.subtitleStyle.rotation ?? project.subtitleStyle.rotate ?? 0;
+                            updateSubtitleStyle({ rotation: Math.max(-180, cur - 5), rotate: Math.max(-180, cur - 5) });
+                          }}
+                          className="px-2 py-1 rounded bg-white hover:bg-slate-50 border border-slate-300 text-[11px] font-bold text-slate-700 shadow-xs active:scale-95"
+                          title="Xoay ngược chiều kim đồng hồ"
+                        >
+                          🔄 -5°
+                        </button>
+                        <input
+                          type="range"
+                          min="-180"
+                          max="180"
+                          value={project.subtitleStyle.rotation ?? project.subtitleStyle.rotate ?? 0}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value);
+                            updateSubtitleStyle({ rotation: val, rotate: val });
+                          }}
+                          className="flex-1 accent-emerald-700 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const cur = project.subtitleStyle.rotation ?? project.subtitleStyle.rotate ?? 0;
+                            updateSubtitleStyle({ rotation: Math.min(180, cur + 5), rotate: Math.min(180, cur + 5) });
+                          }}
+                          className="px-2 py-1 rounded bg-white hover:bg-slate-50 border border-slate-300 text-[11px] font-bold text-slate-700 shadow-xs active:scale-95"
+                          title="Xoay theo chiều kim đồng hồ"
+                        >
+                          🔄 +5°
+                        </button>
+                      </div>
+                      {/* Nút đặt nhanh góc xoay */}
+                      <div className="flex items-center gap-1.5 pt-1">
+                        <span className="text-[10px] text-slate-500">Mốc nhanh:</span>
+                        <button
+                          type="button"
+                          onClick={() => updateSubtitleStyle({ rotation: -12, rotate: -12 })}
+                          className="px-1.5 py-0.5 rounded text-[10px] bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 font-medium"
+                        >
+                          ↖️ Nghiêng trái (-12°)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateSubtitleStyle({ rotation: 0, rotate: 0 })}
+                          className="px-1.5 py-0.5 rounded text-[10px] bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 font-medium"
+                        >
+                          🎯 Thẳng ngang (0°)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateSubtitleStyle({ rotation: 12, rotate: 12 })}
+                          className="px-1.5 py-0.5 rounded text-[10px] bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 font-medium"
+                        >
+                          ↗️ Nghiêng phải (+12°)
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Switch Viết hoa */}
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-200">
+                    <span className="text-[11px] font-medium text-slate-600">Tự động VIẾT HOA toàn bộ:</span>
+                    <button
+                      type="button"
+                      onClick={() => updateSubtitleStyle({ uppercase: !project.subtitleStyle.uppercase })}
+                      className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${
+                        project.subtitleStyle.uppercase ? 'bg-emerald-700' : 'bg-slate-300'
+                      }`}
+                    >
+                      <div
+                        className={`w-3.5 h-3.5 rounded-full bg-white transition-transform absolute top-0.75 ${
+                          project.subtitleStyle.uppercase ? 'translate-x-4.5' : 'translate-x-1'
+                        }`}
+                      />
                     </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Sliders: Kích thước & Trục Y */}
-              <div className="space-y-3 pt-1">
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[11px] text-zinc-400">
-                    <span>Kích thước chữ:</span>
-                    <span className="text-indigo-400 font-mono font-bold">{project.subtitleStyle.fontSize}px</span>
                   </div>
-                  <input
-                    type="range"
-                    min="24"
-                    max="72"
-                    value={project.subtitleStyle.fontSize}
-                    onChange={(e) => updateSubtitleStyle({ fontSize: parseInt(e.target.value) })}
-                    className="w-full accent-indigo-500 h-1.5 bg-zinc-800 rounded-lg cursor-pointer"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[11px] text-zinc-400">
-                    <span>Vị trí độ cao phụ đề (Trục Y):</span>
-                    <span className="text-indigo-400 font-mono font-bold">{project.subtitleStyle.positionY}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="20"
-                    max="90"
-                    value={project.subtitleStyle.positionY}
-                    onChange={(e) => updateSubtitleStyle({ positionY: parseInt(e.target.value) })}
-                    className="w-full accent-indigo-500 h-1.5 bg-zinc-800 rounded-lg cursor-pointer"
-                  />
-                </div>
-              </div>
+                </>
+              )}
             </div>
           </div>
         )}
 
         {/* ========================================================================= */}
-        {/* TAB 2: HIỆU ỨNG & CHUYỂN ĐỘNG */}
-        {/* ========================================================================= */}
-        {activeTab === 'effects' && (
-          <div className="space-y-3 animate-in fade-in duration-150">
-            <div className="text-[11px] text-zinc-400 font-medium px-1">
-              Bật/tắt các lớp hoạt họa & chuyển động điện ảnh tự động:
-            </div>
-
-            <div className="bg-zinc-900/90 rounded-xl p-3.5 border border-zinc-800 space-y-3 divide-y divide-zinc-800/60">
-              {/* Sóng âm Visualizer */}
-              <div className="flex items-center justify-between pt-1 first:pt-0">
-                <div>
-                  <h5 className="text-xs font-semibold text-zinc-200">🎵 Sóng âm Visualizer</h5>
-                  <p className="text-[10px] text-zinc-500">Thanh sóng âm nhảy theo nhịp điệu</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={project.showAudioVisualizer ?? true}
-                  onChange={(e) => setProject((prev) => ({ ...prev, showAudioVisualizer: e.target.checked }))}
-                  className="rounded bg-zinc-950 border-zinc-700 text-indigo-600 focus:ring-0 w-4 h-4 cursor-pointer"
-                />
-              </div>
-
-              {/* Hạt bụi điện ảnh */}
-              <div className="flex items-center justify-between pt-3">
-                <div>
-                  <h5 className="text-xs font-semibold text-zinc-200">✨ Hạt bụi điện ảnh</h5>
-                  <p className="text-[10px] text-zinc-500">Hiệu ứng Cinematic Light Leak lơ lửng</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={project.showCinematicParticles ?? true}
-                  onChange={(e) => setProject((prev) => ({ ...prev, showCinematicParticles: e.target.checked }))}
-                  className="rounded bg-zinc-950 border-zinc-700 text-indigo-600 focus:ring-0 w-4 h-4 cursor-pointer"
-                />
-              </div>
-
-              {/* Rung lắc camera */}
-              <div className="flex items-center justify-between pt-3">
-                <div>
-                  <h5 className="text-xs font-semibold text-zinc-200">📳 Rung lắc camera</h5>
-                  <p className="text-[10px] text-zinc-500">Cảm giác chân thật tự nhiên (Handheld cam)</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={project.showCameraShake ?? true}
-                  onChange={(e) => setProject((prev) => ({ ...prev, showCameraShake: e.target.checked }))}
-                  className="rounded bg-zinc-950 border-zinc-700 text-indigo-600 focus:ring-0 w-4 h-4 cursor-pointer"
-                />
-              </div>
-
-              {/* Emoji động minh họa */}
-              <div className="flex items-center justify-between pt-3">
-                <div>
-                  <h5 className="text-xs font-semibold text-zinc-200">🔥 Emoji động minh họa</h5>
-                  <p className="text-[10px] text-zinc-500">Tự động chèn biểu tượng cảm xúc theo câu</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={project.enableDynamicEmojis ?? true}
-                  onChange={(e) => setProject((prev) => ({ ...prev, enableDynamicEmojis: e.target.checked }))}
-                  className="rounded bg-zinc-950 border-zinc-700 text-indigo-600 focus:ring-0 w-4 h-4 cursor-pointer"
-                />
-              </div>
-
-              {/* Thanh Progress Bar đáy */}
-              <div className="flex items-center justify-between pt-3">
-                <div>
-                  <h5 className="text-xs font-semibold text-zinc-200">📊 Thanh tiến trình đáy</h5>
-                  <p className="text-[10px] text-zinc-500">Giúp giữ chân người xem video tới giây cuối</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={project.showProgressBar ?? true}
-                  onChange={(e) => setProject((prev) => ({ ...prev, showProgressBar: e.target.checked }))}
-                  className="rounded bg-zinc-950 border-zinc-700 text-indigo-600 focus:ring-0 w-4 h-4 cursor-pointer"
-                />
-              </div>
-
-              {/* Âm thanh lướt chuyển cảnh */}
-              <div className="flex items-center justify-between pt-3">
-                <div>
-                  <h5 className="text-xs font-semibold text-zinc-200">💨 Tự động chèn âm thanh SFX</h5>
-                  <p className="text-[10px] text-zinc-500">Hiệu ứng lướt (Whoosh) khi chuyển phân cảnh</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={project.soundFx?.enableWhoosh ?? true}
-                  onChange={(e) => updateSoundFx({ enableWhoosh: e.target.checked })}
-                  className="rounded bg-zinc-950 border-zinc-700 text-indigo-600 focus:ring-0 w-4 h-4 cursor-pointer"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* TAB 3: ÂM THANH & NHẠC NỀN */}
+        {/* TAB 2: ÂM THANH & NHẠC NỀN */}
         {/* ========================================================================= */}
         {activeTab === 'audio' && (
           <div className="space-y-4 animate-in fade-in duration-150">
             {/* Nhạc nền BGM */}
-            <div className="bg-zinc-900/90 rounded-xl p-3.5 border border-zinc-800 space-y-3">
+            <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-zinc-200 flex items-center gap-1.5">
-                  <Music className="w-3.5 h-3.5 text-indigo-400" />
-                  Nhạc nền nghỉ dưỡng (BGM)
+                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Music className="w-3.5 h-3.5 text-emerald-700" />
+                  Nhạc nền (BGM)
                 </span>
                 <button
                   type="button"
                   onClick={handleSelectCustomBgmFile}
-                  className="flex items-center gap-1 text-[11px] text-indigo-400 hover:text-indigo-300 py-0.5 px-2 rounded-md bg-indigo-950/60 border border-indigo-500/30 transition-colors"
+                  className="flex items-center gap-1 text-[11px] text-emerald-700 hover:text-emerald-800 py-0.5 px-2 rounded-md bg-emerald-50 border border-emerald-200 transition-colors font-medium"
                   title="Chọn file MP3/WAV từ máy tính của bạn"
                 >
                   <FolderOpen className="w-3 h-3" />
-                  <span>Tải MP3 riêng</span>
+                  <span>Tải file riêng</span>
                 </button>
               </div>
 
               <select
                 value={project.bgm?.url || ''}
                 onChange={(e) => handleSelectBgm(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
               >
                 {BGM_OPTIONS.map((b) => (
                   <option key={b.name} value={b.url}>
@@ -464,11 +698,11 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
 
               {/* Audio Ducking & Volume */}
               {project.bgm?.url && (
-                <div className="space-y-3 pt-2 border-t border-zinc-800/80">
+                <div className="space-y-3 pt-2 border-t border-slate-200">
                   <div className="space-y-1">
-                    <div className="flex justify-between text-[11px] text-zinc-400">
-                      <span>Tỷ lệ hạ nhạc khi có giọng nói (Audio Ducking):</span>
-                      <span className="text-indigo-400 font-mono font-bold">
+                    <div className="flex justify-between text-[11px] text-slate-600 font-medium">
+                      <span>Giảm nhạc khi có giọng nói (Ducking):</span>
+                      <span className="text-emerald-700 font-mono font-bold">
                         {Math.round((project.bgm.duckingVolume ?? 0.15) * 100)}%
                       </span>
                     </div>
@@ -484,10 +718,10 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                           bgm: { ...prev.bgm, duckingVolume: parseFloat(e.target.value) }
                         }))
                       }
-                      className="w-full accent-indigo-500 h-1.5 bg-zinc-800 rounded-lg cursor-pointer"
+                      className="w-full accent-emerald-700 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
                     />
-                    <p className="text-[10px] text-zinc-500">
-                      Nhạc nền sẽ tự động giảm nhỏ xuống mức này khi người đọc cất tiếng nói.
+                    <p className="text-[10px] text-slate-500">
+                      Nhạc nền tự động giảm âm lượng khi người đọc phát âm thanh thoại.
                     </p>
                   </div>
                 </div>
@@ -495,10 +729,10 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
             </div>
 
             {/* Giọng đọc mặc định */}
-            <div className="bg-zinc-900/90 rounded-xl p-3.5 border border-zinc-800 space-y-2">
-              <span className="text-xs font-bold text-zinc-200 flex items-center gap-1.5">
-                <Volume2 className="w-3.5 h-3.5 text-indigo-400" />
-                Giọng đọc thuyết minh AI (Edge-TTS)
+            <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 space-y-2">
+              <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <Volume2 className="w-3.5 h-3.5 text-emerald-700" />
+                Giọng đọc thuyết minh (Edge-TTS)
               </span>
               <select
                 value={project.voice.name}
@@ -508,7 +742,7 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                     voice: { ...prev.voice, name: e.target.value }
                   }))
                 }
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
               >
                 {VIETNAMESE_VOICES.map((v) => (
                   <option key={v.id} value={v.id}>

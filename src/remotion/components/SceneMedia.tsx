@@ -195,10 +195,15 @@ export const SceneMedia: React.FC<SceneMediaProps> = ({
   const sharpnessVal = beauty.sharpness || 0;   // 0 - 100
   const eyeEnlargeVal = beauty.eyeEnlarge || 0; // 0 - 100
 
-  // 1. Bộ lọc sắc thái & Làn da (Skin Brightness, Smoothing & Sharpness)
-  const brightnessFilter = 1 + (brightenVal / 100) * 0.35; // Tăng sáng da đến 1.35x
-  const contrastFilter = 1 + (sharpnessVal / 100) * 0.25 - (smoothVal / 100) * 0.08; // Căng bóng & Nét
-  const saturateFilter = 1 + (brightenVal / 100) * 0.15; // Hồng hào tự nhiên
+  // 1. Bộ lọc sắc thái Studio: Tươi sáng tự nhiên (Vibrant & Crisp) & Sắc nét quang học (Không chói, Không vỡ hạt)
+  // Baseline chuẩn: +4% sáng chi tiết, +5% tương phản tạo khối, +8% bão hòa màu sống động
+  const baseBrightness = 1.04;
+  const baseContrast = 1.05;
+  const baseSaturate = 1.08;
+
+  const brightnessFilter = baseBrightness + (brightenVal / 100) * 0.35; // Tăng sáng da/cảnh tự nhiên
+  const contrastFilter = baseContrast + (sharpnessVal / 100) * 0.25 - (smoothVal / 100) * 0.08; // Căng bóng & Nét
+  const saturateFilter = baseSaturate + (brightenVal / 100) * 0.15; // Hồng hào & rực rỡ tươi mới
   const beautyBlur = smoothVal > 0 ? (smoothVal / 100) * 0.8 : 0; // Mịn da mờ mụn tự nhiên
 
   // 2. Kéo dài chân & Thon gọn Body/Mặt (Aspect ratio & Scale warping)
@@ -209,10 +214,13 @@ export const SceneMedia: React.FC<SceneMediaProps> = ({
   const finalBlur = Math.max(blurAmount, beautyBlur);
 
   const mediaStyle: React.CSSProperties = {
-    transform: `scale(${scale * transScale * faceZoom}) scaleX(${bodySlimX}) scaleY(${legStretchY}) translate(${finalTranslateX + transTranslateX}px, ${finalTranslateY + transTranslateY}px) rotate(${rotate}deg) rotateY(${transRotateY}deg)`,
+    transform: `scale(${scale * transScale * faceZoom}) scaleX(${bodySlimX}) scaleY(${legStretchY}) translate3d(${finalTranslateX + transTranslateX}px, ${finalTranslateY + transTranslateY}px, 0) rotate(${rotate}deg) rotateY(${transRotateY}deg)`,
     filter: `brightness(${brightnessFilter}) contrast(${contrastFilter}) saturate(${saturateFilter}) ${finalBlur > 0 ? `blur(${finalBlur}px)` : ''}`,
     opacity: transOpacity,
     perspective: '1000px',
+    backfaceVisibility: 'hidden',
+    WebkitBackfaceVisibility: 'hidden',
+    imageRendering: '-webkit-optimize-contrast',
     transition: 'filter 0.05s linear, transform 0.05s ease-out'
   };
 
@@ -236,8 +244,8 @@ export const SceneMedia: React.FC<SceneMediaProps> = ({
         />
       )}
 
-      {/* Cinematic Vignette */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40 pointer-events-none" />
+      {/* Subtle Cinematic Vignette (Giữ video luôn sáng trong, không bị tối sầm) */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-black/10 pointer-events-none" />
 
       {/* White Flash Transition Overlay */}
       {whiteFlashOpacity > 0 && (

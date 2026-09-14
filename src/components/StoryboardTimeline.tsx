@@ -9,6 +9,9 @@ import { MotionTypographyModal } from './MotionTypographyModal';
 import { TikTokStudioModal } from './TikTokStudioModal';
 import { visualStylesService, CustomVisualItem } from '../services/visualStylesService';
 import { SOUND_EFFECTS_LIST, playSoundEffectById } from '../services/soundEffectsService';
+import { TIKTOK_VIDEO_EFFECTS } from '../remotion/tiktok/tiktokEffects';
+import { TIKTOK_FILTERS } from '../remotion/tiktok/tiktokFilters';
+import { getTikTokStickerById } from '../remotion/tiktok/tiktokStickers';
 import { SparkleBadge, WorkflowMode } from './SparkleBadge';
 import {
   Film,
@@ -507,6 +510,44 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
       }
     }
   };
+
+  // Xóa toàn bộ nhãn CLIP và câu thoại mặc định trên toàn bộ phân cảnh
+  const handleClearAllDefaultBadgesAndSubtitles = () => {
+    setProject((prev) => ({
+      ...prev,
+      scenes: prev.scenes.map((s) => ({
+        ...s,
+        headerBadge: undefined,
+        narration: '',
+        words: []
+      }))
+    }));
+  };
+
+  // Tự động dọn dẹp mọi nhãn CLIP mặc định hoặc câu thoại mẫu khi mở dự án
+  React.useEffect(() => {
+    setProject((prev) => {
+      let changed = false;
+      const cleanedScenes = prev.scenes.map((s) => {
+        const isClipBadge = s.headerBadge && (s.headerBadge.toUpperCase().includes('CLIP') || s.headerBadge.startsWith('📍'));
+        const isDefaultNarration = s.narration && (s.narration.startsWith('Phân đoạn ') || /^\(?\d+s\)?$/i.test(s.narration.trim()));
+        if (isClipBadge || isDefaultNarration) {
+          changed = true;
+          return {
+            ...s,
+            headerBadge: isClipBadge ? undefined : s.headerBadge,
+            narration: isDefaultNarration ? '' : s.narration,
+            words: isDefaultNarration ? [] : s.words
+          };
+        }
+        return s;
+      });
+      if (changed) {
+        return { ...prev, scenes: cleanedScenes };
+      }
+      return prev;
+    });
+  }, []);
 
   // Live Microphone Recording for a scene with Auto Speech-To-Text
   const startRecordingSceneAudio = async (sceneId: string) => {
@@ -1442,7 +1483,16 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
           updateScene(sceneId, {
             localMediaPath: `file://${filePath.replace(/\\/g, '/')}`,
             mediaUrl: `file://${filePath.replace(/\\/g, '/')}`,
-            mediaType: isVideo ? 'video' : 'image'
+            mediaType: isVideo ? 'video' : 'image',
+            beautyRetouch: {
+              brightenSkin: 15,
+              sharpness: 20,
+              smoothSkin: 0,
+              slimFace: 0,
+              longLegs: 0,
+              slimBody: 0,
+              eyeEnlarge: 0,
+            }
           });
           return;
         }
@@ -1469,7 +1519,16 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
     updateScene(targetLocalMediaSceneId, {
       mediaUrl: objectUrl,
       localMediaPath: objectUrl,
-      mediaType: isVideo ? 'video' : 'image'
+      mediaType: isVideo ? 'video' : 'image',
+      beautyRetouch: {
+        brightenSkin: 15,
+        sharpness: 20,
+        smoothSkin: 0,
+        slimFace: 0,
+        longLegs: 0,
+        slimBody: 0,
+        eyeEnlarge: 0,
+      }
     });
 
     setTargetLocalMediaSceneId(null);
@@ -1511,12 +1570,12 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
         className="hidden"
       />
 
-      {/* Header bar: Tối giản, thanh lịch chuẩn Dark Studio */}
-      <div className="bg-zinc-900/90 rounded-xl p-3 border border-zinc-800 flex flex-col gap-2.5">
+      {/* Header bar: Nền trắng tối giản, thanh lịch */}
+      <div className="bg-white rounded-xl p-3 border border-slate-200 flex flex-col gap-2.5 shadow-sm">
         {ttsToastError && (
           <div
             role="alert"
-            className="bg-red-950/80 border border-red-500/50 text-red-200 px-3 py-2 rounded-xl text-xs flex items-center gap-2 shadow-lg animate-in fade-in"
+            className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-xl text-xs flex items-center gap-2 shadow-sm animate-in fade-in"
           >
             <span>⚠️</span>
             <span>{ttsToastError}</span>
@@ -1524,15 +1583,15 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
         )}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+            <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
               <Film className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                 Danh Sách Phân Cảnh ({project.scenes.length} Scenes)
               </h3>
-              <p className="text-[11px] text-zinc-400">
-                Giọng đọc: <span className="text-indigo-400 font-semibold">{project.voice.name || 'Hoài My'}</span>
+              <p className="text-[11px] text-slate-500">
+                Giọng đọc: <span className="text-emerald-700 font-semibold">{project.voice.name || 'Hoài My'}</span>
               </p>
             </div>
           </div>
@@ -1541,11 +1600,11 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
           <button
             onClick={handleBatchSynthesizeAll}
             disabled={isBatchSynthesizing}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm disabled:opacity-50 transition-all active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold shadow-sm disabled:opacity-50 transition-all active:scale-95"
             title="Tự động lồng tiếng AI cho toàn bộ phân cảnh trong 1 click"
           >
-            {workflowMode === 'script_voice' && (
-              <SparkleBadge step={3} label="Ghép giọng đọc AI toàn bộ" />
+            {(workflowMode === 'quality' || workflowMode === 'script_voice') && (
+              <SparkleBadge step={2} label="Ghép giọng đọc AI toàn bộ" />
             )}
             {isBatchSynthesizing ? (
               <>
@@ -1562,10 +1621,10 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
         </div>
 
         {/* Toolbar công cụ: Đồng bộ style tối giản tinh gọn */}
-        <div className="flex flex-wrap items-center justify-between gap-1.5 pt-2 border-t border-zinc-800/80">
+        <div className="flex flex-wrap items-center justify-between gap-1.5 pt-2 border-t border-slate-200">
           <div>
             {workflowMode === 'split_long_video' && (
-              <div className="flex items-center gap-1.5 text-xs text-rose-300 font-bold">
+              <div className="flex items-center gap-1.5 text-xs text-rose-700 font-bold">
                 <SparkleBadge step={2} label="Chỉnh sửa câu thoại/lồng tiếng cho các đoạn đã cắt" />
                 <span className="text-[11px]">Các phân cảnh sau khi chia:</span>
               </div>
@@ -1573,15 +1632,25 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5">
+            {/* Nút xóa nhanh toàn bộ chữ/nhãn mặc định (CLIP / Phụ đề mẫu) */}
+            <button
+              onClick={handleClearAllDefaultBadgesAndSubtitles}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-300 hover:border-rose-300 text-xs font-medium transition-all active:scale-95 shadow-sm"
+              title="Xóa toàn bộ nhãn CLIP và câu thoại mẫu mặc định trên toàn bộ phân cảnh"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+              <span>Xóa chữ mặc định</span>
+            </button>
+
             {/* Nút tự động đổi ảnh cho các cảnh đang dùng ảnh mặc định */}
             {project.scenes.some((sc) => !sc.mediaUrl || sc.mediaUrl.includes('photo-1451187580459-43490279c0fa')) && (
               <button
                 onClick={handleAutoFixDefaultMedia}
                 disabled={isAutoFixingDefaultMedia}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-amber-300 hover:text-amber-200 border border-amber-500/30 text-xs font-medium transition-all active:scale-95"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-medium transition-all active:scale-95"
                 title="Tự động vẽ/tìm ảnh mới phù hợp với câu thoại cho các cảnh đang dùng ảnh mặc định"
               >
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
                 <span>
                   {isAutoFixingDefaultMedia
                     ? 'Đang đổi ảnh AI...'
@@ -1603,47 +1672,47 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
           return (
             <div
               key={scene.id}
-              className="bg-gray-900/70 border border-gray-800 rounded-2xl p-4 glass-card hover:border-gray-700/80 transition-all group"
+              className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group"
             >
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
                 {/* Media Thumbnail & Actions (Col 1-4) */}
                 <div className="md:col-span-4 flex flex-col gap-2">
-                  <div className="relative aspect-video rounded-xl overflow-hidden bg-black/80 border border-gray-800 group/thumb">
+                  <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-900 border border-slate-200 group/thumb">
                     {scene.visualType === 'chat_bubble' ? (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-indigo-950 via-purple-950 to-pink-950 p-3 text-center border border-purple-500/30">
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 p-3 text-center border border-slate-700">
                         <span className="text-2xl mb-1">💬</span>
-                        <span className="text-xs font-black text-pink-300">CẢNH CHAT INBOX VIRAL</span>
-                        <span className="text-[10px] text-gray-400 mt-1 line-clamp-1">{scene.headerBadge || '💬 INBOX MỖI NGÀY'}</span>
+                        <span className="text-xs font-bold text-white">CẢNH CHAT INBOX</span>
+                        <span className="text-[10px] text-slate-300 mt-1 line-clamp-1">{scene.headerBadge || '💬 INBOX MỖI NGÀY'}</span>
                       </div>
                     ) : scene.visualType === 'orbital_glow' ? (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-950 via-amber-950/50 to-purple-950 p-3 text-center border border-amber-500/30">
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 p-3 text-center border border-slate-700">
                         <span className="text-2xl mb-1">🪐</span>
-                        <span className="text-xs font-black text-amber-300">QUỸ ĐẠO AI PHÁT SÁNG</span>
-                        <span className="text-[10px] text-gray-400 mt-1 line-clamp-1">{scene.orbitTitle || 'ỨNG DỤNG AI'}</span>
+                        <span className="text-xs font-bold text-white">QUỸ ĐẠO PHÁT SÁNG</span>
+                        <span className="text-[10px] text-slate-300 mt-1 line-clamp-1">{scene.orbitTitle || 'ỨNG DỤNG AI'}</span>
                       </div>
                     ) : scene.visualType === 'math_grid' ? (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-950 via-cyan-950/50 to-gray-950 p-3 text-center border border-cyan-500/30">
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 p-3 text-center border border-slate-700">
                         <span className="text-2xl mb-1">📈</span>
-                        <span className="text-xs font-black text-cyan-300">LƯỚI ĐỒ HỌA VECTOR</span>
-                        <span className="text-[10px] text-gray-400 mt-1 line-clamp-1">Parabol • Bàn cờ • Hoa toán</span>
+                        <span className="text-xs font-bold text-white">LƯỚI ĐỒ HỌA VECTOR</span>
+                        <span className="text-[10px] text-slate-300 mt-1 line-clamp-1">Parabol • Bàn cờ • Hoa toán</span>
                       </div>
                     ) : scene.visualType === 'radar_tech' ? (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-950 via-emerald-950/50 to-cyan-950 p-3 text-center border border-emerald-500/30">
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 p-3 text-center border border-slate-700">
                         <span className="text-2xl mb-1">📊</span>
-                        <span className="text-xs font-black text-emerald-300">SÓNG DỮ LIỆU & PHÂN TÍCH</span>
-                        <span className="text-[10px] text-gray-400 mt-1 line-clamp-1">{scene.headerBadge || '📊 PHÂN TÍCH CHỈ SỐ'}</span>
+                        <span className="text-xs font-bold text-white">SÓNG DỮ LIỆU & PHÂN TÍCH</span>
+                        <span className="text-[10px] text-slate-300 mt-1 line-clamp-1">{scene.headerBadge || '📊 PHÂN TÍCH CHỈ SỐ'}</span>
                       </div>
                     ) : scene.visualType === 'night_highway' ? (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-950 via-rose-950/50 to-amber-950 p-3 text-center border border-rose-500/30">
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 p-3 text-center border border-slate-700">
                         <span className="text-2xl mb-1">🏎️</span>
-                        <span className="text-xs font-black text-rose-300">XE ĐUA CAO TỐC ĐÊM</span>
-                        <span className="text-[10px] text-gray-400 mt-1 line-clamp-1">{scene.headerBadge || '🏎️ BỨT PHÁ TỐC ĐỘ'}</span>
+                        <span className="text-xs font-bold text-white">XE ĐUA CAO TỐC ĐÊM</span>
+                        <span className="text-[10px] text-slate-300 mt-1 line-clamp-1">{scene.headerBadge || '🏎️ BỨT PHÁ TỐC ĐỘ'}</span>
                       </div>
                     ) : scene.visualType === 'airplane_takeoff' ? (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-950 via-sky-950/50 to-indigo-950 p-3 text-center border border-sky-500/30">
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 p-3 text-center border border-slate-700">
                         <span className="text-2xl mb-1">✈️</span>
-                        <span className="text-xs font-black text-sky-300">MÁY BAY CẤT CÁNH</span>
-                        <span className="text-[10px] text-gray-400 mt-1 line-clamp-1">{scene.headerBadge || '✈️ CẤT CÁNH THÀNH CÔNG'}</span>
+                        <span className="text-xs font-bold text-white">MÁY BAY CẤT CÁNH</span>
+                        <span className="text-[10px] text-slate-300 mt-1 line-clamp-1">{scene.headerBadge || '✈️ CẤT CÁNH THÀNH CÔNG'}</span>
                       </div>
                     ) : scene.mediaUrl ? (
                       scene.mediaType === 'video' ? (
@@ -1666,52 +1735,50 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                         />
                       )
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs">
+                      <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">
                         Chưa có Media
                       </div>
                     )}
 
-                    {/* Badges */}
+                    {/* Badges Top Left */}
                     <div className="absolute top-2 left-2 flex items-center gap-1.5 flex-wrap">
-                      <span className="px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md text-[11px] font-bold text-white border border-white/10">
+                      <span className="px-2 py-0.5 rounded-md bg-slate-900/80 backdrop-blur-md text-[11px] font-bold text-white border border-white/10">
                         Cảnh {scene.order}
                       </span>
-                      <span className="px-2 py-0.5 rounded-md bg-indigo-500/80 backdrop-blur-md text-[10px] font-semibold text-white uppercase">
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-700/90 backdrop-blur-md text-[10px] font-semibold text-white uppercase">
                         {scene.visualType && scene.visualType !== 'media' ? scene.visualType.replace('_', ' ') : scene.mediaType}
                       </span>
-                      {scene.mediaType === 'video' && (
-                        <span
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const isMuted = scene.videoMuted === true;
-                            updateScene(scene.id, {
-                              videoMuted: !isMuted,
-                              videoVolume: !isMuted ? 0 : 1.0
-                            });
-                          }}
-                          className={`px-1.5 py-0.5 rounded-md backdrop-blur-md text-[10px] font-bold flex items-center gap-1 cursor-pointer border transition-all ${
-                            scene.videoMuted
-                              ? 'bg-rose-950/80 text-rose-300 border-rose-500/40 hover:bg-rose-900'
-                              : 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40 hover:bg-emerald-900'
-                          }`}
-                          title={scene.videoMuted ? 'Đang tắt tiếng video gốc. Nhấp để bật lại.' : 'Đang giữ tiếng gốc. Nhấp để tắt tiếng.'}
-                        >
-                          {scene.videoMuted ? (
-                            <>
-                              <VolumeX className="w-3 h-3 text-rose-400" />
-                              <span>Tắt tiếng</span>
-                            </>
-                          ) : (
-                            <>
-                              <Volume2 className="w-3 h-3 text-emerald-400" />
-                              <span>Tiếng gốc</span>
-                            </>
-                          )}
-                        </span>
-                      )}
                     </div>
 
-                    <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md text-[11px] font-mono text-indigo-300">
+                    {/* Speaker Icon in Bottom Left Corner (Biểu tượng loa ở góc dưới bên trái) */}
+                    {scene.mediaType === 'video' && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const isMuted = scene.videoMuted === true;
+                          updateScene(scene.id, {
+                            videoMuted: !isMuted,
+                            videoVolume: !isMuted ? 0 : 1.0
+                          });
+                        }}
+                        className={`absolute bottom-2 left-2 z-10 p-1.5 rounded-lg backdrop-blur-md transition-all border shadow-sm cursor-pointer active:scale-90 ${
+                          scene.videoMuted
+                            ? 'bg-rose-950/80 hover:bg-rose-900 text-rose-300 border-rose-500/50'
+                            : 'bg-slate-900/80 hover:bg-slate-800 text-emerald-400 border-emerald-500/40'
+                        }`}
+                        title={scene.videoMuted ? 'Đang TẮT tiếng video gốc. Nhấp để BẬT lại tiếng.' : 'Đang GIỮ tiếng video gốc. Nhấp để TẮT tiếng.'}
+                      >
+                        {scene.videoMuted ? (
+                          <VolumeX className="w-3.5 h-3.5" />
+                        ) : (
+                          <Volume2 className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    )}
+
+                    {/* Duration Badge Bottom Right */}
+                    <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-slate-900/80 backdrop-blur-md text-[11px] font-mono text-emerald-300 border border-white/10">
                       ⏱ {scene.audioDuration?.toFixed(1) || '4.0'}s
                     </div>
                   </div>
@@ -1720,87 +1787,55 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => openMediaSearch(scene, 'video')}
-                      className="relative flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-pink-600/20 hover:bg-pink-600/40 text-pink-300 hover:text-white border border-pink-500/40 text-xs font-bold transition-all shadow-sm group/vbtn"
+                      className="relative flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-semibold transition-all shadow-sm group/vbtn"
                       title="Tìm và chọn video ngắn phù hợp chủ đề kịch bản cảnh này"
                     >
                       {workflowMode === 'quality' && (
                         <SparkleBadge step={3} label="Chọn Video/Ảnh phân cảnh" />
                       )}
-                      <Play className="w-3.5 h-3.5 text-pink-400 fill-pink-400 group-hover/vbtn:scale-110 transition-transform" />
+                      <Play className="w-3.5 h-3.5 text-emerald-700 fill-emerald-700 group-hover/vbtn:scale-110 transition-transform" />
                       <span>Video</span>
                     </button>
 
                     <button
                       onClick={() => handleSelectLocalMedia(scene.id)}
-                      className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-gray-800/80 hover:bg-emerald-600/30 text-gray-300 hover:text-white border border-gray-700/50 text-xs font-semibold transition-all"
+                      className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-semibold transition-all shadow-sm"
                       title="Chọn video hoặc ảnh từ máy tính"
                     >
-                      <FolderOpen className="w-3.5 h-3.5 text-emerald-400" />
+                      <FolderOpen className="w-3.5 h-3.5 text-slate-600" />
                       <span>Từ PC</span>
                     </button>
                   </div>
 
-                  {/* Nút Bật / Tắt Âm Thanh Video Gốc Riêng Cho Từng Đoạn */}
-                  {scene.mediaType === 'video' && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const isMuted = scene.videoMuted === true;
-                        updateScene(scene.id, {
-                          videoMuted: !isMuted,
-                          videoVolume: !isMuted ? 0 : 1.0
-                        });
-                      }}
-                      className={`w-full py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-bold transition-all border shadow-sm cursor-pointer active:scale-95 ${
-                        scene.videoMuted
-                          ? 'bg-rose-950/30 hover:bg-rose-900/50 border-rose-500/40 text-rose-300'
-                          : 'bg-emerald-950/30 hover:bg-emerald-900/50 border-emerald-500/40 text-emerald-300'
-                      }`}
-                      title={scene.videoMuted ? 'Đang TẮT tiếng video gốc của clip này. Nhấp để BẬT lại tiếng.' : 'Đang GIỮ tiếng video gốc của clip này. Nhấp để TẮT tiếng.'}
-                    >
-                      {scene.videoMuted ? (
-                        <>
-                          <VolumeX className="w-3.5 h-3.5 text-rose-400" />
-                          <span>🔇 Tắt tiếng video gốc (Nhấp để bật)</span>
-                        </>
-                      ) : (
-                        <>
-                          <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>🔊 Đang giữ tiếng gốc (Nhấp để tắt)</span>
-                        </>
-                      )}
-                    </button>
-                  )}
-
-                  {/* Thanh Công Cụ Nâng Cao: Chữ 3D & CapCut FX (Thu gọn/Mở rộng để UI cực kỳ gọn gàng) */}
+                  {/* Thanh Công Cụ Nâng Cao: Chữ 3D & CapCut FX (Đầy đủ tất cả các tính năng Motion 3D, Layering, 100 Kiểu Chữ & TikTok/CapCut Studio) */}
                   <div className="pt-0.5">
                     <button
                       type="button"
                       onClick={() => setExpandedFxSceneId(expandedFxSceneId === scene.id ? null : scene.id)}
-                      className={`w-full py-1.5 px-2.5 rounded-xl flex items-center justify-between text-[11px] font-bold transition-all border shadow-sm cursor-pointer ${
+                      className={`w-full py-1.5 px-2.5 rounded-xl flex items-center justify-between text-[11px] font-semibold transition-all border shadow-sm cursor-pointer ${
                         expandedFxSceneId === scene.id
-                          ? 'bg-purple-900/40 border-purple-500/60 text-purple-200'
-                          : 'bg-gray-800/60 hover:bg-gray-800 border-gray-700/60 text-gray-300 hover:text-white'
+                          ? 'bg-slate-200 border-slate-300 text-slate-900'
+                          : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
                       }`}
-                      title="Mở bảng công cụ kỹ xảo: Chữ Motion 3D, Phông xanh, Kho 100 kiểu chữ, CapCut FX"
+                      title="Mở bảng công cụ kỹ xảo: Chữ 3D, Kho kiểu chữ & TikTok CapCut Studio"
                     >
                       <span className="flex items-center gap-1.5">
                         {workflowMode === 'quality' && (
-                          <SparkleBadge step={4} label="Kỹ xảo Chữ 3D & CapCut FX" />
+                          <SparkleBadge step={4} label="Kỹ xảo Chữ 3D" />
+                        )}
+                        {workflowMode === 'tiktok_capcut' && (
+                          <SparkleBadge step={2} label="Kỹ xảo CapCut" />
                         )}
                         <span>⚡</span>
                         <span>Chữ 3D & CapCut FX</span>
-                        {(scene.isGreenScreenMotion || scene.tiktokTextTemplate || (scene.tiktokStickers && scene.tiktokStickers.length > 0)) && (
-                          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                        )}
                       </span>
-                      <span className="text-[10px] text-gray-400 font-normal">
+                      <span className="text-[10px] text-slate-500 font-normal">
                         {expandedFxSceneId === scene.id ? 'Thu gọn ▲' : 'Tùy chỉnh ▼'}
                       </span>
                     </button>
 
                     {expandedFxSceneId === scene.id && (
-                      <div className="mt-2 space-y-1.5 p-2 rounded-xl bg-gray-950/90 border border-purple-500/30">
+                      <div className="mt-2 space-y-1.5 p-2 rounded-xl bg-slate-50 border border-slate-200">
                         {/* 1. Nút Bật / Tắt Video Phông Xanh & Chữ Motion 3D */}
                         <button
                           type="button"
@@ -1809,22 +1844,24 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                               isGreenScreenMotion: !scene.isGreenScreenMotion
                             });
                           }}
-                          className={`w-full py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-[10.5px] font-black transition-all border shadow-sm cursor-pointer active:scale-95 ${
+                          className={`w-full py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-[11px] font-semibold transition-all border shadow-sm cursor-pointer active:scale-95 ${
                             scene.isGreenScreenMotion
-                              ? 'bg-gradient-to-r from-emerald-600 to-green-500 border-green-300 text-white shadow-md'
-                              : 'bg-emerald-950/40 hover:bg-emerald-900/50 border-emerald-500/50 text-emerald-300 hover:text-white'
+                              ? 'bg-emerald-700 border-emerald-800 text-white shadow-sm'
+                              : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-700'
                           }`}
-                          title="Khử sạch nền xanh lá của video và tự động ghép chữ Motion 3D xếp loạn xạ ở trước và sau người"
                         >
+                          {workflowMode === 'tiktok_capcut' && (
+                            <SparkleBadge step={4} label="Chữ Motion 3D" />
+                          )}
                           <span>{scene.isGreenScreenMotion ? '✓' : '🟩'}</span>
                           <span>
                             {scene.isGreenScreenMotion
-                              ? 'Đang Chạy Chữ 3D (Trước/Sau)'
-                              : '🟩 Bật Chữ Motion 3D (Phông Xanh)'}
+                              ? 'Đang Bật Chữ Motion 3D (Phông Xanh)'
+                              : 'Bật Chữ Motion 3D (Phông Xanh)'}
                           </span>
                         </button>
 
-                        {/* 2. Nút Thứ Tự Lớp Chữ: Luôn Ở Trước / Ở Dưới Video / Đan Xen 3D */}
+                        {/* 2. Nút Đổi Thứ Tự Lớp Chữ: Nổi Trước / Ẩn Sau / Đan Xen 3D */}
                         <button
                           type="button"
                           onClick={() => {
@@ -1837,29 +1874,34 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                                 : 'front';
                             updateScene(scene.id, { textLayerMode: next });
                           }}
-                          className={`w-full py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-[10.5px] font-black transition-all border shadow-sm cursor-pointer active:scale-95 ${
-                            scene.textLayerMode === 'front'
-                              ? 'bg-gradient-to-r from-blue-600 to-cyan-500 border-cyan-300 text-white shadow-md'
-                              : scene.textLayerMode === 'behind'
-                              ? 'bg-gradient-to-r from-purple-700 to-indigo-600 border-indigo-300 text-white shadow-md'
-                              : 'bg-gradient-to-r from-amber-600 to-orange-500 border-amber-300 text-white shadow-md'
+                          className={`w-full py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-[11px] font-semibold transition-all border shadow-sm cursor-pointer active:scale-95 ${
+                            scene.textLayerMode === 'behind'
+                              ? 'bg-indigo-50 hover:bg-indigo-100 border-indigo-300 text-indigo-800'
+                              : scene.textLayerMode === 'both_3d'
+                              ? 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-800'
+                              : 'bg-sky-50 hover:bg-sky-100 border-sky-300 text-sky-800'
                           }`}
+                          title="Đổi thứ tự hiển thị: Chữ nổi phía trước / Ẩn phía sau / Đan xen 3D (Trước & Sau)"
                         >
+                          <span>⚡</span>
                           <span>
-                            {scene.textLayerMode === 'front'
-                              ? '🔝 Chữ: Luôn Ở TRƯỚC Video'
-                              : scene.textLayerMode === 'behind'
-                              ? '🔙 Chữ: Chạy Ở DƯỚI Video'
-                              : '⚡ Chữ: Đan Xen 3D (Trước & Sau)'}
+                            {scene.textLayerMode === 'behind'
+                              ? 'Chữ: Ẩn Phía Sau'
+                              : scene.textLayerMode === 'both_3d'
+                              ? 'Chữ: Đan Xen 3D (Trước & Sau)'
+                              : 'Chữ: Nổi Phía Trước'}
                           </span>
                         </button>
 
-                        {/* 3. Nút Mở Modal 100 Kiểu Sắp Xếp & 100 Hiệu Ứng Chữ Motion */}
+                        {/* 3. Nút Mở Modal 100 Kiểu Sắp Xếp & Hiệu Ứng Chữ Motion */}
                         <button
                           type="button"
                           onClick={() => setActiveMotionTypographyScene(scene)}
-                          className="w-full py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-[10px] font-extrabold transition-all border border-emerald-500/40 bg-gradient-to-r from-emerald-600/30 to-cyan-600/30 hover:from-emerald-600/50 hover:to-cyan-600/50 text-emerald-200 hover:text-white cursor-pointer active:scale-95 shadow-sm"
+                          className="w-full py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-[11px] font-semibold transition-all border border-slate-300 bg-white hover:bg-slate-100 text-slate-800 cursor-pointer active:scale-95 shadow-sm"
                         >
+                          {workflowMode === 'tiktok_capcut' && (
+                            <SparkleBadge step={3} label="100 Kiểu Xếp Chữ" />
+                          )}
                           <span>🔤</span>
                           <span>100 Kiểu Xếp Chữ & Hiệu Ứng FX</span>
                         </button>
@@ -1879,53 +1921,460 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                               });
                             });
                           }}
-                          className="w-full py-1 px-2 rounded-lg flex items-center justify-center gap-1 text-[10px] font-black transition-all border border-purple-500/40 bg-purple-950/40 hover:bg-purple-900/60 text-purple-300 hover:text-white cursor-pointer active:scale-95 shadow-sm"
+                          className="w-full py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-[11px] font-semibold transition-all border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 cursor-pointer active:scale-95 shadow-sm"
                         >
                           <span>✨</span>
                           <span>Áp Dụng Kiểu Chữ Cho Tất Cả Cảnh</span>
                         </button>
 
-                        {/* 5. Nút Mở Kho TikTok & CapCut Studio */}
+                        {/* 5. Nút Mở TikTok / CapCut Studio */}
                         <button
                           type="button"
                           onClick={() => setActiveTikTokStudioScene(scene)}
-                          className="w-full py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-[10px] font-black transition-all border border-rose-500/40 bg-gradient-to-r from-rose-600/30 to-cyan-600/30 hover:from-rose-600/50 hover:to-cyan-600/50 text-rose-200 hover:text-white cursor-pointer active:scale-95 shadow-sm"
+                          className="w-full py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-[11px] font-semibold transition-all border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-800 cursor-pointer active:scale-95 shadow-sm"
                         >
+                          {workflowMode === 'tiktok_capcut' && (
+                            <SparkleBadge step={2} label="TikTok/CapCut Studio" />
+                          )}
                           <span>🎬</span>
                           <span>TikTok / CapCut Studio</span>
                         </button>
+
+                        {/* 6. ĐIỀU CHỈNH VỊ TRÍ X, Y & KÍCH THƯỚC TRỰC TIẾP (Không cần mở tab khác) */}
+                        <div className="pt-2 border-t border-slate-200 space-y-2">
+                          <div className="flex items-center justify-between text-[11px] font-bold text-slate-800">
+                            <span className="flex items-center gap-1">
+                              <span>🕹️</span>
+                              <span>Vị Trí Chữ & Icon Phân Cảnh (Trục X, Y):</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                updateScene(scene.id, {
+                                  elementPositions: {}
+                                });
+                              }}
+                              className="text-[10px] text-slate-500 hover:text-slate-800 underline font-normal"
+                              title="Đặt lại vị trí mặc định"
+                            >
+                              Đặt lại
+                            </button>
+                          </div>
+
+                          {/* A. Điều chỉnh vị trí Chữ / Mẫu chữ / Phụ đề */}
+                          {(() => {
+                            const textKey = scene.tiktokTextTemplate
+                              ? 'text_template'
+                              : scene.tiktokTextEffect || (scene.textEffectsMix && scene.textEffectsMix.length > 0)
+                              ? 'text_effect'
+                              : 'subtitles';
+                            const textPos = scene.elementPositions?.[textKey] || {
+                              x: 50,
+                              y: scene.tiktokTextTemplate ? 25 : project.subtitleStyle.positionY || 75,
+                              scale: 1
+                            };
+
+                            const updateTextPos = (partial: Partial<import('../types/video').ElementPosition>) => {
+                              const newPos = { ...textPos, ...partial };
+                              updateScene(scene.id, {
+                                elementPositions: {
+                                  ...(scene.elementPositions || {}),
+                                  [textKey]: newPos
+                                }
+                              });
+                            };
+
+                            return (
+                              <div className="p-2 bg-slate-50 rounded-lg border border-slate-200 space-y-1.5">
+                                <div className="flex justify-between items-center text-[10.5px] font-semibold text-slate-700">
+                                  <span>📝 Chữ chính ({textKey === 'text_template' ? 'Mẫu Chữ' : textKey === 'text_effect' ? 'Chữ FX' : 'Phụ đề'}):</span>
+                                  <span className="font-mono text-emerald-700 font-bold">X:{textPos.x}% | Y:{textPos.y}%</span>
+                                </div>
+
+                                {/* Điều khiển Trục Y (Lên / Xuống) */}
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] text-slate-500 w-12 shrink-0">Trục Y:</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateTextPos({ y: Math.max(5, textPos.y - 4) })}
+                                    className="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-300 text-[10px] font-bold text-slate-700 shadow-2xs active:scale-95"
+                                    title="Dịch chữ LÊN TRÊN"
+                                  >
+                                    ⬆️ Lên
+                                  </button>
+                                  <input
+                                    type="range"
+                                    min="5"
+                                    max="95"
+                                    value={textPos.y}
+                                    onChange={(e) => updateTextPos({ y: parseInt(e.target.value) })}
+                                    className="flex-1 accent-emerald-700 h-1 bg-slate-200 rounded cursor-pointer"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => updateTextPos({ y: Math.min(95, textPos.y + 4) })}
+                                    className="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-300 text-[10px] font-bold text-slate-700 shadow-2xs active:scale-95"
+                                    title="Dịch chữ XUỐNG DƯỚI"
+                                  >
+                                    ⬇️ Xuống
+                                  </button>
+                                </div>
+
+                                {/* Điều khiển Trục X (Trái / Phải) */}
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] text-slate-500 w-12 shrink-0">Trục X:</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateTextPos({ x: Math.max(5, textPos.x - 4) })}
+                                    className="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-300 text-[10px] font-bold text-slate-700 shadow-2xs active:scale-95"
+                                    title="Dịch chữ SANG TRÁI"
+                                  >
+                                    ⬅️ Trái
+                                  </button>
+                                  <input
+                                    type="range"
+                                    min="5"
+                                    max="95"
+                                    value={textPos.x}
+                                    onChange={(e) => updateTextPos({ x: parseInt(e.target.value) })}
+                                    className="flex-1 accent-emerald-700 h-1 bg-slate-200 rounded cursor-pointer"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => updateTextPos({ x: Math.min(95, textPos.x + 4) })}
+                                    className="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-300 text-[10px] font-bold text-slate-700 shadow-2xs active:scale-95"
+                                    title="Dịch chữ SANG PHẢI"
+                                  >
+                                    ➡️ Phải
+                                  </button>
+                                </div>
+
+                                {/* Điều khiển Trục Xoay (Góc nghiêng Rotate) */}
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] text-slate-500 w-12 shrink-0">Góc xoay:</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateTextPos({ rotate: Math.max(-180, (textPos.rotate ?? 0) - 5) })}
+                                    className="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-300 text-[10px] font-bold text-slate-700 shadow-2xs active:scale-95"
+                                    title="Xoay ngược chiều kim đồng hồ"
+                                  >
+                                    🔄 -5°
+                                  </button>
+                                  <input
+                                    type="range"
+                                    min="-180"
+                                    max="180"
+                                    value={textPos.rotate ?? 0}
+                                    onChange={(e) => updateTextPos({ rotate: parseInt(e.target.value) })}
+                                    className="flex-1 accent-emerald-700 h-1 bg-slate-200 rounded cursor-pointer"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => updateTextPos({ rotate: Math.min(180, (textPos.rotate ?? 0) + 5) })}
+                                    className="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-300 text-[10px] font-bold text-slate-700 shadow-2xs active:scale-95"
+                                    title="Xoay theo chiều kim đồng hồ"
+                                  >
+                                    🔄 +5°
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateTextPos({ rotate: 0 })}
+                                    className="px-1.5 py-0.5 rounded text-[9.5px] bg-slate-200 hover:bg-slate-300 text-slate-700"
+                                    title="Đặt góc xoay thẳng 0 độ"
+                                  >
+                                    0°
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })()}
+
+                          {/* B. Điều chỉnh vị trí Huy hiệu Tiêu đề (Header Badge) nếu có */}
+                          {scene.headerBadge && (
+                            (() => {
+                              const badgePos = scene.elementPositions?.['header_badge'] || { x: 50, y: 10, scale: 1 };
+                              const updateBadgePos = (partial: Partial<import('../types/video').ElementPosition>) => {
+                                updateScene(scene.id, {
+                                  elementPositions: {
+                                    ...(scene.elementPositions || {}),
+                                    header_badge: { ...badgePos, ...partial }
+                                  }
+                                });
+                              };
+
+                              return (
+                                <div className="p-2 bg-slate-50 rounded-lg border border-slate-200 space-y-1.5">
+                                  <div className="flex justify-between items-center text-[10.5px] font-semibold text-slate-700">
+                                    <span>🏷️ Tiêu đề ({scene.headerBadge}):</span>
+                                    <span className="font-mono text-cyan-700 font-bold">X:{badgePos.x}% | Y:{badgePos.y}%</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[10px] text-slate-500 w-12 shrink-0">Trục Y:</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateBadgePos({ y: Math.max(2, badgePos.y - 3) })}
+                                      className="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-300 text-[10px] font-bold text-slate-700"
+                                    >
+                                      ⬆️
+                                    </button>
+                                    <input
+                                      type="range"
+                                      min="2"
+                                      max="80"
+                                      value={badgePos.y}
+                                      onChange={(e) => updateBadgePos({ y: parseInt(e.target.value) })}
+                                      className="flex-1 accent-cyan-600 h-1 bg-slate-200 rounded cursor-pointer"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => updateBadgePos({ y: Math.min(80, badgePos.y + 3) })}
+                                      className="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-300 text-[10px] font-bold text-slate-700"
+                                    >
+                                      ⬇️
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })()
+                          )}
+
+                          {/* C. Điều chỉnh vị trí từng Sticker / Icon */}
+                          {scene.tiktokStickers && scene.tiktokStickers.length > 0 && (
+                            <div className="space-y-1.5">
+                              {scene.tiktokStickers.map((stkId, i) => {
+                                const stk = getTikTokStickerById(stkId);
+                                const stkKey = `stk_${stkId}`;
+                                const defaultPositions = [
+                                  { x: 80, y: 18 },
+                                  { x: 20, y: 82 },
+                                  { x: 20, y: 35 },
+                                  { x: 80, y: 78 }
+                                ];
+                                const def = defaultPositions[i % defaultPositions.length];
+                                const currentPos = scene.elementPositions?.[stkKey] || scene.elementPositions?.[stkId] || { ...def, scale: 1 };
+
+                                const updateStkPos = (partial: Partial<import('../types/video').ElementPosition>) => {
+                                  updateScene(scene.id, {
+                                    elementPositions: {
+                                      ...(scene.elementPositions || {}),
+                                      [stkKey]: { ...currentPos, ...partial }
+                                    }
+                                  });
+                                };
+
+                                return (
+                                  <div key={stkId} className="p-2 bg-amber-50/70 rounded-lg border border-amber-200 space-y-1">
+                                    <div className="flex justify-between items-center text-[10.5px] font-bold text-amber-900">
+                                      <span className="flex items-center gap-1">
+                                        <span>🎭</span>
+                                        <span>{stk ? stk.name : `Sticker ${stkId}`}</span>
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          updateScene(scene.id, {
+                                            tiktokStickers: scene.tiktokStickers?.filter((id) => id !== stkId)
+                                          });
+                                        }}
+                                        className="text-[10px] text-rose-600 hover:text-rose-800 font-bold"
+                                        title="Xóa icon này"
+                                      >
+                                        ✕ Xóa
+                                      </button>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[10px] text-slate-500 w-12 shrink-0">Trục Y:</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => updateStkPos({ y: Math.max(5, currentPos.y - 4) })}
+                                        className="px-1.5 py-0.5 rounded bg-white hover:bg-amber-100 border border-amber-300 text-[10px] font-bold text-amber-900"
+                                      >
+                                        ⬆️
+                                      </button>
+                                      <input
+                                        type="range"
+                                        min="5"
+                                        max="95"
+                                        value={currentPos.y}
+                                        onChange={(e) => updateStkPos({ y: parseInt(e.target.value) })}
+                                        className="flex-1 accent-amber-600 h-1 bg-amber-200 rounded cursor-pointer"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => updateStkPos({ y: Math.min(95, currentPos.y + 4) })}
+                                        className="px-1.5 py-0.5 rounded bg-white hover:bg-amber-100 border border-amber-300 text-[10px] font-bold text-amber-900"
+                                      >
+                                        ⬇️
+                                      </button>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[10px] text-slate-500 w-12 shrink-0">Trục X:</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => updateStkPos({ x: Math.max(5, currentPos.x - 4) })}
+                                        className="px-1.5 py-0.5 rounded bg-white hover:bg-amber-100 border border-amber-300 text-[10px] font-bold text-amber-900"
+                                      >
+                                        ⬅️
+                                      </button>
+                                      <input
+                                        type="range"
+                                        min="5"
+                                        max="95"
+                                        value={currentPos.x}
+                                        onChange={(e) => updateStkPos({ x: parseInt(e.target.value) })}
+                                        className="flex-1 accent-amber-600 h-1 bg-amber-200 rounded cursor-pointer"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => updateStkPos({ x: Math.min(95, currentPos.x + 4) })}
+                                        className="px-1.5 py-0.5 rounded bg-white hover:bg-amber-100 border border-amber-300 text-[10px] font-bold text-amber-900"
+                                      >
+                                        ➡️
+                                      </button>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[10px] text-slate-500 w-12 shrink-0">Xoay:</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => updateStkPos({ rotate: Math.max(-180, (currentPos.rotate ?? 0) - 10) })}
+                                        className="px-1.5 py-0.5 rounded bg-white hover:bg-amber-100 border border-amber-300 text-[10px] font-bold text-amber-900"
+                                      >
+                                        🔄 -10°
+                                      </button>
+                                      <input
+                                        type="range"
+                                        min="-180"
+                                        max="180"
+                                        value={currentPos.rotate ?? 0}
+                                        onChange={(e) => updateStkPos({ rotate: parseInt(e.target.value) })}
+                                        className="flex-1 accent-amber-600 h-1 bg-amber-200 rounded cursor-pointer"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => updateStkPos({ rotate: Math.min(180, (currentPos.rotate ?? 0) + 10) })}
+                                        className="px-1.5 py-0.5 rounded bg-white hover:bg-amber-100 border border-amber-300 text-[10px] font-bold text-amber-900"
+                                      >
+                                        🔄 +10°
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => updateStkPos({ rotate: 0 })}
+                                        className="px-1 py-0.5 rounded text-[9.5px] bg-amber-200 hover:bg-amber-300 text-amber-900"
+                                      >
+                                        0°
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
+                  </div>
+
+                  {/* Ô Mô Tả Source Video Cần Đưa Vào Phân Cảnh (Có popup hiện trọn vẹn toàn bộ chữ khi rê/giữ chuột) */}
+                  <div 
+                    className="relative group/guidebox mt-1 p-3 rounded-xl bg-slate-100/90 hover:bg-slate-50 border border-slate-300 hover:border-emerald-500 shadow-xs space-y-2 transition-all"
+                    title={`🎬 SOURCE VIDEO:\n${scene.sourceName || scene.searchKeyword || '(Chưa có tên source)'}\n\n✂️ CÁCH CẮT & GÓC MÁY:\n${scene.cutAction || '(Chưa có hướng dẫn góc máy)'}`}
+                  >
+                    {/* Tooltip Popup nổi bật - Hiện toàn bộ chữ 100% khi hold/hover chuột */}
+                    {(Boolean(scene.sourceName || scene.searchKeyword) || Boolean(scene.cutAction)) && (
+                      <div className="absolute left-0 right-0 bottom-[calc(100%+8px)] z-50 hidden group-hover/guidebox:block bg-slate-900/95 backdrop-blur-md text-white p-3.5 rounded-2xl shadow-2xl border border-emerald-500/50 animate-in fade-in zoom-in-95 duration-150 pointer-events-none">
+                        <div className="text-[10px] uppercase font-black tracking-wider text-emerald-400 mb-1.5 flex items-center justify-between">
+                          <span className="flex items-center gap-1.5">
+                            <span>📋</span>
+                            <span>Chi tiết Kịch Bản Phân Cảnh {scene.order}</span>
+                          </span>
+                          <span className="text-[9px] text-slate-400 font-normal lowercase">(rê chuột để xem hết)</span>
+                        </div>
+                        {Boolean(scene.sourceName || scene.searchKeyword) && (
+                          <div className="mb-2.5">
+                            <div className="text-[10px] font-bold text-emerald-300 uppercase tracking-wide">🎬 Source Video:</div>
+                            <div className="text-xs font-bold text-white mt-0.5 leading-relaxed break-words whitespace-pre-wrap">
+                              {scene.sourceName || scene.searchKeyword}
+                            </div>
+                          </div>
+                        )}
+                        {Boolean(scene.cutAction) && (
+                          <div className="pt-2 border-t border-slate-700/80">
+                            <div className="text-[10px] font-bold text-amber-300 uppercase tracking-wide">✂️ Cách cắt & Góc máy:</div>
+                            <div className="text-xs font-normal text-slate-100 mt-0.5 leading-relaxed break-words whitespace-pre-wrap max-h-60 overflow-y-auto">
+                              {scene.cutAction}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Tên source video (Màu đen đậm sắc nét, tương phản cao, siêu dễ đọc) */}
+                    <div className="space-y-1">
+                      <div className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                        <span className="text-xs">🎬</span>
+                        <span>Source Video:</span>
+                      </div>
+                      <textarea
+                        value={scene.sourceName || scene.searchKeyword || ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          updateScene(scene.id, {
+                            sourceName: val,
+                            searchKeyword: val
+                          });
+                        }}
+                        rows={2}
+                        placeholder="Nhập tên source video..."
+                        className="w-full bg-transparent border-0 text-xs font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-0 leading-snug p-0 resize-none"
+                        title={scene.sourceName || scene.searchKeyword || "Tên cảnh quay thực tế (lấy từ JSON AI)"}
+                      />
+                    </div>
+
+                    {/* Cách cắt / Góc máy (lấy từ trường cutAction trong JSON AI) */}
+                    <div className="pt-2 border-t border-slate-200 space-y-1">
+                      <div className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                        <span>✂️</span>
+                        <span>Cách cắt & Góc máy:</span>
+                      </div>
+                      <textarea
+                        value={scene.cutAction || ''}
+                        onChange={(e) => updateScene(scene.id, { cutAction: e.target.value })}
+                        rows={2}
+                        placeholder="Mô tả góc máy, thao tác cắt, tốc độ..."
+                        className="w-full bg-transparent border-0 text-[11px] font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-0 leading-relaxed p-0 resize-none"
+                        title={scene.cutAction || "Góc máy và thao tác cắt cảnh (lấy từ JSON AI)"}
+                      />
+                    </div>
                   </div>
                 </div>
 
                 {/* Narration & Subtitles Editor (Col 5-8) */}
                 <div className="md:col-span-5 flex flex-col gap-2.5">
-                  {/* Voice Status & Action Bar - Clean 2-Tier Layout */}
-                  <div className="flex flex-col gap-2 bg-gray-950/60 p-2.5 rounded-xl border border-gray-800">
+                  {/* Voice Status & Action Bar */}
+                  <div className="flex flex-col gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
                     {/* Top Tier: Status & Listen Button */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 overflow-hidden flex-1 min-w-0">
                         {recordingSceneId === scene.id ? (
-                          <span className="flex items-center gap-1.5 text-[11px] font-bold text-rose-400 animate-pulse">
+                          <span className="flex items-center gap-1.5 text-[11px] font-bold text-rose-600 animate-pulse">
                             <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
                             <span>Đang ghi âm ({String(Math.floor(recordingSeconds / 60)).padStart(2, '0')}:{String(recordingSeconds % 60).padStart(2, '0')})...</span>
                           </span>
                         ) : isTranscribingSceneId === scene.id ? (
-                          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-400 animate-pulse">
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400 flex-shrink-0" />
+                          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 animate-pulse">
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-600 flex-shrink-0" />
                             <span className="truncate">{transcribeStatusText || 'Đang nhận diện giọng nói...'}</span>
                           </span>
                         ) : hasAudio ? (
-                          <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400 truncate">
-                            <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-800 truncate">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
                             <span className="truncate">
-                              Đã có sound ({scene.audioDuration?.toFixed(1)}s)
+                              Đã có âm thanh ({scene.audioDuration?.toFixed(1)}s)
                               {scene.words && scene.words.length > 0 && ` • ${scene.words.length} từ`}
                             </span>
                           </span>
                         ) : (
-                          <span className="flex items-center gap-1.5 text-[11px] font-medium text-amber-400/90">
+                          <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
                             <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping flex-shrink-0" />
                             <span>Chưa có âm thanh thoại</span>
                           </span>
@@ -1936,10 +2385,10 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                       <button
                         type="button"
                         onClick={() => togglePlaySceneAudio(scene)}
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shadow-sm flex-shrink-0 ${
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all shadow-sm flex-shrink-0 ${
                           isPlaying
-                            ? 'bg-pink-600 text-white animate-pulse'
-                            : 'bg-indigo-600/90 hover:bg-indigo-500 text-white'
+                            ? 'bg-rose-600 text-white animate-pulse'
+                            : 'bg-emerald-700 hover:bg-emerald-800 text-white'
                         }`}
                         title="Nghe thử giọng đọc phân cảnh này"
                       >
@@ -1957,15 +2406,15 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                       </button>
                     </div>
 
-                    {/* Bottom Tier: 4 Equal Voice Action Buttons (Ghi âm Mic / Đẩy Sound / Auto Text / Giọng AI) */}
+                    {/* Bottom Tier: 4 Equal Voice Action Buttons */}
                     <div className="grid grid-cols-4 gap-1">
                       {/* Button 1: Live Microphone Recording */}
                       {recordingSceneId === scene.id ? (
                         <button
                           type="button"
                           onClick={stopRecordingSceneAudio}
-                          className="flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg bg-rose-600 text-white text-[10px] font-bold transition-all animate-pulse shadow-md shadow-rose-600/30 border border-rose-400 active:scale-95"
-                          title="Bấm để dừng ghi âm và tự động nhận diện chữ chạy video"
+                          className="flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg bg-rose-600 text-white text-[10px] font-semibold transition-all animate-pulse shadow-sm border border-rose-500 active:scale-95"
+                          title="Bấm để dừng ghi âm"
                         >
                           <Square className="w-3 h-3 fill-white" />
                           <span>Dừng ({recordingSeconds}s)</span>
@@ -1975,24 +2424,24 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                           type="button"
                           onClick={() => startRecordingSceneAudio(scene.id)}
                           disabled={Boolean(recordingSceneId) || isTranscribingSceneId === scene.id}
-                          className="flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 hover:text-white border border-rose-500/40 text-[10px] font-bold transition-all disabled:opacity-50 active:scale-95 shadow-sm"
-                          title="Bấm để bắt đầu thu âm giọng nói trực tiếp qua micro máy tính"
+                          className="flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[10px] font-semibold transition-all disabled:opacity-50 active:scale-95 shadow-sm"
+                          title="Bấm để thu âm qua micro"
                         >
-                          <Mic className="w-3 h-3 text-rose-400" />
+                          <Mic className="w-3 h-3 text-rose-600" />
                           <span>Ghi âm</span>
                         </button>
                       )}
 
-                      {/* Button 2: Upload Custom Voiceover File (MP3 & Video MP4 auto audio extract) */}
+                      {/* Button 2: Upload Custom Voiceover File */}
                       <button
                         type="button"
                         onClick={() => handleTriggerCustomAudioUpload(scene.id)}
                         disabled={Boolean(recordingSceneId) || isTranscribingSceneId === scene.id}
-                        className="flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 hover:text-white border border-emerald-500/40 text-[10px] font-bold transition-all disabled:opacity-50 active:scale-95 shadow-sm cursor-pointer"
-                        title="Đẩy file sound MP3 hoặc video MP4 (tự động tách lấy sound) - Nhận diện giọng nói Audio to text & chạy chữ Karaoke"
+                        className="flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-semibold transition-all disabled:opacity-50 active:scale-95 shadow-sm cursor-pointer"
+                        title="Tải lên file âm thanh MP3/WAV hoặc video MP4"
                       >
-                        <Upload className="w-3 h-3 text-emerald-400" />
-                        <span>Đẩy sound</span>
+                        <Upload className="w-3 h-3 text-emerald-700" />
+                        <span>Đẩy file</span>
                       </button>
 
                       {/* Button 3: AI Audio to Text Button */}
@@ -2000,10 +2449,10 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                         type="button"
                         onClick={() => handleAutoAudioToText(scene)}
                         disabled={!scene.audioUrl || Boolean(recordingSceneId) || isTranscribingSceneId === scene.id}
-                        className="flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 hover:text-white border border-amber-500/40 text-[10px] font-bold transition-all disabled:opacity-40 active:scale-95 shadow-sm"
-                        title="AI tự động nghe file âm thanh của phân cảnh này và chuyển thành văn bản + mốc từ chạy chữ karaoke"
+                        className="flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-semibold transition-all disabled:opacity-40 active:scale-95 shadow-sm"
+                        title="Tự động nhận diện chữ từ âm thanh"
                       >
-                        <Sparkles className="w-3 h-3 text-amber-400" />
+                        <Sparkles className="w-3 h-3 text-amber-600" />
                         <span>Auto Text</span>
                       </button>
 
@@ -2012,68 +2461,55 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                         type="button"
                         onClick={() => handleGenerateSceneTTS(scene)}
                         disabled={isSynthesizing || Boolean(recordingSceneId) || isTranscribingSceneId === scene.id}
-                        className="flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 hover:text-white border border-indigo-500/40 text-[10px] font-bold transition-all disabled:opacity-50 active:scale-95 shadow-sm"
-                        title="Tạo lại giọng đọc AI từ văn bản kịch bản"
+                        className="flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-[10px] font-semibold transition-all disabled:opacity-50 active:scale-95 shadow-sm"
+                        title="Tạo lại giọng đọc từ văn bản kịch bản"
                       >
-                        <RefreshCw className={`w-3 h-3 ${isSynthesizing ? 'animate-spin text-pink-400' : 'text-indigo-400'}`} />
-                        <span>{isSynthesizing ? 'Đọc...' : 'Giọng AI'}</span>
+                        <RefreshCw className={`w-3 h-3 ${isSynthesizing ? 'animate-spin text-emerald-600' : 'text-slate-600'}`} />
+                        <span>{isSynthesizing ? 'Đang tạo...' : 'Giọng đọc'}</span>
                       </button>
                     </div>
                   </div>
 
                   {/* Narration Textarea */}
                   <div className="relative flex flex-col gap-1">
-                    <div className="flex items-center justify-between text-[10px] text-gray-400 font-medium">
+                    <div className="flex items-center justify-between text-[10px] text-slate-600 font-medium">
                       <span>Câu thoại lồng tiếng (Chữ chạy video):</span>
-                      <span className="text-gray-500">Sửa chữ tại đây tự cập nhật phụ đề</span>
+                      <span className="text-slate-400">Sửa chữ tại đây tự cập nhật phụ đề</span>
                     </div>
                     <textarea
                       value={scene.narration}
                       onChange={(e) => handleNarrationChange(scene, e.target.value)}
                       rows={3}
-                      className="w-full bg-gray-950/90 border border-gray-800 focus:border-indigo-500 rounded-xl p-2.5 text-xs text-gray-100 placeholder-gray-500 focus:outline-none transition-all resize-none font-sans leading-relaxed"
-                      placeholder="Nhập câu thoại hoặc bấm 'Ghi âm' / 'Đẩy sound' / 'Auto Text' để tự động nhận diện chữ..."
+                      className="w-full bg-white border border-slate-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 rounded-xl p-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none transition-all resize-none font-sans leading-relaxed"
+                      placeholder="Nhập câu thoại hoặc bấm 'Ghi âm' / 'Đẩy file'..."
                     />
                   </div>
 
                   {/* Interactive Subtitle Words Timing chips & Editor */}
-                  <div className="flex flex-col gap-1.5 p-2 rounded-xl bg-gray-950/80 border border-gray-800/80">
+                  <div className="flex flex-col gap-1.5 p-2 rounded-xl bg-slate-50 border border-slate-200">
                     <div className="flex items-center justify-between gap-1 flex-wrap">
                       <button
                         type="button"
                         onClick={() => setExpandedKaraokeSceneId(expandedKaraokeSceneId === scene.id ? null : scene.id)}
-                        className="flex items-center gap-1.5 text-[10.5px] font-bold text-indigo-300 hover:text-indigo-100 transition-all cursor-pointer"
-                        title="Bấm để mở/thu gọn chi tiết từng mốc từ và chèn SFX"
+                        className="flex items-center gap-1.5 text-[10.5px] font-bold text-slate-700 hover:text-slate-900 transition-all cursor-pointer"
+                        title="Bấm để mở/thu gọn chi tiết từng mốc từ"
                       >
                         {workflowMode === 'script_voice' && (
-                          <SparkleBadge step={4} label="Chỉnh nhịp Karaoke & SFX" />
+                          <SparkleBadge step={4} label="Chỉnh nhịp Karaoke" />
                         )}
                         <span>🔤 Nhịp Karaoke ({scene.words?.length || 0} từ)</span>
-                        <span className="text-[9.5px] text-gray-400 font-normal bg-gray-800/80 px-1.5 py-0.5 rounded">
+                        <span className="text-[9.5px] text-slate-500 font-normal bg-white border border-slate-200 px-1.5 py-0.5 rounded">
                           {expandedKaraokeSceneId === scene.id ? 'Thu gọn ▲' : 'Sửa mốc từ ▼'}
                         </span>
                       </button>
 
                       <div className="flex items-center gap-1">
-                        {scene.audioUrl && (
-                          <button
-                            type="button"
-                            onClick={() => handleAutoAudioToText(scene)}
-                            disabled={isTranscribingSceneId === scene.id}
-                            className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/15 hover:bg-amber-500/25 text-[10px] text-amber-300 hover:text-amber-200 border border-amber-500/30 transition-all active:scale-95 font-semibold"
-                            title="AI tự động nghe âm thanh và bóc tách thành câu chữ + mốc từ karaoke"
-                          >
-                            <Sparkles className="w-2.5 h-2.5 text-amber-400" />
-                            <span>Audio to Text</span>
-                          </button>
-                        )}
-
                         {scene.narration?.trim() && (
                           <button
                             type="button"
                             onClick={() => handleRealignWords(scene)}
-                            className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-500/10 hover:bg-indigo-500/20 text-[10px] text-indigo-300 hover:text-indigo-200 border border-indigo-500/20 transition-all active:scale-95"
-                            title="Tự động chia đều lại mốc thời gian từng từ theo độ dài âm thanh"
+                            className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 text-[10px] text-slate-600 border border-slate-300 transition-all active:scale-95"
+                            title="Tự động chia đều lại mốc thời gian từng từ"
                           >
                             <RotateCcw className="w-2.5 h-2.5" />
                             <span>Căn lại</span>
@@ -2083,25 +2519,7 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                     </div>
 
                     {expandedKaraokeSceneId === scene.id && (
-                      <div className="mt-1 pt-2 border-t border-gray-800/80">
-                        {scene.tiktokSfx && (() => {
-                          const sfxItem = SOUND_EFFECTS_LIST.find((s) => s.id === scene.tiktokSfx);
-                          return (
-                            <div
-                              draggable
-                              onDragStart={(e) => {
-                                e.dataTransfer.setData('text/plain', scene.tiktokSfx || '');
-                              }}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-400/80 text-cyan-300 text-[10px] font-mono cursor-grab active:cursor-grabbing hover:bg-cyan-900 transition shadow-sm select-none mb-2"
-                              title="KÉO THẢ: Kéo badge âm thanh này vào trước bất kỳ từ nào bên dưới để SFX phát đúng lúc nói từ đó!"
-                            >
-                              <Volume2 className="w-2.5 h-2.5 text-cyan-400 animate-pulse" />
-                              <span className="font-sans font-black">{sfxItem ? sfxItem.name.split(' ')[0] + ' ' + sfxItem.name.split(' ')[1] : 'SFX'}</span>
-                              <span className="text-[8px] bg-cyan-500/20 text-cyan-200 px-1 rounded">Kéo vào từ ⬇️</span>
-                            </div>
-                          );
-                        })()}
-
+                      <div className="mt-1 pt-2 border-t border-slate-200">
                         {scene.words && scene.words.length > 0 ? (
                           <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto pr-1">
                             {scene.words.map((w, wIdx) => {
@@ -2111,13 +2529,13 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                                 return (
                                   <div
                                     key={wIdx}
-                                    className="flex items-center gap-1 p-1 rounded-lg bg-indigo-950 border border-indigo-400 shadow-md"
+                                    className="flex items-center gap-1 p-1 rounded-lg bg-white border border-emerald-500 shadow-sm"
                                   >
                                     <input
                                       type="text"
                                       value={editingWord.word}
                                       onChange={(e) => setEditingWord({ ...editingWord, word: e.target.value })}
-                                      className="w-16 px-1 py-0.5 bg-gray-900 border border-gray-700 rounded text-[11px] text-white focus:outline-none"
+                                      className="w-16 px-1 py-0.5 bg-slate-50 border border-slate-300 rounded text-[11px] text-slate-900 focus:outline-none"
                                       autoFocus
                                     />
                                     <input
@@ -2125,7 +2543,7 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                                       step="0.1"
                                       value={editingWord.start}
                                       onChange={(e) => setEditingWord({ ...editingWord, start: parseFloat(e.target.value) || 0 })}
-                                      className="w-11 px-1 py-0.5 bg-gray-900 border border-gray-700 rounded text-[10px] text-indigo-300 font-mono focus:outline-none"
+                                      className="w-11 px-1 py-0.5 bg-slate-50 border border-slate-300 rounded text-[10px] text-slate-700 font-mono focus:outline-none"
                                       title="Giây bắt đầu"
                                     />
                                     <button
@@ -2148,80 +2566,11 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                                 );
                               }
 
-                              const wordSfxItem = w.sfxId ? SOUND_EFFECTS_LIST.find((s) => s.id === w.sfxId) : null;
-
                               return (
                                 <div
                                   key={wIdx}
-                                  onDragOver={(e) => {
-                                    e.preventDefault();
-                                    e.currentTarget.classList.add('ring-2', 'ring-cyan-400', 'bg-cyan-950/60');
-                                  }}
-                                  onDragLeave={(e) => {
-                                    e.currentTarget.classList.remove('ring-2', 'ring-cyan-400', 'bg-cyan-950/60');
-                                  }}
-                                  onDrop={(e) => {
-                                    e.preventDefault();
-                                    e.currentTarget.classList.remove('ring-2', 'ring-cyan-400', 'bg-cyan-950/60');
-                                    const sfxId = e.dataTransfer.getData('text/plain') || scene.tiktokSfx;
-                                    if (sfxId) {
-                                      const nextWords = [...scene.words];
-                                      nextWords[wIdx] = { ...nextWords[wIdx], sfxId };
-                                      updateScene(scene.id, { words: nextWords });
-                                      playSoundEffectById(sfxId);
-                                    }
-                                  }}
-                                  className={`group inline-flex items-center gap-1 px-1.5 py-0.5 rounded border transition-all ${
-                                    w.sfxId
-                                      ? 'bg-cyan-950/80 border-cyan-400/80 shadow-md shadow-cyan-500/20'
-                                      : 'bg-indigo-500/10 hover:bg-indigo-500/25 border-indigo-500/20'
-                                  }`}
+                                  className="group inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 transition-all shadow-2xs"
                                 >
-                                  {/* Nút SFX Badge nếu từ này có âm thanh */}
-                                  {w.sfxId ? (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        playSoundEffectById(w.sfxId!);
-                                      }}
-                                      className="flex items-center gap-0.5 px-1 py-0.2 rounded bg-cyan-500 text-black text-[8px] font-black hover:bg-cyan-300 transition cursor-pointer"
-                                      title={`Âm thanh ${wordSfxItem ? wordSfxItem.name : w.sfxId} sẽ kêu đúng lúc nói từ này! Bấm để nghe thử.`}
-                                    >
-                                      <span>🔊</span>
-                                      <span>{wordSfxItem ? wordSfxItem.name.split(' ')[0] : 'SFX'}</span>
-                                      {/* Gỡ SFX khỏi từ */}
-                                      <span
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          const nextWords = [...scene.words];
-                                          nextWords[wIdx] = { ...nextWords[wIdx], sfxId: undefined };
-                                          updateScene(scene.id, { words: nextWords });
-                                        }}
-                                        className="ml-0.5 hover:text-red-900 font-bold"
-                                        title="Gỡ âm thanh này khỏi từ"
-                                      >
-                                        ✕
-                                      </span>
-                                    </button>
-                                  ) : scene.tiktokSfx ? (
-                                    /* Nút 1-Click gán nhanh SFX của cảnh vào từ */
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        const nextWords = [...scene.words];
-                                        nextWords[wIdx] = { ...nextWords[wIdx], sfxId: scene.tiktokSfx };
-                                        updateScene(scene.id, { words: nextWords });
-                                        playSoundEffectById(scene.tiktokSfx!);
-                                      }}
-                                      className="opacity-0 group-hover:opacity-100 text-[8px] px-1 py-0.2 rounded bg-cyan-900/90 text-cyan-300 hover:bg-cyan-600 hover:text-black border border-cyan-400/50 transition cursor-pointer"
-                                      title="Gán âm thanh SFX của cảnh vào từ này"
-                                    >
-                                      +🔊
-                                    </button>
-                                  ) : null}
-
                                   <button
                                     type="button"
                                     onClick={() =>
@@ -2233,31 +2582,22 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                                         end: w.end
                                       })
                                     }
-                                    className="flex items-center gap-1 text-[10px] text-indigo-300 font-medium cursor-pointer"
+                                    className="flex items-center gap-1 text-[10px] text-slate-700 font-medium cursor-pointer"
                                     title="Bấm để sửa từ này hoặc sửa mốc giây"
                                   >
-                                    <span className={w.sfxId ? 'text-cyan-200 font-black' : ''}>{w.word}</span>
-                                    <span className="text-[8px] text-gray-500 font-mono group-hover:text-indigo-200">
+                                    <span>{w.word}</span>
+                                    <span className="text-[8px] text-slate-400 font-mono group-hover:text-slate-600">
                                       {w.start.toFixed(1)}s
                                     </span>
-                                    <Edit3 className="w-2 h-2 opacity-0 group-hover:opacity-100 text-indigo-400 transition-opacity" />
+                                    <Edit3 className="w-2 h-2 opacity-0 group-hover:opacity-100 text-slate-500 transition-opacity" />
                                   </button>
                                 </div>
                               );
                             })}
                           </div>
                         ) : (
-                          <div className="text-[10px] text-gray-500 italic py-1 flex items-center justify-between">
+                          <div className="text-[10px] text-slate-400 italic py-1 flex items-center justify-between">
                             <span>Chưa có mốc từ (Gõ câu thoại hoặc ghi âm để tạo)</span>
-                            {scene.narration?.trim() && (
-                              <button
-                                type="button"
-                                onClick={() => handleRealignWords(scene)}
-                                className="text-indigo-400 hover:underline font-semibold"
-                              >
-                                Tạo nhịp chữ ngay
-                              </button>
-                            )}
                           </div>
                         )}
                       </div>
@@ -2269,21 +2609,10 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                 <div className="md:col-span-3 flex flex-col gap-2.5">
                   {/* Visual Style Layout Selector */}
                   <div className="flex flex-col gap-1">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[11px] font-bold text-indigo-400 flex items-center gap-1">
-                        <Sparkles className="w-3 h-3 text-pink-400" />
-                        <span>Kiểu Trình Diễn Visual:</span>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setIsCreateVisualModalOpen(true)}
-                        className="text-[10px] font-black text-cyan-400 hover:text-cyan-300 hover:underline flex items-center gap-0.5 cursor-pointer"
-                        title="Tự do thêm kiểu trình diễn mới không giới hạn"
-                      >
-                        <Plus className="w-3 h-3" />
-                        <span>+ Thêm Kiểu Mới</span>
-                      </button>
-                    </div>
+                    <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-emerald-700" />
+                      <span>Kiểu Trình Diễn Visual:</span>
+                    </label>
 
                     <select
                       value={scene.visualType || 'media'}
@@ -2295,7 +2624,7 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                           headerBadge: matched?.badgeText || scene.headerBadge
                         });
                       }}
-                      className="bg-gray-950 border border-indigo-500/40 rounded-lg px-2.5 py-1.5 text-xs text-indigo-200 focus:outline-none focus:border-indigo-400 font-semibold"
+                      className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600 font-medium"
                     >
                       {visualStylesList.map((v) => (
                         <option key={v.id} value={v.id}>
@@ -2303,143 +2632,91 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                         </option>
                       ))}
                     </select>
-
-                    {/* Visual Scale Slider (When visualType is not media) */}
-                    {scene.visualType && scene.visualType !== 'media' && (
-                      <div className="flex flex-col gap-1 bg-gray-950/80 p-2 rounded-xl border border-indigo-500/30 mt-1">
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="font-semibold text-pink-300 flex items-center gap-1">
-                            <Sliders className="w-3 h-3 text-pink-400" />
-                            <span>Độ to Visual:</span>
-                          </span>
-                          <span className="font-mono text-cyan-300 font-bold">
-                            {Math.round((scene.visualScale ?? 1.0) * 100)}%
-                          </span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0.5"
-                          max="2.5"
-                          step="0.05"
-                          value={scene.visualScale ?? 1.0}
-                          onChange={(e) => updateScene(scene.id, { visualScale: parseFloat(e.target.value) })}
-                          className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-pink-500"
-                          title="Kéo để phóng to hoặc thu nhỏ kiểu trình diễn"
-                        />
-                        <div className="flex justify-between text-[9px] text-gray-500 font-mono">
-                          <span>50%</span>
-                          <button
-                            type="button"
-                            onClick={() => updateScene(scene.id, { visualScale: 1.0 })}
-                            className="hover:text-gray-300 text-gray-400 underline"
-                          >
-                            Chuẩn 100%
-                          </button>
-                          <span>250%</span>
-                        </div>
-                      </div>
-                    )}
                   </div>
 
-                  {/* Ken Burns Effect Selector */}
+                  {/* Ken Burns Camera Movement Selector */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-[11px] font-medium text-gray-400 flex items-center gap-1">
-                      <Camera className="w-3 h-3 text-purple-400" />
-                      <span>Hiệu ứng Camera (Cinematic):</span>
+                    <label className="text-[11px] font-medium text-slate-600 flex items-center gap-1">
+                      <Camera className="w-3 h-3 text-slate-500" />
+                      <span>Hiệu ứng Camera:</span>
                     </label>
                     <select
-                      value={scene.kenBurns}
+                      value={scene.kenBurns || 'none'}
                       onChange={(e) => updateScene(scene.id, { kenBurns: e.target.value as KenBurnsEffect })}
-                      className="bg-gray-950 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-indigo-500"
+                      className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
                     >
-                      <option value="zoom_in">🔍 Zoom In (Phóng to dần)</option>
-                      <option value="zoom_out">🔎 Zoom Out (Thu nhỏ dần)</option>
-                      <option value="pan_left">⬅️ Pan Sang Trái</option>
-                      <option value="pan_right">➡️ Pan Sang Phải</option>
-                      <option value="tilt_up">⬆️ Tilt Up (Quét từ dưới lên)</option>
-                      <option value="tilt_down">⬇️ Tilt Down (Quét từ trên xuống)</option>
-                      <option value="crash_zoom">💥 Crash Zoom (Giật bắn vào tâm)</option>
-                      <option value="dutch_angle">🔄 Dutch Angle (Nghiêng góc 3D)</option>
-                      <option value="rack_focus">👓 Rack Focus (Mờ ➔ Rõ nét)</option>
-                      <option value="spiral_zoom">🌀 Spiral Zoom (Xoáy ốc hút tâm)</option>
-                      <option value="handheld">🎥 Handheld (Cầm tay run tự nhiên)</option>
-                      <option value="subtle_float">🌊 Chuyển động bồng bềnh</option>
-                      <option value="none">Tắt hiệu ứng</option>
+                      <option value="none">Tắt hiệu ứng Camera</option>
+                      <option value="zoom_in">🔍 Phóng to dần (Zoom In)</option>
+                      <option value="zoom_out">🔎 Thu nhỏ dần (Zoom Out)</option>
+                      <option value="pan_left">⬅️ Quét sang trái (Pan Left)</option>
+                      <option value="pan_right">➡️ Quét sang phải (Pan Right)</option>
+                      <option value="tilt_up">⬆️ Quét từ dưới lên (Tilt Up)</option>
+                      <option value="tilt_down">⬇️ Quét từ trên xuống (Tilt Down)</option>
+                      <option value="subtle_float">🌊 Chuyển động nhẹ tự nhiên</option>
+                    </select>
+                  </div>
+
+                  {/* Video FX & Overlay Selector */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-medium text-slate-600 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-amber-500" />
+                      <span>Kỹ xảo Video FX:</span>
+                    </label>
+                    <select
+                      value={scene.tiktokVideoEffect || ''}
+                      onChange={(e) => updateScene(scene.id, { tiktokVideoEffect: e.target.value || undefined })}
+                      className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
+                    >
+                      <option value="">Không dùng kỹ xảo (Gốc)</option>
+                      {TIKTOK_VIDEO_EFFECTS.map((fx) => (
+                        <option key={fx.id} value={fx.id}>
+                          {fx.previewIcon} {fx.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Color Filter Selector */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-medium text-slate-600 flex items-center gap-1">
+                      <Sliders className="w-3 h-3 text-emerald-600" />
+                      <span>Bộ lọc màu (Filter):</span>
+                    </label>
+                    <select
+                      value={scene.tiktokFilter || 'filter_none'}
+                      onChange={(e) => updateScene(scene.id, { tiktokFilter: e.target.value === 'filter_none' ? undefined : e.target.value })}
+                      className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
+                    >
+                      {TIKTOK_FILTERS.map((ft) => (
+                        <option key={ft.id} value={ft.id}>
+                          🎨 {ft.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
                   {/* Transition Effect Selector */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-[11px] font-medium text-gray-400 flex items-center gap-1">
-                      <MoveRight className="w-3 h-3 text-pink-400" />
+                    <label className="text-[11px] font-medium text-slate-600 flex items-center gap-1">
+                      <MoveRight className="w-3 h-3 text-slate-500" />
                       <span>Chuyển cảnh (Transition):</span>
                     </label>
                     <select
                       value={scene.transition}
                       onChange={(e) => updateScene(scene.id, { transition: e.target.value as TransitionType })}
-                      className="bg-gray-950 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-indigo-500"
+                      className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
                     >
                       <option value="fade">Mờ dần (Fade)</option>
-                      <option value="whip_pan">💨 Quét nhanh mờ (Whip Pan)</option>
                       <option value="slide_left">⬅️ Trượt trái (Slide Left)</option>
                       <option value="slide_right">➡️ Trượt phải (Slide Right)</option>
-                      <option value="slide_up">⬆️ Trượt hất lên (Slide Up)</option>
+                      <option value="slide_up">⬆️ Trượt lên (Slide Up)</option>
                       <option value="zoom_in">🔍 Phóng to (Zoom In)</option>
                       <option value="zoom_out">🔎 Thu nhỏ (Zoom Out)</option>
-                      <option value="flash_white">⚡ Chớp sáng lóe (Flash White)</option>
-                      <option value="digital_glitch">📺 Nhiễu sóng số (Glitch)</option>
-                      <option value="cube_flip">🎲 Lật khối hộp 3D (Cube Flip)</option>
+                      <option value="flash_white">⚡ Chớp trắng (Flash White)</option>
+                      <option value="digital_glitch">👾 Nhiễu sóng (Glitch)</option>
+                      <option value="cube_flip">🎲 Xoay 3D (Cube Flip)</option>
                       <option value="none">Cắt thẳng (Cut)</option>
                     </select>
-                  </div>
-
-                  {/* Transition Custom Audio Sound FX */}
-                  <div className="flex flex-col gap-1 pt-0.5">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[10px] font-semibold text-gray-400 flex items-center gap-1">
-                        <Volume2 className="w-3 h-3 text-cyan-400" />
-                        <span>Âm thanh chuyển cảnh:</span>
-                      </label>
-                      {scene.transitionAudioUrl && (
-                        <button
-                          type="button"
-                          onClick={() => updateScene(scene.id, { transitionAudioUrl: undefined, transitionAudioName: undefined })}
-                          className="text-[10px] text-red-400 hover:text-red-300"
-                          title="Gỡ âm thanh chuyển cảnh"
-                        >
-                          ✕ Gỡ
-                        </button>
-                      )}
-                    </div>
-
-                    {scene.transitionAudioUrl ? (
-                      <div className="flex items-center justify-between bg-gray-950 px-2 py-1.5 rounded-lg border border-cyan-500/40 text-[11px]">
-                        <span className="text-cyan-300 truncate max-w-[130px] font-mono" title={scene.transitionAudioName}>
-                          🎵 {scene.transitionAudioName || 'Transition.mp3'}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const a = new Audio(scene.transitionAudioUrl);
-                            a.play();
-                          }}
-                          className="p-1 rounded bg-cyan-600/30 text-cyan-200 hover:text-white"
-                          title="Nghe thử"
-                        >
-                          <Play className="w-2.5 h-2.5" />
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleSelectTransitionAudio(scene.id)}
-                        className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-gray-950 hover:bg-gray-800 border border-gray-800 hover:border-cyan-500/40 text-[11px] text-gray-400 hover:text-cyan-300 transition-all"
-                        title="Tải lên file Whoosh, Boom, Ding, Pop MP3/WAV"
-                      >
-                        <Upload className="w-3 h-3 text-cyan-400" />
-                        <span>Tải âm chuyển cảnh</span>
-                      </button>
-                    )}
                   </div>
 
                   {/* Delete button */}
@@ -2447,7 +2724,7 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                     <button
                       onClick={() => handleDeleteScene(scene.id)}
                       disabled={project.scenes.length <= 1}
-                      className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                      className="flex items-center gap-1 text-[11px] text-red-600 hover:text-red-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all font-medium"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       <span>Xóa phân cảnh</span>
@@ -2466,22 +2743,22 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
         const scriptSuggestions = getScriptSuggestions(activeScene);
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-            <div className="bg-gray-900 border border-gray-800 rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
               {/* Modal Header */}
-              <div className="p-3.5 border-b border-gray-800 flex items-center justify-between bg-gray-950/80 shrink-0">
+              <div className="p-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-2xl bg-gradient-to-tr from-pink-600 to-indigo-600 text-white shadow-lg shadow-pink-600/20">
+                  <div className="p-2 rounded-xl bg-emerald-700 text-white shadow-sm">
                     <Play className="w-4 h-4 fill-white" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h4 className="font-bold text-white text-sm">Tìm kiếm & Chèn Video Ngắn / Hình ảnh</h4>
-                      <span className="px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-300 border border-pink-500/30 text-[10px] font-bold">
+                      <h4 className="font-bold text-slate-900 text-sm">Tìm kiếm & Chèn Video Ngắn / Hình ảnh</h4>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
                         B-Roll & Stock HD
                       </span>
                     </div>
-                    <p className="text-[10px] text-gray-400">
+                    <p className="text-[10px] text-slate-500">
                       Tự động gợi ý từ khóa chuẩn theo kịch bản phân cảnh hoặc gõ tìm kiếm tự do
                     </p>
                   </div>
@@ -2491,7 +2768,7 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                     setActiveMediaModalSceneId(null);
                     setHoveredVideoId(null);
                   }}
-                  className="w-8 h-8 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white flex items-center justify-center font-bold text-sm transition-all"
+                  className="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 hover:text-slate-900 flex items-center justify-center font-bold text-sm transition-all"
                 >
                   ✕
                 </button>
@@ -2499,21 +2776,21 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
 
               {/* Script Context & Smart Suggestions Box */}
               {activeScene && (
-                <div className="px-4 py-2.5 bg-gradient-to-r from-indigo-950/30 via-purple-950/20 to-gray-950/50 border-b border-gray-800/80 flex flex-col gap-1.5 shrink-0">
+                <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex flex-col gap-1.5 shrink-0">
                   <div className="flex items-start gap-2">
-                    <span className="px-1.5 py-0.5 rounded bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 text-[9px] font-bold whitespace-nowrap">
+                    <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-[9px] font-bold whitespace-nowrap">
                       Cảnh {activeScene.order}
                     </span>
-                    <p className="text-xs text-gray-200 line-clamp-1 italic leading-relaxed">
+                    <p className="text-xs text-slate-700 line-clamp-1 italic leading-relaxed">
                       "{activeScene.narration}"
                     </p>
                   </div>
 
                   {/* Keyword suggestions from script */}
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] font-bold text-pink-400 flex items-center gap-1">
-                      <Sparkles className="w-3 h-3" />
-                      <span>Gợi ý kịch bản:</span>
+                    <span className="text-[10px] font-bold text-slate-600 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-amber-500" />
+                      <span>Gợi ý:</span>
                     </span>
                     {scriptSuggestions.map((kw, i) => (
                       <button
@@ -2524,31 +2801,10 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                           setSearchSource('video');
                           handleSearchMedia(kw, 'video');
                         }}
-                        className="px-2 py-0.5 rounded-lg bg-pink-950/40 hover:bg-pink-600/30 text-pink-200 hover:text-white border border-pink-500/30 text-[10px] font-medium transition-all flex items-center gap-1 group/sug"
+                        className="px-2 py-0.5 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-medium transition-all flex items-center gap-1 shadow-2xs"
                       >
                         <span>{kw}</span>
-                        <Search className="w-2.5 h-2.5 text-pink-400 opacity-60 group-hover/sug:opacity-100" />
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Popular B-Roll Topics Bar */}
-                  <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none pt-0.5 border-t border-gray-800/50">
-                    <span className="text-[9px] font-semibold text-gray-400 whitespace-nowrap">
-                      🔥 Chủ đề hot:
-                    </span>
-                    {POPULAR_VIDEO_TOPICS.map((topic, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => {
-                          setSearchQuery(topic.query);
-                          setSearchSource('video');
-                          handleSearchMedia(topic.query, 'video');
-                        }}
-                        className="px-2 py-0.5 rounded-md bg-gray-800/80 hover:bg-indigo-600/30 text-gray-300 hover:text-white border border-gray-700/60 text-[9px] whitespace-nowrap transition-all"
-                      >
-                        {topic.label}
+                        <Search className="w-2.5 h-2.5 text-slate-400" />
                       </button>
                     ))}
                   </div>
@@ -2556,16 +2812,16 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
               )}
 
               {/* Source Mode Tabs */}
-              <div className="px-4 pt-2.5 pb-2.5 flex items-center gap-2 border-b border-gray-800/80 bg-gray-950/40 shrink-0 overflow-x-auto scrollbar-none">
+              <div className="px-4 pt-2.5 pb-2.5 flex items-center gap-2 border-b border-slate-200 bg-slate-50 shrink-0 overflow-x-auto scrollbar-none">
                 <button
                   onClick={() => {
                     setSearchSource('video');
                     handleSearchMedia(searchQuery, 'video');
                   }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all whitespace-nowrap ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all whitespace-nowrap ${
                     searchSource === 'video'
-                      ? 'bg-gradient-to-r from-pink-600 to-rose-600 text-white shadow-lg shadow-pink-600/30 scale-[1.02]'
-                      : 'bg-gray-800 text-gray-400 hover:text-white'
+                      ? 'bg-emerald-700 text-white shadow-sm'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                   }`}
                 >
                   <Play className="w-3.5 h-3.5 fill-current" />
@@ -2579,26 +2835,11 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                   }}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all whitespace-nowrap ${
                     searchSource === 'web'
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                      : 'bg-gray-800 text-gray-400 hover:text-white'
+                      ? 'bg-emerald-700 text-white shadow-sm'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                   }`}
                 >
-                  <span>🌐 Tìm ảnh Web / Google</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setSearchSource('ai');
-                    handleSearchMedia(searchQuery, 'ai');
-                  }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all whitespace-nowrap ${
-                    searchSource === 'ai'
-                      ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                      : 'bg-gray-800 text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>✨ Tạo ảnh AI</span>
+                  <span>🌐 Tìm ảnh Web</span>
                 </button>
 
                 <button
@@ -2608,32 +2849,32 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                   }}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all whitespace-nowrap ${
                     searchSource === 'pexels'
-                      ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
-                      : 'bg-gray-800 text-gray-400 hover:text-white'
+                      ? 'bg-emerald-700 text-white shadow-sm'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                   }`}
                 >
                   <Film className="w-3.5 h-3.5" />
-                  <span>📸 Stock Pexels</span>
+                  <span>📸 Pexels</span>
                 </button>
               </div>
 
               {/* Search Input Bar */}
-              <div className="p-3 border-b border-gray-800 flex gap-2 bg-gray-900 shrink-0">
+              <div className="p-3 border-b border-slate-200 flex gap-2 bg-white shrink-0">
                 <div className="relative flex-1">
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSearchMedia(searchQuery, searchSource)}
-                    placeholder="Nhập từ khóa chủ đề (ví dụ: vũ trụ, galaxy, nấu ăn, công nghệ, tiền bạc, xe cộ, thiên nhiên)..."
-                    className="w-full bg-gray-950 border border-gray-800 rounded-xl pl-3.5 pr-8 py-2 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-pink-500 transition-colors"
+                    placeholder="Nhập từ khóa tìm kiếm..."
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-3.5 pr-8 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-600 transition-colors"
                   />
                   {searchQuery && (
                     <button
                       type="button"
                       onClick={() => setSearchQuery('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 text-xs"
-                      title="Xóa ô tìm kiếm"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                      title="Xóa"
                     >
                       ✕
                     </button>
@@ -2645,71 +2886,19 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                     handleSearchMedia(searchQuery, searchSource, 1);
                   }}
                   disabled={isSearchingMedia || !searchQuery.trim()}
-                  className="px-4 py-2 bg-gradient-to-r from-pink-600 to-indigo-600 hover:from-pink-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 transition-all shadow-md active:scale-95 whitespace-nowrap"
+                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50 transition-all shadow-sm active:scale-95 whitespace-nowrap"
                 >
                   {isSearchingMedia ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
                   <span>{searchSource === 'video' ? 'Tìm Video' : 'Tìm kiếm'}</span>
-                </button>
-
-                {searchSource === 'video' && (
-                  <button
-                    type="button"
-                    onClick={handleNextBatch}
-                    disabled={isSearchingMedia || !searchQuery.trim()}
-                    className="px-3.5 py-2 bg-purple-600/80 hover:bg-purple-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-md active:scale-95 whitespace-nowrap border border-purple-400/40"
-                    title="Đổi sang tập video khác cho chủ đề này"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isSearchingMedia ? 'animate-spin' : ''}`} />
-                    <span>Đổi video khác</span>
-                    <span className="px-1.5 py-0.5 bg-black/40 text-purple-200 rounded text-[10px] font-mono">
-                      #{mediaPage}
-                    </span>
-                  </button>
-                )}
-              </div>
-
-              {/* Direct Paste URL Input Bar */}
-              <div className="px-4 py-1.5 bg-gray-950/40 border-b border-gray-800/60 flex items-center gap-2 shrink-0">
-                <span className="text-[11px] text-gray-400 flex-shrink-0">Hoặc dán URL:</span>
-                <input
-                  type="text"
-                  value={directImageUrlInput}
-                  onChange={(e) => setDirectImageUrlInput(e.target.value)}
-                  placeholder="https://example.com/video.mp4 hoặc link ảnh..."
-                  className="flex-1 bg-gray-950 border border-gray-800/80 rounded-lg px-2.5 py-1 text-xs text-gray-200 focus:outline-none focus:border-pink-500"
-                />
-                <button
-                  onClick={() => {
-                    if (directImageUrlInput.trim() && activeMediaModalSceneId) {
-                      const isVid = directImageUrlInput.includes('.mp4') || directImageUrlInput.includes('.mov');
-                      selectMediaForScene({
-                        id: `direct-${Date.now()}`,
-                        type: isVid ? 'video' : 'image',
-                        url: directImageUrlInput.trim(),
-                        thumbnail: directImageUrlInput.trim(),
-                        source: 'web',
-                        title: 'Link dán trực tiếp'
-                      });
-                      setDirectImageUrlInput('');
-                    }
-                  }}
-                  disabled={!directImageUrlInput.trim()}
-                  className="px-3 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 hover:text-white text-xs font-medium disabled:opacity-40 whitespace-nowrap"
-                >
-                  Dùng link này
                 </button>
               </div>
 
               {/* Media Results Grid with Hover Video Preview */}
               <div className="p-4 overflow-y-auto flex-1 min-h-0 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5 auto-rows-max items-start content-start">
                 {isSearchingMedia ? (
-                  <div className="col-span-full flex flex-col items-center justify-center py-16 text-gray-400 gap-3">
-                    <RefreshCw className="w-8 h-8 animate-spin text-pink-400" />
-                    <span className="text-xs font-medium">
-                      {searchSource === 'video'
-                        ? 'Đang tìm kiếm video ngắn HD phù hợp với chủ đề...'
-                        : 'Đang tìm kiếm hình ảnh phù hợp...'}
-                    </span>
+                  <div className="col-span-full flex flex-col items-center justify-center py-16 text-slate-500 gap-3">
+                    <RefreshCw className="w-8 h-8 animate-spin text-emerald-700" />
+                    <span className="text-xs font-medium">Đang tìm kiếm...</span>
                   </div>
                 ) : searchResults.length > 0 ? (
                   searchResults.map((asset) => {
@@ -2721,10 +2910,9 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                         onClick={() => selectMediaForScene(asset)}
                         onMouseEnter={() => setHoveredVideoId(asset.id)}
                         onMouseLeave={() => setHoveredVideoId(null)}
-                        className="group relative w-full aspect-video rounded-xl overflow-hidden bg-gray-950 border border-gray-800 hover:border-pink-500 cursor-pointer transition-all hover:scale-[1.02] shadow-lg shrink-0"
+                        className="group relative w-full aspect-video rounded-xl overflow-hidden bg-slate-900 border border-slate-200 hover:border-emerald-600 cursor-pointer transition-all hover:scale-[1.02] shadow-sm shrink-0"
                         style={{ minHeight: '110px' }}
                       >
-                        {/* If video and hovered, render actual live video preview */}
                         {asset.type === 'video' && isHovered ? (
                           <video
                             src={asset.previewUrl || asset.url}
@@ -2748,40 +2936,37 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                           />
                         )}
 
-                        {/* Video play icon overlay when not hovered */}
                         {asset.type === 'video' && !isHovered && (
                           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/20 group-hover:bg-pink-600/80 transition-all">
+                            <div className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/20 group-hover:bg-emerald-700/80 transition-all">
                               <Play className="w-4 h-4 text-white fill-white ml-0.5" />
                             </div>
                           </div>
                         )}
 
-                        {/* Hover Overlay info */}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2.5 z-10">
                           <span className="text-[11px] text-white font-semibold truncate leading-tight">
                             {asset.title || asset.source}
                           </span>
                           <div className="flex items-center justify-between mt-1">
                             {asset.duration ? (
-                              <span className="text-[9px] text-pink-300 font-mono font-bold bg-black/50 px-1.5 py-0.5 rounded">
+                              <span className="text-[9px] text-emerald-300 font-mono font-bold bg-black/50 px-1.5 py-0.5 rounded">
                                 ⏱ {asset.duration}s
                               </span>
                             ) : (
-                              <span className="text-[9px] text-gray-300 font-mono">HD</span>
+                              <span className="text-[9px] text-slate-300 font-mono">HD</span>
                             )}
-                            <span className="text-[9px] text-pink-300 uppercase font-extrabold flex items-center gap-0.5">
-                              ✓ Chọn cảnh này
+                            <span className="text-[9px] text-emerald-300 uppercase font-bold">
+                              ✓ Chọn
                             </span>
                           </div>
                         </div>
 
-                        {/* Top Badge */}
                         <span
-                          className={`absolute top-1.5 left-1.5 z-10 px-2 py-0.5 rounded-md backdrop-blur-md text-[9px] font-extrabold border border-white/10 ${
+                          className={`absolute top-1.5 left-1.5 z-10 px-2 py-0.5 rounded-md backdrop-blur-md text-[9px] font-bold border border-white/10 ${
                             asset.type === 'video'
-                              ? 'bg-gradient-to-r from-pink-600 to-rose-600 text-white shadow-sm'
-                              : 'bg-black/75 text-gray-200'
+                              ? 'bg-emerald-700 text-white shadow-sm'
+                              : 'bg-black/75 text-white'
                           }`}
                         >
                           {asset.type === 'video' ? '🎬 VIDEO' : 'IMAGE'}
@@ -2790,66 +2975,13 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                     );
                   })
                 ) : (
-                  <div className="col-span-full flex flex-col items-center justify-center py-12 text-gray-400 gap-3">
+                  <div className="col-span-full flex flex-col items-center justify-center py-12 text-slate-500 gap-3">
                     <p className="text-xs">
-                      Chưa tìm thấy video phù hợp với từ khóa "<span className="text-pink-300 font-medium">{searchQuery}</span>".
+                      Chưa tìm thấy video phù hợp với từ khóa "<span className="text-slate-800 font-semibold">{searchQuery}</span>".
                     </p>
-                    <div className="flex items-center gap-2 flex-wrap justify-center">
-                      <span className="text-[11px] text-gray-500">Thử tìm theo chủ đề:</span>
-                      {POPULAR_VIDEO_TOPICS.slice(0, 4).map((t, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => {
-                            setSearchQuery(t.query);
-                            setSearchSource('video');
-                            handleSearchMedia(t.query, 'video');
-                          }}
-                          className="px-2.5 py-1 rounded-lg bg-gray-800 hover:bg-pink-600/30 text-gray-300 hover:text-white border border-gray-700 text-xs font-medium"
-                        >
-                          {t.label}
-                        </button>
-                      ))}
-                    </div>
                   </div>
                 )}
               </div>
-
-              {/* Footer Switch Video Batch Pagination Bar */}
-              {searchSource === 'video' && searchResults.length > 0 && (
-                <div className="px-4 py-2.5 bg-gray-950/90 border-t border-gray-800 flex items-center justify-between shrink-0">
-                  <div className="flex items-center gap-2 text-xs text-gray-400">
-                    <span className="text-gray-300 font-medium">Đang hiển thị {searchResults.length} video</span>
-                    <span className="text-gray-600">•</span>
-                    <span className="text-pink-400 font-bold bg-pink-950/40 border border-pink-500/30 px-2 py-0.5 rounded-md">
-                      Tập {mediaPage}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {mediaPage > 1 && (
-                      <button
-                        type="button"
-                        onClick={handlePrevBatch}
-                        disabled={isSearchingMedia}
-                        className="px-3 py-1.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white text-xs font-semibold transition-all border border-gray-700 disabled:opacity-40"
-                      >
-                        ◀ Tập trước
-                      </button>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={handleNextBatch}
-                      disabled={isSearchingMedia}
-                      className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 hover:from-pink-500 hover:to-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-lg shadow-pink-600/25 active:scale-95 disabled:opacity-50"
-                    >
-                      <RefreshCw className={`w-3.5 h-3.5 ${isSearchingMedia ? 'animate-spin' : ''}`} />
-                      <span>Đổi sang tập video khác ▶</span>
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         );

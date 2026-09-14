@@ -98,6 +98,7 @@ export const MainComposition: React.FC<RemotionVideoProps> = ({ project }) => {
                 subtitleStyle={subtitleStyle}
                 enableCameraShake={showCameraShake}
                 enableDynamicEmojis={enableDynamicEmojis}
+                showHeaderBadge={project.showHeaderBadge ?? false}
               />
 
               {/* Sound FX: Whoosh on Scene Transition (Only if scene has no custom transition audio) */}

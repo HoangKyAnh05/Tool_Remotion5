@@ -7,11 +7,9 @@ import { InspectorPanel } from './components/InspectorPanel';
 import { RenderModal } from './components/RenderModal';
 import { SettingsModal } from './components/SettingsModal';
 import { BatchVocabularyModal } from './components/BatchVocabularyModal';
-import { Roadmap100Canvas } from './components/Roadmap100Canvas';
 import { VideoSplitterModal } from './components/VideoSplitterModal';
+import { AiVideoDirectorModal } from './components/AiVideoDirectorModal';
 import { VideoProject } from './types/video';
-import { defaultProject } from './remotion/Root';
-import { maxShowcaseProject } from './remotion/sampleShowcaseProject';
 import { sampleHomestayProject } from './remotion/sampleHomestayProject';
 import { synthesizeEdgeTTS } from './services/edgeTtsService';
 import { WorkflowMode } from './components/SparkleBadge';
@@ -40,6 +38,8 @@ export const App: React.FC = () => {
   const [isRenderOpen, setIsRenderOpen] = useState(false);
   const [isBatchVocabOpen, setIsBatchVocabOpen] = useState(false);
   const [isVideoSplitterOpen, setIsVideoSplitterOpen] = useState(false);
+  const [isAiDirectorOpen, setIsAiDirectorOpen] = useState(false);
+  const [aiDirectorInitialTab, setAiDirectorInitialTab] = useState<'copy_prompt' | 'paste_json' | 'missing_sources'>('copy_prompt');
   const [activeView, setActiveView] = useState<'editor' | 'roadmap100'>('editor');
 
   const [apiKeyGemini, setApiKeyGemini] = useState(
@@ -117,18 +117,17 @@ export const App: React.FC = () => {
     }));
   }, [voiceRate, voicePitch]);
 
-  // Persist project changes safely (handles 5MB localStorage quota limit gracefully)
+  // Persist project changes safely
   useEffect(() => {
     try {
       localStorage.setItem('CURRENT_PROJECT', JSON.stringify(project));
     } catch (e) {
-      console.warn('LocalStorage quota reached, saving lean project structure without large base64 buffers');
+      console.warn('LocalStorage quota reached, saving lean project structure');
       try {
         const leanProject = {
           ...project,
           scenes: project.scenes.map((s) => ({
             ...s,
-            // Keep local file URLs or remote URLs, omit huge base64 strings to prevent quota crash
             audioUrl: s.audioUrl?.startsWith('data:') ? undefined : s.audioUrl
           }))
         };
@@ -140,14 +139,18 @@ export const App: React.FC = () => {
   }, [project]);
 
   return (
-    <div className="h-screen max-h-screen overflow-hidden bg-zinc-950 text-zinc-100 flex flex-col">
-      {/* Top Navbar with Workflow Mode Selector */}
+    <div className="h-screen max-h-screen overflow-hidden bg-slate-50 text-slate-800 flex flex-col font-sans">
+      {/* Top Navbar */}
       <Navbar
         project={project}
         setProject={setProject}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenRender={() => setIsRenderOpen(true)}
         onOpenVideoSplitter={() => setIsVideoSplitterOpen(true)}
+        onOpenAiDirector={(tab) => {
+          setAiDirectorInitialTab(tab || 'copy_prompt');
+          setIsAiDirectorOpen(true);
+        }}
         isGenerating={isGenerating}
         activeView={activeView}
         setActiveView={setActiveView}
@@ -155,65 +158,65 @@ export const App: React.FC = () => {
         setWorkflowMode={setWorkflowMode}
       />
 
-      {/* Main Body: Either Roadmap 100 Days or Studio Video Editor */}
-      {activeView === 'roadmap100' ? (
-        <main className="flex-1 overflow-hidden">
-          <Roadmap100Canvas
+      {/* Main Body (Studio) */}
+      <main className="flex-1 overflow-hidden w-full h-[calc(100vh-64px)] flex flex-col xl:flex-row bg-slate-50">
+        {/* CỘT TRÁI (28% Width): Phân cảnh & Kịch bản */}
+        <div className="w-full xl:w-[28%] h-full overflow-y-auto p-3 sm:p-4 space-y-4 border-r border-slate-200 bg-slate-50/80 shrink-0">
+          {/* Kịch bản */}
+          <ScriptGenerator
             project={project}
             setProject={setProject}
-            onSwitchToStudio={() => setActiveView('editor')}
+            apiKeyGemini={apiKeyGemini}
+            apiKeyPexels={apiKeyPexels}
+            isGenerating={isGenerating}
+            setIsGenerating={setIsGenerating}
+            statusText={statusText}
+            setStatusText={setStatusText}
+            onOpenBatchVocab={() => setIsBatchVocabOpen(true)}
+            onOpenVideoSplitter={() => setIsVideoSplitterOpen(true)}
+            workflowMode={workflowMode}
           />
-        </main>
-      ) : (
-        <main className="flex-1 overflow-hidden w-full h-[calc(100vh-64px)] flex flex-col xl:flex-row">
-          {/* CỘT TRÁI (28% Width): Phân cảnh & Kịch bản - Cuộn dọc độc lập */}
-          <div className="w-full xl:w-[28%] h-full overflow-y-auto p-3 sm:p-4 space-y-4 border-r border-zinc-850/80 shrink-0">
-            {/* Kịch bản AI / Soạn kịch bản */}
-            <ScriptGenerator
-              project={project}
-              setProject={setProject}
-              apiKeyGemini={apiKeyGemini}
-              apiKeyPexels={apiKeyPexels}
-              isGenerating={isGenerating}
-              setIsGenerating={setIsGenerating}
-              statusText={statusText}
-              setStatusText={setStatusText}
-              onOpenBatchVocab={() => setIsBatchVocabOpen(true)}
-              workflowMode={workflowMode}
-            />
 
-            {/* Danh sách phân cảnh Storyboard */}
-            <StoryboardTimeline
-              project={project}
-              setProject={setProject}
-              apiKeyGemini={apiKeyGemini}
-              apiKeyPexels={apiKeyPexels}
-              onOpenBatchVocab={() => setIsBatchVocabOpen(true)}
-              onOpenVideoSplitter={() => setIsVideoSplitterOpen(true)}
-              workflowMode={workflowMode}
-            />
-          </div>
+          {/* Danh sách phân cảnh Storyboard */}
+          <StoryboardTimeline
+            project={project}
+            setProject={setProject}
+            apiKeyGemini={apiKeyGemini}
+            apiKeyPexels={apiKeyPexels}
+            onOpenBatchVocab={() => setIsBatchVocabOpen(true)}
+            onOpenVideoSplitter={() => setIsVideoSplitterOpen(true)}
+            workflowMode={workflowMode}
+          />
+        </div>
 
-          {/* CỘT GIỮA (44% Width): KHUNG PREVIEW TRUNG TÂM (Remotion Player Canvas + Controls) */}
-          <div className="w-full xl:w-[44%] h-full overflow-hidden shrink-0 flex flex-col">
-            <CenterPlayerStage
-              project={project}
-              setProject={setProject}
-            />
-          </div>
+        {/* CỘT GIỮA (44% Width): KHUNG PREVIEW TRUNG TÂM */}
+        <div className="w-full xl:w-[44%] h-full overflow-hidden shrink-0 flex flex-col bg-slate-100 border-r border-slate-200">
+          <CenterPlayerStage
+            project={project}
+            setProject={setProject}
+          />
+        </div>
 
-          {/* CỘT PHẢI (28% Width): BẢNG ĐIỀU KHIỂN THUỘC TÍNH & HIỆU ỨNG (Inspector 3 Tabs) */}
-          <div className="w-full xl:w-[28%] h-full overflow-y-auto shrink-0 border-l border-zinc-850/80">
-            <InspectorPanel
-              project={project}
-              setProject={setProject}
-              workflowMode={workflowMode}
-            />
-          </div>
-        </main>
-      )}
+        {/* CỘT PHẢI (28% Width): BẢNG ĐIỀU KHIỂN THUỘC TÍNH & HIỆU ỨNG */}
+        <div className="w-full xl:w-[28%] h-full overflow-y-auto shrink-0 bg-white">
+          <InspectorPanel
+            project={project}
+            setProject={setProject}
+            workflowMode={workflowMode}
+          />
+        </div>
+      </main>
 
-      {/* Video Splitter & Trimmer Modal */}
+      {/* Modals */}
+      <AiVideoDirectorModal
+        isOpen={isAiDirectorOpen}
+        onClose={() => setIsAiDirectorOpen(false)}
+        project={project}
+        setProject={setProject}
+        initialTab={aiDirectorInitialTab}
+        onNavigateToStudio={() => setIsAiDirectorOpen(false)}
+      />
+
       <VideoSplitterModal
         isOpen={isVideoSplitterOpen}
         onClose={() => setIsVideoSplitterOpen(false)}
@@ -221,7 +224,6 @@ export const App: React.FC = () => {
         setProject={setProject}
       />
 
-      {/* Batch Vocabulary & Script Modal (Root Level to prevent Stacking Context clipping) */}
       <BatchVocabularyModal
         isOpen={isBatchVocabOpen}
         onClose={() => setIsBatchVocabOpen(false)}
@@ -230,14 +232,12 @@ export const App: React.FC = () => {
         apiKeyPexels={apiKeyPexels}
       />
 
-      {/* Render Modal */}
       <RenderModal
         project={project}
         isOpen={isRenderOpen}
         onClose={() => setIsRenderOpen(false)}
       />
 
-      {/* Settings Modal */}
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}

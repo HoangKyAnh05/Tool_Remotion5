@@ -56,10 +56,9 @@ export async function inspectVideoFile(file: File): Promise<VideoMetadata> {
 }
 
 /**
- * Chụp nhanh thumbnail cho toàn bộ các phân đoạn clip bằng 1 video decoder duy nhất
- * Giúp giao diện cực nhẹ, không bao giờ bị nghẽn decoder GPU hay lag máy
+ * Chụp nhanh thumbnail cho 1 tập hợp phân đoạn clip thuộc cùng 1 source video URL
  */
-export async function generateAllSegmentThumbnails(
+async function captureThumbnailsForUrl(
   videoUrl: string,
   segments: VideoSegment[]
 ): Promise<Record<string, string>> {
@@ -121,17 +120,59 @@ export async function generateAllSegmentThumbnails(
 }
 
 /**
+ * Chụp nhanh thumbnail cho toàn bộ các phân đoạn clip (hỗ trợ nhiều video nguồn khác nhau)
+ * Giúp giao diện cực nhẹ, không bao giờ bị nghẽn decoder GPU hay lag máy
+ */
+export async function generateAllSegmentThumbnails(
+  videoUrlOrSegments: string | VideoSegment[],
+  maybeSegments?: VideoSegment[]
+): Promise<Record<string, string>> {
+  let segments: VideoSegment[] = [];
+  if (Array.isArray(videoUrlOrSegments)) {
+    segments = videoUrlOrSegments;
+  } else if (maybeSegments) {
+    segments = maybeSegments;
+  }
+  if (!segments || segments.length === 0) return {};
+
+  // Gom nhóm các phân đoạn theo URL video nguồn
+  const urlMap = new Map<string, VideoSegment[]>();
+  for (const seg of segments) {
+    const url = seg.sourceUrl || (typeof videoUrlOrSegments === 'string' ? videoUrlOrSegments : '');
+    if (!url) continue;
+    if (!urlMap.has(url)) urlMap.set(url, []);
+    urlMap.get(url)!.push(seg);
+  }
+
+  const finalResult: Record<string, string> = {};
+
+  for (const [url, segs] of urlMap.entries()) {
+    try {
+      const singleUrlThumbs = await captureThumbnailsForUrl(url, segs);
+      Object.assign(finalResult, singleUrlThumbs);
+    } catch (e) {
+      console.warn('Error capturing thumbnails for URL:', url, e);
+    }
+  }
+
+  return finalResult;
+}
+
+/**
  * Tự động chia video dài thành các phân đoạn (Segments) theo mốc giây (ví dụ: 5s, 10s, 15s)
+ * Hỗ trợ tiếp nối số thứ tự startOrder và lưu sourceName
  */
 export function splitVideoIntoSegments(
   sourceUrl: string,
   totalDuration: number,
-  intervalSeconds: number
+  intervalSeconds: number,
+  startOrder: number = 1,
+  sourceName?: string
 ): VideoSegment[] {
   const safeInterval = Math.max(1, intervalSeconds);
   const segments: VideoSegment[] = [];
   let currentStart = 0;
-  let index = 1;
+  let index = startOrder;
 
   while (currentStart < totalDuration) {
     const nextEnd = Math.min(currentStart + safeInterval, totalDuration);
@@ -150,6 +191,7 @@ export function splitVideoIntoSegments(
       order: index,
       title: `Clip #${index} (${duration}s)`,
       sourceUrl,
+      sourceName,
       startOffset: Number(currentStart.toFixed(2)),
       endOffset: Number(nextEnd.toFixed(2)),
       duration
@@ -200,7 +242,7 @@ export function trimSegmentWithOption(
     target.title = `Clip #${target.order} (${safeNewDuration}s)`;
 
     if (delta > 0) {
-      if (overflowMode === 'shift_to_prev' && targetIndex > 0) {
+      if (overflowMode === 'shift_to_prev' && targetIndex > 0 && updated[targetIndex - 1].sourceUrl === target.sourceUrl) {
         const prev = updated[targetIndex - 1];
         prev.endOffset = newStartOffset;
         prev.duration = Number((prev.endOffset - prev.startOffset).toFixed(2));
@@ -224,7 +266,7 @@ export function trimSegmentWithOption(
     target.title = `Clip #${target.order} (${safeNewDuration}s)`;
 
     if (delta > 0) {
-      if (overflowMode === 'shift_to_next' && targetIndex + 1 < updated.length) {
+      if (overflowMode === 'shift_to_next' && targetIndex + 1 < updated.length && updated[targetIndex + 1].sourceUrl === target.sourceUrl) {
         const next = updated[targetIndex + 1];
         next.startOffset = newEndOffset;
         next.duration = Number((next.endOffset - next.startOffset).toFixed(2));
@@ -409,8 +451,8 @@ export function convertSegmentsToScenes(segments: VideoSegment[]): Scene[] {
   return segments.map((seg, idx) => ({
     id: `scene-split-${Date.now()}-${idx + 1}`,
     order: idx + 1,
-    narration: seg.narration || `Phân đoạn ${idx + 1}: Thưởng thức không gian homestay (${seg.duration}s)`,
-    searchKeyword: `Phân cảnh video homestay ${idx + 1}`,
+    narration: seg.narration || '',
+    searchKeyword: '',
     mediaType: 'video',
     mediaUrl: seg.sourceUrl,
     localMediaPath: seg.sourceUrl,
@@ -423,7 +465,16 @@ export function convertSegmentsToScenes(segments: VideoSegment[]): Scene[] {
     words: [],
     transition: 'fade',
     kenBurns: 'none',
-    headerBadge: `📍 CLIP ${idx + 1} (${seg.duration}s)`
+    headerBadge: undefined,
+    beautyRetouch: {
+      brightenSkin: 15, // Tự động bù sáng tươi tắn cho toàn cảnh homestay (không cháy lóa)
+      sharpness: 20,    // Độ trong trẻo, sắc nét viền quang học tự nhiên (không vỡ hạt)
+      smoothSkin: 0,
+      slimFace: 0,
+      longLegs: 0,
+      slimBody: 0,
+      eyeEnlarge: 0,
+    },
   }));
 }
 

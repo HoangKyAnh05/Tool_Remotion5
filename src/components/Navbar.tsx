@@ -8,9 +8,11 @@ import {
   Zap,
   Sparkles,
   Mic,
-  Scissors
+  Scissors,
+  Copy,
+  FileJson
 } from 'lucide-react';
-import { SparkleBadge, WorkflowMode } from './SparkleBadge';
+import { WorkflowMode, SparkleBadge } from './SparkleBadge';
 
 interface NavbarProps {
   project: VideoProject;
@@ -18,6 +20,7 @@ interface NavbarProps {
   onOpenSettings: () => void;
   onOpenRender: () => void;
   onOpenVideoSplitter?: () => void;
+  onOpenAiDirector?: (tab?: 'copy_prompt' | 'paste_json' | 'missing_sources') => void;
   isGenerating: boolean;
   activeView: 'editor' | 'roadmap100';
   setActiveView: (view: 'editor' | 'roadmap100') => void;
@@ -30,6 +33,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   setProject,
   onOpenRender,
   onOpenVideoSplitter,
+  onOpenAiDirector,
   isGenerating,
   activeView,
   setActiveView,
@@ -50,136 +54,130 @@ export const Navbar: React.FC<NavbarProps> = ({
     }));
   };
 
-  const finalStepNumber = workflowMode === 'fast' ? 3 : workflowMode === 'quality' ? 6 : workflowMode === 'script_voice' ? 5 : 3;
-
   return (
-    <header className="h-16 px-4 sm:px-6 border-b border-gray-800/80 bg-[#0B0F19]/90 backdrop-blur-md flex items-center justify-between z-30 sticky top-0 gap-3">
+    <header className="h-16 px-4 sm:px-6 border-b border-slate-200 bg-white flex items-center justify-between z-30 sticky top-0 gap-3 shadow-sm">
       {/* Brand logo & Project Title */}
       <div className="flex items-center gap-3 min-w-0">
         <div className="flex items-center gap-2.5 flex-shrink-0">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-500 via-purple-600 to-indigo-600 flex items-center justify-center shadow-md shadow-purple-500/20">
+          <div className="w-9 h-9 rounded-lg bg-emerald-800 flex items-center justify-center text-white shadow-sm">
             <Film className="w-4.5 h-4.5 text-white" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="font-extrabold text-white text-sm sm:text-base tracking-tight">
+              <span className="font-bold text-slate-900 text-sm sm:text-base tracking-tight">
                 Studio Marketing
               </span>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+              <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
                 Lá Đỏ Sa Pa
               </span>
             </div>
-            <p className="text-[11px] text-gray-400 hidden sm:block">Biên tập video ngắn đa nền tảng</p>
+            <p className="text-[11px] text-slate-500 hidden sm:block">Biên tập video ngắn đa nền tảng</p>
           </div>
         </div>
 
-        <div className="h-5 w-px bg-gray-800 mx-1 hidden md:block" />
-
-        {/* Project Name editable */}
-        <input
-          type="text"
-          value={project.title}
-          title={project.title}
-          onChange={(e) => handleTitleChange(e.target.value)}
-          className="bg-gray-800/60 hover:bg-gray-800/90 focus:bg-gray-800 border border-indigo-500/40 focus:border-indigo-400 rounded-lg px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-indigo-200 focus:text-white focus:outline-none transition-all w-40 sm:w-56 md:w-64 lg:w-72 max-w-full shadow-inner"
-          placeholder="Tên video: VD Săn mây Sa Pa 2N1Đ..."
-        />
       </div>
 
-      {/* Center: 4 Workflow Combos with Shiny Badges */}
-      <div className="hidden lg:flex items-center gap-1 bg-gray-900/90 p-1 rounded-2xl border border-indigo-500/30 shadow-lg shadow-indigo-950/40">
-        <span className="text-[11px] font-bold text-gray-400 px-1.5 flex items-center gap-1">
-          <span className="text-amber-400 text-xs">✨</span>
-          <span>Combo:</span>
-        </span>
+      {/* Center: Workflow Mode Selector (Clean Tabs) */}
+      <div className="hidden lg:flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+        <span className="text-[11px] font-semibold text-slate-500 px-2">Quy trình:</span>
 
         {/* Combo 1: Fast */}
         <button
           onClick={() => setWorkflowMode('fast')}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
             workflowMode === 'fast'
-              ? 'bg-gradient-to-r from-amber-500 to-pink-500 text-white shadow-md shadow-pink-500/25 scale-105'
-              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
+              ? 'bg-white text-slate-900 shadow-sm border border-slate-200/80 font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
           }`}
-          title="Quy trình 3 bước: Dán kịch bản -> 1-Click Tạo Toàn Bộ -> Xuất Video"
+          title="Quy trình 3 bước: Dán kịch bản -> Tạo toàn bộ -> Xuất Video"
         >
-          <Zap className="w-3.5 h-3.5 text-amber-300" />
-          <span>⚡ Siêu Tốc (1-3)</span>
+          <Zap className="w-3.5 h-3.5 text-amber-500" />
+          <span>Siêu Tốc (1-3)</span>
         </button>
 
         {/* Combo 2: Quality */}
         <button
           onClick={() => setWorkflowMode('quality')}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
             workflowMode === 'quality'
-              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-indigo-500/25 scale-105'
-              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
+              ? 'bg-white text-slate-900 shadow-sm border border-slate-200/80 font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
           }`}
-          title="Quy trình 6 bước: Tạo video -> Tinh chỉnh Video/Ảnh -> Chữ 3D/CapCut FX -> Thương hiệu -> Xuất"
+          title="Quy trình 6 bước: Tạo video -> Tinh chỉnh Video/Ảnh -> Chữ 3D -> Thương hiệu -> Xuất"
         >
-          <Sparkles className="w-3.5 h-3.5 text-purple-300" />
-          <span>💎 Kỹ Xảo (1-6)</span>
+          <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+          <span>Kỹ Xảo 3D (1-6)</span>
         </button>
 
-        {/* Combo 3: Script & Voice */}
+        {/* Combo 3: TikTok / CapCut Studio */}
+        <button
+          onClick={() => setWorkflowMode('tiktok_capcut')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            workflowMode === 'tiktok_capcut'
+              ? 'bg-white text-slate-900 shadow-sm border border-slate-200/80 font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+          }`}
+          title="Quy trình 5 bước: Kịch bản TikTok -> Hiệu ứng chữ CapCut & Sticker -> Bộ lọc màu Cinematic & SFX -> Xuất 9:16"
+        >
+          <Film className="w-3.5 h-3.5 text-rose-500" />
+          <span>TikTok / CapCut (1-5)</span>
+        </button>
+
+        {/* Combo 4: Script & Voice */}
         <button
           onClick={() => setWorkflowMode('script_voice')}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
             workflowMode === 'script_voice'
-              ? 'bg-gradient-to-r from-emerald-600 to-cyan-600 text-white shadow-md shadow-cyan-500/25 scale-105'
-              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
+              ? 'bg-white text-slate-900 shadow-sm border border-slate-200/80 font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
           }`}
           title="Quy trình 5 bước: Kịch bản -> Chọn giọng đọc -> Ghép giọng AI -> Căn nhịp Karaoke -> Xuất"
         >
-          <Mic className="w-3.5 h-3.5 text-emerald-300" />
-          <span>🎙️ Giọng Đọc (1-5)</span>
+          <Mic className="w-3.5 h-3.5 text-emerald-600" />
+          <span>Giọng Đọc (1-5)</span>
         </button>
 
-        {/* Combo 4: Split Long Video */}
+        {/* Combo 5: Split Long Video */}
         <button
           onClick={() => setWorkflowMode('split_long_video')}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
             workflowMode === 'split_long_video'
-              ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-md shadow-rose-500/25 scale-105'
-              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
+              ? 'bg-white text-slate-900 shadow-sm border border-slate-200/80 font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
           }`}
           title="Quy trình 3 bước: Tải video dài -> Tự động chia 5s/10s/15s -> Lồng tiếng & Xuất"
         >
-          <Scissors className="w-3.5 h-3.5 text-rose-300" />
-          <span>✂️ Cắt Video Dài (1-3)</span>
+          <Scissors className="w-3.5 h-3.5 text-rose-500" />
+          <span>Cắt Video Dài</span>
         </button>
       </div>
 
       {/* Right Actions */}
       <div className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0">
-        {/* Nút Chia Video Dài Thành Video Ngắn (Smart Splitter) */}
+        {/* Nút Chia Video Dài */}
         {onOpenVideoSplitter && (
           <button
             type="button"
             onClick={onOpenVideoSplitter}
-            className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-sm ${
-              workflowMode === 'split_long_video'
-                ? 'bg-gradient-to-r from-rose-500/40 to-pink-500/40 text-white border border-rose-400 shadow-md shadow-rose-500/30'
-                : 'bg-gray-800/80 hover:bg-gray-800 text-rose-300 hover:text-white border border-rose-500/30'
-            }`}
-            title="Tải video dài lên & tự động chia 5s, 10s, 15s kèm tính năng co ngắn đoạn thừa"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-sm transition-all"
+            title="Tải video dài lên & tự động chia đoạn"
           >
             {workflowMode === 'split_long_video' && (
-              <SparkleBadge step={1} label="Bấm để tải video dài & tự động chia" />
+              <SparkleBadge step={1} label="Chia Video Dài" />
             )}
-            <Scissors className="w-3.5 h-3.5 text-rose-400" />
+            <Scissors className="w-3.5 h-3.5 text-slate-500" />
             <span className="hidden sm:inline">Chia Video Dài</span>
           </button>
         )}
 
         {/* Aspect Ratio Switch */}
-        <div className="bg-gray-900/90 p-0.5 sm:p-1 rounded-xl border border-gray-800 flex items-center shadow-inner">
+        <div className="bg-slate-100 p-1 rounded-lg border border-slate-200 flex items-center">
           <button
             onClick={() => handleRatioChange('9:16')}
-            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
               project.aspectRatio === '9:16'
-                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                : 'text-gray-400 hover:text-gray-200'
+                ? 'bg-white text-slate-900 shadow-sm font-bold'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
             title="Tỷ lệ 9:16 dọc (TikTok, Reels, Shorts)"
           >
@@ -188,10 +186,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
           <button
             onClick={() => handleRatioChange('16:9')}
-            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
               project.aspectRatio === '16:9'
-                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                : 'text-gray-400 hover:text-gray-200'
+                ? 'bg-white text-slate-900 shadow-sm font-bold'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
             title="Tỷ lệ 16:9 ngang (YouTube, Facebook)"
           >
@@ -200,40 +198,52 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         </div>
 
-        {/* View Switcher */}
-        <div className="bg-gray-900/90 p-0.5 sm:p-1 rounded-xl border border-gray-800 flex items-center shadow-inner hidden md:flex">
-          <button
-            onClick={() => setActiveView('editor')}
-            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-all ${
-              activeView === 'editor'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-gray-400 hover:text-gray-200'
-            }`}
-            title="Giao diện Studio biên tập Video"
-          >
-            <Film className="w-3 h-3" />
-            <span>Studio</span>
-          </button>
-          <button
-            onClick={() => setActiveView('roadmap100')}
-            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-all ${
-              activeView === 'roadmap100'
-                ? 'bg-amber-600 text-white shadow-sm'
-                : 'text-gray-400 hover:text-gray-200'
-            }`}
-            title="Lộ trình sáng tạo nội dung 100 ngày"
-          >
-            <span>Lộ trình</span>
-          </button>
-        </div>
+        {/* Nút AI Video Planner: Copy Prompt & Dán JSON */}
+        {onOpenAiDirector && (
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => onOpenAiDirector('copy_prompt')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-sm transition-all active:scale-95 cursor-pointer"
+              title="Copy Master Prompt AI để gửi ChatGPT / Gemini tạo kịch bản từ source video của bạn"
+            >
+              <Copy className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Copy Prompt AI</span>
+            </button>
 
-        {/* Render Video Button (Final Step Badge) */}
+            <button
+              type="button"
+              onClick={() => onOpenAiDirector('paste_json')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 shadow-sm transition-all active:scale-95 cursor-pointer"
+              title="Dán mã JSON kịch bản do AI xuất ra để tự động tạo phân cảnh Remotion"
+            >
+              <FileJson className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Dán JSON</span>
+            </button>
+          </div>
+        )}
+
+        {/* Render Video Button */}
         <button
           onClick={onOpenRender}
           disabled={isGenerating || project.scenes.length === 0}
-          className="relative flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-rose-500 via-purple-600 to-indigo-600 hover:from-rose-600 hover:to-indigo-500 text-white font-black text-xs sm:text-sm shadow-xl shadow-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-95"
+          className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs sm:text-sm shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
         >
-          <SparkleBadge step={finalStepNumber} label="Xuất Video Hoàn Chỉnh" />
+          {workflowMode === 'fast' && (
+            <SparkleBadge step={3} label="Xuất Video" />
+          )}
+          {workflowMode === 'quality' && (
+            <SparkleBadge step={6} label="Xuất Video" />
+          )}
+          {workflowMode === 'tiktok_capcut' && (
+            <SparkleBadge step={5} label="Xuất Video" />
+          )}
+          {workflowMode === 'script_voice' && (
+            <SparkleBadge step={5} label="Xuất Video" />
+          )}
+          {workflowMode === 'split_long_video' && (
+            <SparkleBadge step={3} label="Xuất Video" />
+          )}
           <Download className="w-4 h-4" />
           <span>Xuất Video</span>
         </button>

@@ -1,20 +1,20 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { Player, PlayerRef } from '@remotion/player';
 import { MainComposition } from '../remotion/Composition';
-import { VideoProject, ElementPosition } from '../types/video';
-import { InteractiveCanvasOverlay } from './InteractiveCanvasOverlay';
+import { VideoProject, ElementPosition, Scene } from '../types/video';
 import {
   Play,
   Pause,
   RotateCcw,
   Smartphone,
   Tv,
-  Move,
-  Maximize2,
   Repeat,
-  Volume2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Maximize2,
+  Minimize2,
+  Expand,
+  Video
 } from 'lucide-react';
 
 interface CenterPlayerStageProps {
@@ -24,13 +24,66 @@ interface CenterPlayerStageProps {
 
 export const CenterPlayerStage: React.FC<CenterPlayerStageProps> = ({ project, setProject }) => {
   const playerRef = useRef<PlayerRef>(null);
+  const playerContainerRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentFrame, setCurrentFrame] = useState(0);
   const [isLooping, setIsLooping] = useState(true);
-  const [studioMode, setStudioMode] = useState<'preview' | 'interactive_canvas'>('preview');
-  const [selectedSceneIndex, setSelectedSceneIndex] = useState<number>(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showFullscreenControls, setShowFullscreenControls] = useState(true);
+  const fullscreenHideTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const fps = project.fps || 30;
+
+  // Lắng nghe sự kiện Fullscreen của trình duyệt
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isFull = Boolean(document.fullscreenElement);
+      setIsFullscreen(isFull);
+      setShowFullscreenControls(true);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  const handleMouseMoveInPlayer = () => {
+    setShowFullscreenControls(true);
+    if (fullscreenHideTimerRef.current) {
+      clearTimeout(fullscreenHideTimerRef.current);
+    }
+    if (isFullscreen) {
+      fullscreenHideTimerRef.current = setTimeout(() => {
+        if (playerRef.current?.isPlaying()) {
+          setShowFullscreenControls(false);
+        }
+      }, 3000);
+    }
+  };
+
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        const target = playerContainerRef.current || document.documentElement;
+        if (target.requestFullscreen) {
+          await target.requestFullscreen();
+        } else if ((target as any).webkitRequestFullscreen) {
+          await (target as any).webkitRequestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          await (document as any).webkitExitFullscreen();
+        }
+      }
+    } catch (err) {
+      console.warn('Fullscreen toggle failed:', err);
+    }
+  };
 
   // Tính tổng số frames chính xác từ các scenes
   const totalFrames = useMemo(() => {
@@ -102,150 +155,179 @@ export const CenterPlayerStage: React.FC<CenterPlayerStageProps> = ({ project, s
   };
 
   const handleSeek = (frame: number) => {
-    const target = Math.max(0, Math.min(frame, totalFrames - 1));
-    setCurrentFrame(target);
-    playerRef.current?.seekTo(target);
+    if (!playerRef.current) return;
+    playerRef.current.seekTo(frame);
+    setCurrentFrame(frame);
   };
 
   const handleStepFrame = (delta: number) => {
-    handleSeek(currentFrame + delta);
+    if (!playerRef.current) return;
+    const target = Math.max(0, Math.min(totalFrames - 1, currentFrame + delta));
+    playerRef.current.seekTo(target);
+    setCurrentFrame(target);
   };
 
   const formatTimecode = (frame: number) => {
     const totalSeconds = frame / fps;
     const mins = Math.floor(totalSeconds / 60);
     const secs = Math.floor(totalSeconds % 60);
-    const dec = Math.floor((totalSeconds % 1) * 10);
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${dec}`;
+    const millis = Math.floor((totalSeconds % 1) * 10);
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${millis}`;
   };
 
+  // Cập nhật vị trí tọa độ các layer khi kéo thả
   const handleUpdatePositions = (sceneId: string, positions: Record<string, ElementPosition>) => {
     setProject((prev) => ({
       ...prev,
-      scenes: prev.scenes.map((s) => (s.id === sceneId ? { ...s, elementPositions: positions } : s))
+      scenes: prev.scenes.map((s) => {
+        if (s.id !== sceneId) return s;
+        return {
+          ...s,
+          ...positions
+        };
+      })
     }));
   };
 
-  const handleUpdateNarration = (sceneId: string, text: string) => {
+  // Cập nhật câu thoại từ Canvas
+  const handleUpdateNarration = (sceneId: string, newNarration: string) => {
     setProject((prev) => ({
       ...prev,
-      scenes: prev.scenes.map((s) => (s.id === sceneId ? { ...s, narration: text } : s))
+      scenes: prev.scenes.map((s) => {
+        if (s.id !== sceneId) return s;
+        return {
+          ...s,
+          narration: newNarration
+        };
+      })
     }));
   };
 
-  const handleUpdateScene = (sceneId: string, updates: any) => {
+  // Cập nhật toàn bộ scene từ Canvas
+  const handleUpdateScene = (sceneId: string, updated: Partial<Scene>) => {
     setProject((prev) => ({
       ...prev,
-      scenes: prev.scenes.map((s) => (s.id === sceneId ? { ...s, ...updates } : s))
+      scenes: prev.scenes.map((s) => {
+        if (s.id !== sceneId) return s;
+        return {
+          ...s,
+          ...updated
+        };
+      })
     }));
   };
 
   return (
-    <div className="h-full flex flex-col items-center justify-between p-3 sm:p-4 bg-zinc-950/60 border-x border-zinc-850/70 select-none">
-      {/* Top Bar của Cột Giữa: Bộ chuyển chế độ & Tỷ lệ nhanh */}
-      <div className="w-full flex items-center justify-between gap-2 pb-2 mb-2 border-b border-zinc-850">
-        {/* Toggle Mode: Xem Video vs Kéo Thả Chuột */}
-        <div className="flex items-center gap-1 bg-zinc-900 p-1 rounded-xl border border-zinc-800">
-          <button
-            type="button"
-            onClick={() => setStudioMode('preview')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-              studioMode === 'preview'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            <Play className="w-3 h-3" />
-            <span>Xem Video</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setStudioMode('interactive_canvas')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-              studioMode === 'interactive_canvas'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-            title="Kéo di chuyển chữ, logo, sticker tự do trên khung hình"
-          >
-            <Move className="w-3 h-3 text-indigo-300" />
-            <span>Kéo Thả Vị Trí</span>
-          </button>
+    <div className="h-full flex flex-col items-center justify-between p-3 sm:p-4 bg-slate-100 select-none">
+      {/* Top Bar: Preview Mode & Quick Ratio */}
+      <div className="w-full flex items-center justify-between gap-2 pb-2 mb-2 border-b border-slate-200">
+        {/* Title Indicator */}
+        <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-xs">
+          <Video className="w-3.5 h-3.5 text-emerald-600" />
+          <span className="text-xs font-bold text-slate-800">Khung Phát Video Trực Tiếp</span>
+          <span className="text-[10px] text-slate-400 font-mono">({project.scenes.length} Scenes)</span>
         </div>
 
-        {/* Nút chuyển đổi nhanh tỷ lệ 9:16 / 16:9 */}
-        <div className="flex items-center gap-1 bg-zinc-900 p-1 rounded-xl border border-zinc-800 text-xs">
+        {/* Aspect Ratio Switch & Fullscreen */}
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-slate-200 shadow-sm text-xs">
+            <button
+              onClick={() => setProject((prev) => ({ ...prev, aspectRatio: '9:16' }))}
+              className={`px-2.5 py-1 rounded-md font-medium flex items-center gap-1 transition-all ${
+                project.aspectRatio === '9:16'
+                  ? 'bg-slate-800 text-white shadow-sm font-semibold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="Khung hình dọc 9:16 (TikTok, Reels, Shorts)"
+            >
+              <Smartphone className="w-3 h-3" />
+              <span>9:16</span>
+            </button>
+            <button
+              onClick={() => setProject((prev) => ({ ...prev, aspectRatio: '16:9' }))}
+              className={`px-2.5 py-1 rounded-md font-medium flex items-center gap-1 transition-all ${
+                project.aspectRatio === '16:9'
+                  ? 'bg-slate-800 text-white shadow-sm font-semibold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="Khung hình ngang 16:9 (YouTube, Facebook)"
+            >
+              <Tv className="w-3 h-3" />
+              <span>16:9</span>
+            </button>
+          </div>
+
+          {/* Nút Phóng To Toàn Màn Hình */}
           <button
-            onClick={() => setProject((prev) => ({ ...prev, aspectRatio: '9:16' }))}
-            className={`px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 transition-all ${
-              project.aspectRatio === '9:16'
-                ? 'bg-zinc-800 text-white shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200'
+            type="button"
+            onClick={toggleFullscreen}
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm ${
+              isFullscreen
+                ? 'bg-indigo-600 text-white shadow-indigo-200'
+                : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:text-indigo-600'
             }`}
-            title="Khung hình dọc 9:16 (TikTok, Reels, Shorts)"
+            title={isFullscreen ? 'Thu nhỏ (Thoát toàn màn hình)' : 'Phóng to xem toàn màn hình (Fullscreen)'}
           >
-            <Smartphone className="w-3 h-3" />
-            <span>9:16</span>
-          </button>
-          <button
-            onClick={() => setProject((prev) => ({ ...prev, aspectRatio: '16:9' }))}
-            className={`px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 transition-all ${
-              project.aspectRatio === '16:9'
-                ? 'bg-zinc-800 text-white shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-            title="Khung hình ngang 16:9 (YouTube, TV)"
-          >
-            <Tv className="w-3 h-3" />
-            <span>16:9</span>
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5 text-indigo-600" />}
+            <span className="hidden sm:inline">{isFullscreen ? 'Thu nhỏ' : 'Toàn màn hình'}</span>
           </button>
         </div>
       </div>
 
       {/* KHUNG PREVIEW TRUNG TÂM (Remotion Player Canvas) */}
       <div className="flex-1 w-full flex items-center justify-center min-h-0 relative my-auto">
-        {studioMode === 'interactive_canvas' ? (
-          /* Chế độ kéo thả tọa độ */
-          <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-            <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-1">
-              <span className="text-[11px] text-zinc-400 font-medium">Chọn cảnh:</span>
-              {project.scenes.map((s, idx) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setSelectedSceneIndex(idx)}
-                  className={`px-2.5 py-0.5 rounded-lg text-xs font-semibold transition ${
-                    selectedSceneIndex === idx
-                      ? 'bg-indigo-600 text-white shadow-sm'
-                      : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                  }`}
-                >
-                  Cảnh {idx + 1}
-                </button>
-              ))}
-            </div>
-
-            {project.scenes[selectedSceneIndex] ? (
-              <InteractiveCanvasOverlay
-                scene={project.scenes[selectedSceneIndex]}
-                aspectRatio={project.aspectRatio}
-                onUpdatePositions={handleUpdatePositions}
-                onUpdateNarration={handleUpdateNarration}
-                onUpdateScene={handleUpdateScene}
-              />
-            ) : null}
-          </div>
-        ) : (
-          /* Khung Remotion Player trung tâm */
-          <div
-            className="relative bg-black rounded-2xl overflow-hidden shadow-2xl border border-zinc-800 flex items-center justify-center transition-all"
+        <div
+            ref={playerContainerRef}
+            onMouseMove={handleMouseMoveInPlayer}
+            onMouseEnter={() => setShowFullscreenControls(true)}
+            className={`group relative bg-slate-950 rounded-2xl overflow-hidden shadow-lg border border-slate-300 flex items-center justify-center transition-all select-none ${
+              isFullscreen ? 'w-full h-full max-h-screen bg-black border-none rounded-none' : ''
+            }`}
             style={{
-              width: project.aspectRatio === '9:16' ? '310px' : '100%',
+              width: isFullscreen ? '100%' : project.aspectRatio === '9:16' ? '310px' : '100%',
               maxWidth: '100%',
-              aspectRatio: project.aspectRatio === '9:16' ? '9/16' : '16/9',
-              maxHeight: 'calc(100vh - 210px)'
+              aspectRatio: isFullscreen ? undefined : project.aspectRatio === '9:16' ? '9/16' : '16/9',
+              maxHeight: isFullscreen ? '100vh' : 'calc(100vh - 210px)'
             }}
           >
+            {/* Thanh Header nổi khi ở chế độ Toàn màn hình */}
+            {isFullscreen && (
+              <div
+                className={`absolute top-0 inset-x-0 z-40 p-4 bg-gradient-to-b from-black/90 via-black/50 to-transparent flex items-center justify-between text-white transition-opacity duration-300 ${
+                  showFullscreenControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="font-bold text-sm sm:text-base tracking-wide text-white drop-shadow">
+                    Studio Remotion Player
+                  </span>
+                  <span className="text-xs px-2 py-0.5 rounded bg-white/10 border border-white/20 text-cyan-300 font-semibold font-mono">
+                    {project.aspectRatio}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={toggleFullscreen}
+                  className="px-3.5 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-semibold flex items-center gap-1.5 backdrop-blur-md border border-white/20 transition-all shadow-lg active:scale-95"
+                >
+                  <Minimize2 className="w-3.5 h-3.5 text-cyan-300" />
+                  <span>Thu nhỏ (Phím Esc)</span>
+                </button>
+              </div>
+            )}
+
+            {/* Nút Phóng To nổi trên góc video khi hover (khi chưa fullscreen) */}
+            {!isFullscreen && (
+              <button
+                type="button"
+                onClick={toggleFullscreen}
+                className="absolute top-3 right-3 z-30 p-2 rounded-xl bg-black/70 hover:bg-black/90 text-white backdrop-blur-md border border-white/20 transition-all opacity-0 group-hover:opacity-100 shadow-xl active:scale-95"
+                title="Phóng to xem toàn màn hình"
+              >
+                <Maximize2 className="w-4 h-4 text-cyan-300" />
+              </button>
+            )}
+
             {project.scenes.length > 0 ? (
               <Player
                 ref={playerRef}
@@ -256,29 +338,137 @@ export const CenterPlayerStage: React.FC<CenterPlayerStageProps> = ({ project, s
                 compositionHeight={compositionHeight}
                 fps={fps}
                 style={{
-                  width: '100%',
-                  height: '100%'
+                  width: isFullscreen && project.aspectRatio === '9:16' ? 'auto' : '100%',
+                  height: isFullscreen && project.aspectRatio === '9:16' ? '100vh' : '100%',
+                  aspectRatio: project.aspectRatio === '9:16' ? '9/16' : '16/9',
+                  maxWidth: '100%',
+                  maxHeight: '100vh'
                 }}
                 controls={false}
                 autoPlay={false}
                 loop={isLooping}
               />
             ) : (
-              <div className="text-center p-8 text-zinc-500 text-xs flex flex-col items-center gap-2">
+              <div className="text-center p-8 text-slate-400 text-xs flex flex-col items-center gap-2">
                 <span className="text-2xl">🎬</span>
                 <p>Chưa có phân cảnh nào trong danh sách.</p>
-                <p className="text-[11px] text-zinc-600">Hãy thêm phân cảnh hoặc tạo kịch bản từ cột bên trái!</p>
+                <p className="text-[11px] text-slate-500">Hãy thêm phân cảnh hoặc tạo kịch bản từ cột bên trái!</p>
               </div>
             )}
-          </div>
-        )}
+
+            {/* THANH ĐIỀU KHIỂN & TUA VIDEO NỔI KHI TOÀN MÀN HÌNH (FULLSCREEN FLOATING CONTROLS) */}
+            {isFullscreen && (
+              <div
+                className={`absolute bottom-0 inset-x-0 z-40 p-4 sm:p-6 bg-gradient-to-t from-black/95 via-black/70 to-transparent flex flex-col gap-2.5 transition-opacity duration-300 ${
+                  showFullscreenControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                }`}
+              >
+                {/* Thanh Tua Thời Gian (Scrubber Slider) */}
+                <div className="w-full flex items-center gap-3">
+                  <span className="text-xs font-mono text-cyan-300 font-bold w-16 text-right drop-shadow">
+                    {formatTimecode(currentFrame)}
+                  </span>
+
+                  <div className="flex-1 relative flex items-center">
+                    <input
+                      type="range"
+                      min="0"
+                      max={Math.max(0, totalFrames - 1)}
+                      value={currentFrame}
+                      onChange={(e) => handleSeek(parseInt(e.target.value))}
+                      className="w-full accent-cyan-400 h-2 bg-white/30 rounded-lg cursor-pointer transition-all hover:h-2.5 shadow-md"
+                    />
+                  </div>
+
+                  <span className="text-xs font-mono text-slate-300 w-16 drop-shadow">
+                    {formatTimecode(totalFrames)}
+                  </span>
+                </div>
+
+                {/* Hàng các nút điều khiển: Play, Tua, Frame, Loop, Thoát */}
+                <div className="flex items-center justify-between pt-1">
+                  <div className="flex items-center gap-2 text-xs text-slate-300">
+                    <span className="font-mono text-xs px-2.5 py-1 rounded-lg bg-white/10 border border-white/20 text-cyan-300 font-bold drop-shadow">
+                      Frame {currentFrame} / {totalFrames}
+                    </span>
+                    <span className="text-[11px] text-slate-400 hidden sm:inline">Phím Space: Play/Pause</span>
+                  </div>
+
+                  {/* Cụm nút Play/Pause chính giữa */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => handleStepFrame(-fps)}
+                      className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all active:scale-95"
+                      title="Lùi 1 giây"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={togglePlayPause}
+                      className="w-12 h-12 rounded-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 flex items-center justify-center shadow-lg transition-all active:scale-95"
+                      title={isPlaying ? 'Tạm dừng (Phím Space)' : 'Phát video (Phím Space)'}
+                    >
+                      {isPlaying ? <Pause className="w-6 h-6 fill-slate-950" /> : <Play className="w-6 h-6 fill-slate-950 ml-0.5" />}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleStepFrame(fps)}
+                      className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all active:scale-95"
+                      title="Tiến 1 giây"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSeek(0)}
+                      className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all active:scale-95"
+                      title="Về đầu video"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Cụm nút phụ bên phải */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsLooping(!isLooping)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                        isLooping
+                          ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                          : 'bg-white/10 text-slate-300 hover:bg-white/20'
+                      }`}
+                      title={isLooping ? 'Bật lặp lại video' : 'Tắt lặp lại'}
+                    >
+                      <Repeat className="w-3.5 h-3.5" />
+                      <span>Lặp lại</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={toggleFullscreen}
+                      className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all"
+                      title="Thu nhỏ (Thoát toàn màn hình)"
+                    >
+                      <Minimize2 className="w-4 h-4 text-cyan-300" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+        </div>
       </div>
 
       {/* THANH ĐIỀU KHIỂN PLAYBACK (Controls, Scrubber, Timecode, Loop) */}
-      <div className="w-full bg-zinc-900/90 rounded-2xl p-3 border border-zinc-800 shadow-xl mt-2 flex flex-col gap-2">
+      <div className="w-full bg-white rounded-xl p-3 border border-slate-200 shadow-sm mt-2 flex flex-col gap-2">
         {/* Scrubber / Seekbar Frame Slider */}
         <div className="w-full flex items-center gap-2">
-          <span className="text-[11px] font-mono text-zinc-400 w-14 text-right">
+          <span className="text-[11px] font-mono text-slate-600 w-14 text-right">
             {formatTimecode(currentFrame)}
           </span>
 
@@ -289,19 +479,19 @@ export const CenterPlayerStage: React.FC<CenterPlayerStageProps> = ({ project, s
               max={Math.max(0, totalFrames - 1)}
               value={currentFrame}
               onChange={(e) => handleSeek(parseInt(e.target.value))}
-              className="w-full accent-indigo-500 h-1.5 bg-zinc-800 rounded-lg cursor-pointer transition-all"
+              className="w-full accent-emerald-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer transition-all"
             />
           </div>
 
-          <span className="text-[11px] font-mono text-zinc-500 w-14">
+          <span className="text-[11px] font-mono text-slate-400 w-14">
             {formatTimecode(totalFrames)}
           </span>
         </div>
 
         {/* Nút Play/Pause & Điều hướng frames */}
-        <div className="flex items-center justify-between pt-1 border-t border-zinc-800/60">
-          <div className="flex items-center gap-1.5 text-zinc-400 text-xs">
-            <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-zinc-950 border border-zinc-800">
+        <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+          <div className="flex items-center gap-1.5 text-slate-600 text-xs">
+            <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700">
               Frame {currentFrame} / {totalFrames}
             </span>
           </div>
@@ -311,7 +501,7 @@ export const CenterPlayerStage: React.FC<CenterPlayerStageProps> = ({ project, s
             <button
               type="button"
               onClick={() => handleStepFrame(-fps)}
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
               title="Lùi 1 giây"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -320,7 +510,7 @@ export const CenterPlayerStage: React.FC<CenterPlayerStageProps> = ({ project, s
             <button
               type="button"
               onClick={togglePlayPause}
-              className="w-9 h-9 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-600/30 transition-all active:scale-95"
+              className="w-9 h-9 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white flex items-center justify-center shadow-sm transition-all active:scale-95"
               title={isPlaying ? 'Tạm dừng (Phím Space)' : 'Phát video (Phím Space)'}
             >
               {isPlaying ? <Pause className="w-4 h-4 fill-white" /> : <Play className="w-4 h-4 fill-white ml-0.5" />}
@@ -329,7 +519,7 @@ export const CenterPlayerStage: React.FC<CenterPlayerStageProps> = ({ project, s
             <button
               type="button"
               onClick={() => handleStepFrame(fps)}
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
               title="Tiến 1 giây"
             >
               <ChevronRight className="w-4 h-4" />
@@ -338,26 +528,35 @@ export const CenterPlayerStage: React.FC<CenterPlayerStageProps> = ({ project, s
             <button
               type="button"
               onClick={() => handleSeek(0)}
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
               title="Về đầu video"
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          {/* Cụm nút phụ: Loop & Phím tắt nhắc nhở */}
+          {/* Cụm nút phụ: Loop & Fullscreen */}
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setIsLooping(!isLooping)}
               className={`p-1.5 rounded-lg transition-colors text-xs flex items-center gap-1 ${
-                isLooping ? 'text-indigo-400 bg-indigo-950/40' : 'text-zinc-500 hover:text-zinc-300'
+                isLooping ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' : 'text-slate-400 hover:text-slate-700'
               }`}
               title={isLooping ? 'Bật lặp lại video' : 'Tắt lặp lại'}
             >
               <Repeat className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline text-[11px] font-medium">Lặp lại</span>
             </button>
-            <span className="text-[10px] text-zinc-500 hidden sm:inline">Phím Space: Play/Pause</span>
+
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+              title={isFullscreen ? 'Thu nhỏ (Thoát toàn màn hình)' : 'Phóng to toàn màn hình'}
+            >
+              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            </button>
           </div>
         </div>
       </div>

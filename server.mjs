@@ -114,6 +114,136 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Handle Google Drive Scan API
+  if (req.url === '/api/drive/scan' && req.method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk;
+    });
+    req.on('end', async () => {
+      try {
+        const { folderId, apiKey } = JSON.parse(body || '{}');
+        if (!folderId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Folder ID is required' }));
+          return;
+        }
+
+        if (apiKey) {
+          const query = encodeURIComponent(`'${folderId}' in parents and (mimeType contains 'video/' or fileExtension = 'mp4' or fileExtension = 'mov' or fileExtension = 'webm' or fileExtension = 'mkv') and trashed = false`);
+          const fields = encodeURIComponent('files(id,name,mimeType,size,thumbnailLink,webContentLink,createdTime)');
+          const url = `https://www.googleapis.com/drive/v3/files?q=${query}&fields=${fields}&key=${apiKey}&pageSize=100`;
+
+          const gRes = await fetch(url);
+          if (!gRes.ok) {
+            const errData = await gRes.json().catch(() => ({}));
+            res.writeHead(gRes.status, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: errData?.error?.message || 'Google Drive API error' }));
+            return;
+          }
+
+          const gData = await gRes.json();
+          const files = (gData.files || []).map((f) => {
+            const sizeBytes = Number(f.size) || 0;
+            return {
+              id: f.id,
+              name: f.name || 'Video_Drive',
+              mimeType: f.mimeType || 'video/mp4',
+              sizeBytes,
+              sizeMb: Number((sizeBytes / (1024 * 1024)).toFixed(2)),
+              thumbnailLink: f.thumbnailLink ? f.thumbnailLink.replace(/=s\d+$/, '=s400') : undefined,
+              downloadUrl: f.webContentLink || `https://drive.google.com/uc?export=download&id=${f.id}`,
+              createdTime: f.createdTime
+            };
+          });
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ files }));
+          return;
+        }
+
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Google Drive API key is required' }));
+      } catch (err) {
+        console.error('Drive scan error:', err);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err?.message || 'Scan failed' }));
+      }
+    });
+    return;
+  }
+
+  // Handle Google Drive Download Proxy API
+  if (req.url.startsWith('/api/drive/download') && req.method === 'GET') {
+    try {
+      const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+      const fileId = urlObj.searchParams.get('id');
+      const apiKey = urlObj.searchParams.get('key');
+
+      if (!fileId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'File ID is required' }));
+        return;
+      }
+
+      let driveUrl = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
+      if (apiKey) {
+        driveUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${apiKey}`;
+      }
+
+      const gRes = await fetch(driveUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+
+      if (!gRes.ok && apiKey) {
+        // Fallback to uc download
+        const fallbackRes = await fetch(`https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`);
+        if (fallbackRes.ok) {
+          const contentType = fallbackRes.headers.get('content-type') || 'video/mp4';
+          const contentLength = fallbackRes.headers.get('content-length');
+          const resHeaders = { 'Content-Type': contentType };
+          if (contentLength) resHeaders['Content-Length'] = contentLength;
+          res.writeHead(200, resHeaders);
+          const reader = fallbackRes.body.getReader();
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            res.write(value);
+          }
+          res.end();
+          return;
+        }
+      }
+
+      const contentType = gRes.headers.get('content-type') || 'video/mp4';
+      const contentLength = gRes.headers.get('content-length');
+      const resHeaders = { 'Content-Type': contentType };
+      if (contentLength) resHeaders['Content-Length'] = contentLength;
+      res.writeHead(gRes.status, resHeaders);
+
+      if (gRes.body) {
+        const reader = gRes.body.getReader();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          res.write(value);
+        }
+        res.end();
+      } else {
+        const buf = await gRes.arrayBuffer();
+        res.end(Buffer.from(buf));
+      }
+      return;
+    } catch (err) {
+      console.error('Drive download error:', err);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err?.message || 'Download failed' }));
+      return;
+    }
+  }
+
   // Serve static files from dist/
   let reqPath = req.url.split('?')[0];
   if (reqPath === '/') reqPath = '/index.html';

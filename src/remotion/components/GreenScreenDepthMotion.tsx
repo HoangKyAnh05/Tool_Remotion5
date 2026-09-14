@@ -72,18 +72,25 @@ export const GreenScreenDepthMotion: React.FC<GreenScreenDepthMotionProps> = ({
   // Tọa độ tính toán theo preset bố cục
   const computedPositions = layoutPreset.getPositions(wordTokens.length);
 
-  // Tọa độ tùy chỉnh do người dùng kéo thả chuột (nếu có)
-  const customPos = scene.elementPositions?.['green_screen_text'];
+  // Tọa độ tùy chỉnh do người dùng chỉnh trong Inspector / Timeline (nếu có)
+  const customPos =
+    scene.elementPositions?.['green_screen_text'] ||
+    scene.elementPositions?.['text_template'] ||
+    scene.elementPositions?.['text_effect'] ||
+    scene.elementPositions?.['subtitles'];
   
-  // Tính toán vị trí Y: Nếu có kéo thả riêng thì ưu tiên, nếu không thì lấy theo slider Vị trí phụ đề Trục Y (subtitleStyle.positionY - 50)
-  const basePositionYOffset = subtitleStyle ? (subtitleStyle.positionY - 50) : 0;
-  const offsetXPercent = customPos ? customPos.x - 50 : 0;
-  const offsetYPercent = customPos ? (customPos.y - 50) : basePositionYOffset;
+  // Tính toán vị trí X và Y: Hỗ trợ cả slider subtitleStyle.positionX/positionY lẫn customPos
+  const basePositionXOffset = subtitleStyle && subtitleStyle.positionX !== undefined ? subtitleStyle.positionX - 50 : 0;
+  const basePositionYOffset = subtitleStyle && subtitleStyle.positionY !== undefined ? subtitleStyle.positionY - 50 : 0;
+  const baseRotation = subtitleStyle?.rotation ?? subtitleStyle?.rotate ?? 0;
+
+  const offsetXPercent = customPos ? customPos.x - 50 : basePositionXOffset;
+  const offsetYPercent = customPos ? customPos.y - 50 : basePositionYOffset;
 
   // Tính toán tỷ lệ kích thước: Nếu có slider kích thước chữ fontSize (mặc định 42px)
   const baseFontScale = subtitleStyle ? subtitleStyle.fontSize / 42 : 1.0;
-  const customScale = (customPos?.scale ?? 1.0) * baseFontScale;
-  const customRotate = customPos?.rotate ?? 0;
+  const customScale = (customPos?.scale ?? subtitleStyle?.scale ?? 1.0) * baseFontScale;
+  const customRotate = (customPos?.rotate ?? 0) + baseRotation;
 
   // Nhịp thở bồng bềnh
   const floatY = Math.sin((frame / fps) * Math.PI * 1.5) * 5;
@@ -118,7 +125,7 @@ export const GreenScreenDepthMotion: React.FC<GreenScreenDepthMotionProps> = ({
       {/* TẦNG 1: CHỮ SAU LƯNG NGƯỜI (BEHIND LAYER) - BỊ THÂN THỂ NGƯỜI CHE LẤP     */}
       {/* ========================================================================= */}
       <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
-        {wordTokens.map((item, idx) => {
+        {subtitleStyle?.enabled !== false && wordTokens.map((item, idx) => {
           const pos = computedPositions[idx % computedPositions.length];
           // Nếu chọn "Luôn ở trước video" thì tầng sau lưng không render
           if (scene.textLayerMode === 'front') return null;
@@ -195,16 +202,7 @@ export const GreenScreenDepthMotion: React.FC<GreenScreenDepthMotionProps> = ({
                   );
                 }
 
-                return stylePreset.hasBox ? (
-                  <div className={stylePreset.boxClass}>
-                    <span
-                      className={`${pos.sizeClass} uppercase block whitespace-nowrap`}
-                      style={stylePreset.textStyle(baseColor)}
-                    >
-                      {item.text}
-                    </span>
-                  </div>
-                ) : (
+                return (
                   <span
                     className={`${pos.sizeClass} uppercase block whitespace-nowrap`}
                     style={stylePreset.textStyle(baseColor)}
@@ -251,7 +249,7 @@ export const GreenScreenDepthMotion: React.FC<GreenScreenDepthMotionProps> = ({
       {/* TẦNG 3: CHỮ TRƯỚC MẶT NGƯỜI (IN-FRONT LAYER) - ĐA DẠNG FONT & KHÔNG ĐÈ   */}
       {/* ========================================================================= */}
       <div className="absolute inset-0 pointer-events-none z-30 overflow-hidden">
-        {wordTokens.map((item, idx) => {
+        {subtitleStyle?.enabled !== false && wordTokens.map((item, idx) => {
           const pos = computedPositions[idx % computedPositions.length];
           // Nếu chọn "Chạy ở dưới video" thì tầng trước mặt không render
           if (scene.textLayerMode === 'behind') return null;
@@ -328,16 +326,7 @@ export const GreenScreenDepthMotion: React.FC<GreenScreenDepthMotionProps> = ({
                   );
                 }
 
-                return stylePreset.hasBox ? (
-                  <div className={stylePreset.boxClass}>
-                    <span
-                      className={`${pos.sizeClass} uppercase block whitespace-nowrap`}
-                      style={stylePreset.textStyle(baseColor)}
-                    >
-                      {item.text}
-                    </span>
-                  </div>
-                ) : (
+                return (
                   <span
                     className={`${pos.sizeClass} uppercase block whitespace-nowrap`}
                     style={stylePreset.textStyle(baseColor)}

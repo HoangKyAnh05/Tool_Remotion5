@@ -43,6 +43,7 @@ export interface WordTimestamp {
 }
 
 export interface SubtitleStyle {
+  enabled?: boolean; // Bật / Tắt hiển thị toàn bộ chữ phụ đề trên video
   fontFamily: string;
   fontSize: number;
   textColor: string;
@@ -51,7 +52,12 @@ export interface SubtitleStyle {
   strokeWidth: number;
   backgroundColor?: string;
   positionY: number; // percentage from top (e.g. 75)
-  animationStyle: 'pop' | 'glow' | 'bounce' | 'karaoke' | 'box';
+  positionX?: number; // percentage from left (e.g. 50)
+  rotation?: number; // rotation in degrees e.g. 0
+  rotate?: number; // alias for rotation
+  scale?: number; // scale multiplier e.g. 1.0
+  animationStyle: 'pop' | 'glow' | 'bounce' | 'karaoke' | 'box' | 'single_word';
+  displayMode?: 'phrase_karaoke' | 'single_word' | 'single_word_spotlight'; // 'phrase_karaoke': Cụm từ | 'single_word': Chạy nối tiếp từ trái qua phải | 'single_word_spotlight': 1 chữ nhảy trái qua phải
   maxWordsPerLine: number;
   uppercase: boolean;
 }
@@ -142,6 +148,8 @@ export interface Scene {
   order: number;
   narration: string;
   searchKeyword: string;
+  sourceName?: string;          // Tên source video cần đưa vào phân cảnh (từ AI JSON)
+  cutAction?: string;           // Mô tả thao tác cắt / góc quay / hướng dẫn source (từ AI JSON)
   imagePrompt?: string;
   mediaType: 'image' | 'video';
   mediaUrl: string;
@@ -194,6 +202,7 @@ export interface VideoSegment {
   order: number;
   title: string;
   sourceUrl: string;
+  sourceName?: string;       // Tên file video nguồn (vd: video_homestay_1.mp4)
   startOffset: number;       // Giây bắt đầu trong video gốc (vd: 0.0)
   endOffset: number;         // Giây kết thúc trong video gốc (vd: 10.0)
   duration: number;          // Độ dài của clip con (endOffset - startOffset)
@@ -220,6 +229,7 @@ export interface VideoProject {
   subtitleStyle: SubtitleStyle;
   watermark: WatermarkConfig;
   showProgressBar: boolean;
+  showHeaderBadge?: boolean; // Bật / Tắt chữ tiêu đề / huy hiệu phía trên video (Mặc định: false)
   showAudioVisualizer?: boolean;
   showCinematicParticles?: boolean;
   showCameraShake?: boolean;
@@ -281,6 +291,7 @@ export const VIETNAMESE_VOICES: VoiceOption[] = [
 ];
 
 export const DEFAULT_SUBTITLE_STYLE: SubtitleStyle = {
+  enabled: true,
   fontFamily: 'Montserrat, Inter, sans-serif',
   fontSize: 48,
   textColor: '#FFFFFF',
@@ -294,8 +305,8 @@ export const DEFAULT_SUBTITLE_STYLE: SubtitleStyle = {
 };
 
 export const DEFAULT_WATERMARK: WatermarkConfig = {
-  enabled: true,
-  text: '@LaDoHomestaySaPa',
+  enabled: false,
+  text: '',
   position: 'top-right',
   opacity: 0.85
 };

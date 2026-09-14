@@ -96,58 +96,45 @@ export const SubtitlesRenderer: React.FC<SubtitlesRendererProps> = ({
   const { fps } = useVideoConfig();
   const currentTime = frame / fps;
 
+  // Nếu người dùng chọn TẮT chữ (enabled === false) thì không render bất kỳ chữ phụ đề nào
+  if (subtitleStyle?.enabled === false) {
+    return null;
+  }
+
   // Bù trễ âm thanh 160ms (lead offset) để chữ bật sáng đúng khoảnh khắc giọng đọc phát âm, không bị delay
   const AUDIO_LEAD_OFFSET = 0.16;
   const effectiveTime = currentTime + AUDIO_LEAD_OFFSET;
 
-  const finalTop = customPos ? `${customPos.y}%` : `${subtitleStyle.positionY}%`;
-  const finalLeft = customPos ? `${customPos.x}%` : '50%';
-  const finalTransform = customPos
-    ? `translate(-50%, -50%) scale(${customPos.scale ?? 1}) rotate(${customPos.rotate ?? 0}deg)`
-    : 'translate(-50%, -50%)';
+  const finalTop = customPos ? `${customPos.y}%` : `${subtitleStyle.positionY ?? 75}%`;
+  const finalLeft = customPos ? `${customPos.x}%` : `${subtitleStyle.positionX ?? 50}%`;
+  const scaleVal = customPos?.scale ?? subtitleStyle?.scale ?? 1;
+  const rotateVal = customPos?.rotate ?? subtitleStyle?.rotation ?? subtitleStyle?.rotate ?? 0;
+  const finalTransform = `translate(-50%, -50%) scale(${scaleVal}) rotate(${rotateVal}deg)`;
 
-  if (!words || words.length === 0) {
-    if (fallbackText) {
-      return (
-        <div
-          className="absolute flex justify-center items-center pointer-events-none z-30 transition-transform"
-          style={{
-            top: finalTop,
-            left: finalLeft,
-            transform: finalTransform
-          }}
-        >
-          <div
-            className={`text-center px-6 py-3 rounded-2xl ${
-              subtitleStyle.backgroundColor ? 'bg-black/70 backdrop-blur-md border border-white/10' : ''
-            }`}
-          >
-            <span
-              className="inline-block font-black tracking-wide"
-              style={{
-                fontFamily: subtitleStyle.fontFamily,
-                fontSize: `${subtitleStyle.fontSize}px`,
-                color: subtitleStyle.highlightColor || '#FACC15',
-                WebkitTextStroke: `${subtitleStyle.strokeWidth}px ${subtitleStyle.strokeColor}`,
-                paintOrder: 'stroke fill',
-                textShadow: '0 4px 14px rgba(0,0,0,0.95)'
-              }}
-            >
-              {subtitleStyle.uppercase ? fallbackText.toUpperCase() : fallbackText}
-            </span>
-          </div>
-        </div>
-      );
-    }
+  // Nếu words rỗng nhưng có fallbackText, tự động tạo nhịp thời gian để chữ luôn chạy từng chữ một (karaoke)
+  const effectiveWords: WordTimestamp[] = React.useMemo(() => {
+    if (words && words.length > 0) return words;
+    if (!fallbackText || fallbackText.trim() === '') return [];
+    const tokens = fallbackText.trim().split(/\s+/);
+    if (tokens.length === 0) return [];
+    const wordDuration = 0.35;
+    return tokens.map((w, idx) => ({
+      word: w,
+      start: idx * wordDuration,
+      end: (idx + 1) * wordDuration
+    }));
+  }, [words, fallbackText]);
+
+  if (!effectiveWords || effectiveWords.length === 0) {
     return null;
   }
 
   const maxWords = subtitleStyle.maxWordsPerLine || 4;
 
-  // Group words into display chunks - xuất hiện sớm 200ms trước khi nói để phụ đề mượt mà
+  // Group words into display chunks
   const chunks: Array<{ words: WordTimestamp[]; start: number; end: number }> = [];
-  for (let i = 0; i < words.length; i += maxWords) {
-    const chunkWords = words.slice(i, i + maxWords);
+  for (let i = 0; i < effectiveWords.length; i += maxWords) {
+    const chunkWords = effectiveWords.slice(i, i + maxWords);
     const chunkStart = Math.max(0, chunkWords[0].start - 0.2);
     const chunkEnd = chunkWords[chunkWords.length - 1].end + 0.35;
     chunks.push({
@@ -173,14 +160,33 @@ export const SubtitlesRenderer: React.FC<SubtitlesRendererProps> = ({
         transform: finalTransform
       }}
     >
-      <div
-        className={`flex flex-wrap justify-center items-center gap-2 md:gap-3 text-center px-5 py-3 rounded-3xl ${
-          subtitleStyle.backgroundColor ? 'bg-black/70 backdrop-blur-md border border-white/10 shadow-2xl' : ''
-        }`}
-      >
+      <div className="flex flex-wrap justify-center items-center gap-2 md:gap-3 text-center px-4 py-2">
         {activeChunk.words.map((item, index) => {
           const isSpoken = effectiveTime >= item.start && effectiveTime <= item.end + 0.05;
           const hasPassed = effectiveTime > item.end + 0.05;
+          const isUpcoming = effectiveTime < item.start;
+
+          // Xử lý các chế độ hiển thị:
+          // 1. Chế độ 'single_word' (Mặc định khi chọn Từng chữ): Chữ xuất hiện nối tiếp lần lượt TỪ TRÁI SANG PHẢI!
+          // 2. Chế độ 'single_word_spotlight': Chỉ hiện đúng 1 chữ đang nói tại vị trí từ trái sang phải
+          if (subtitleStyle.displayMode === 'single_word_spotlight') {
+            if (!isSpoken) {
+              return (
+                <div
+                  key={`${item.word}-${index}`}
+                  className="relative inline-flex items-center justify-center opacity-0 pointer-events-none"
+                  aria-hidden="true"
+                >
+                  <span className="font-black text-transparent select-none">{item.word}</span>
+                </div>
+              );
+            }
+          } else if (subtitleStyle.displayMode === 'single_word') {
+            // Chữ chưa đọc tới thì chưa xuất hiện -> Chữ tự động chạy từ trái sang phải theo nhịp nói!
+            if (isUpcoming) {
+              return null;
+            }
+          }
 
           // Physics-based spring bounce animation when word is spoken
           const wordFrameOffset = Math.max(0, Math.round((effectiveTime - item.start) * fps));
@@ -189,8 +195,8 @@ export const SubtitlesRenderer: React.FC<SubtitlesRendererProps> = ({
                 frame: wordFrameOffset,
                 fps,
                 config: { damping: 10, stiffness: 220, mass: 0.4 },
-                from: 0.9,
-                to: 1.22
+                from: 0.88,
+                to: 1.2
               })
             : 1.0;
 

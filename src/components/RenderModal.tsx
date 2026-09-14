@@ -8,7 +8,10 @@ import {
   Film,
   Sparkles,
   AlertCircle,
-  Play
+  Play,
+  Send,
+  Calendar,
+  Share2
 } from 'lucide-react';
 
 interface RenderModalProps {
@@ -102,6 +105,65 @@ export const RenderModal: React.FC<RenderModalProps> = ({ project, isOpen, onClo
     if (renderedFilePath && window.electronAPI?.openPath) {
       window.electronAPI.openPath(renderedFilePath);
     }
+  };
+
+  const handleTransferToMarketing = () => {
+    const sceneNarrations = (project.scenes || [])
+      .map((s) => s.narration)
+      .filter(Boolean)
+      .slice(0, 4)
+      .map((t, idx) => `${idx + 1}. ${t}`)
+      .join('\n');
+
+    const caption = [
+      `✨ ${project.title || 'Video Giới Thiệu Lá Đỏ Homestay Tam Đảo'} ✨`,
+      project.topic ? `📌 Chủ đề: ${project.topic}` : '',
+      sceneNarrations ? `\n📝 Nội dung phân cảnh:\n${sceneNarrations}` : '',
+      '',
+      '🌿 Lá Đỏ Homestay - Điểm dừng chân lý tưởng giữa lòng Tam Đảo mộng mơ.',
+      '🌄 Không gian thoáng đãng, săn mây đỉnh cao, trọn vẹn từng khoảnh khắc nghỉ dưỡng cùng gia đình & bạn bè.',
+      '📞 Inbox hoặc liên hệ Hotline ngay để săn ưu đãi phòng sớm nhất!',
+      '',
+      '#LaDoHomestay #TamDao #HomestayTamDao #DuLichTamDao #SanMayTamDao #ReviewHomestay #Shorts #Reels #TikTok'
+    ].filter(Boolean).join('\n');
+
+    const firstScene = project.scenes?.[0];
+    const thumb = firstScene?.mediaType === 'image' ? firstScene.mediaUrl : (firstScene?.mediaUrl || '');
+
+    const payload = {
+      title: project.title || 'Video Remotion Lá Đỏ Homestay',
+      caption: caption,
+      mediaUrl: renderedFilePath || '',
+      actualMediaUrl: renderedFilePath || '',
+      thumbnailUrl: thumb,
+      mediaType: 'VIDEO',
+      source: 'remotion_studio',
+      timestamp: Date.now()
+    };
+
+    try {
+      sessionStorage.setItem('pending_publish_video', JSON.stringify(payload));
+      localStorage.setItem('pending_publish_video', JSON.stringify(payload));
+    } catch (e) {
+      console.warn('Storage write error:', e);
+    }
+
+    const targetUrl = window.location.port === '3000'
+      ? 'http://localhost:5173/admin/marketing/ai-agent'
+      : '/admin/marketing/ai-agent';
+
+    if (window.opener && !window.opener.closed) {
+      try {
+        window.opener.location.href = targetUrl;
+        window.opener.focus();
+        onClose();
+        return;
+      } catch {
+        // fallback
+      }
+    }
+
+    window.location.href = targetUrl;
   };
 
   return (
@@ -220,20 +282,31 @@ export const RenderModal: React.FC<RenderModalProps> = ({ project, isOpen, onClo
               <p className="text-xs text-gray-300 break-all font-mono bg-black/40 p-2.5 rounded-xl border border-emerald-500/20">
                 {renderedFilePath}
               </p>
+
+              {/* Action: Transfer to AI Marketing Agent */}
+              <button
+                type="button"
+                onClick={handleTransferToMarketing}
+                className="w-full py-3 px-4 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-600/30 active:scale-[0.98]"
+              >
+                <Send className="w-4 h-4" />
+                <span>🚀 Lên Lịch & Đăng Bài Ngay (Chuyển Sang AI Agent)</span>
+              </button>
+
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <button
                   onClick={handlePlayRenderedVideo}
                   className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-lg shadow-emerald-600/20"
                 >
                   <Play className="w-4 h-4" />
-                  <span>Mở xem Video ngay</span>
+                  <span>Mở xem Video</span>
                 </button>
                 <button
                   onClick={handleOpenFolder}
                   className="py-2.5 px-3 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border border-gray-700"
                 >
                   <FolderOpen className="w-4 h-4" />
-                  <span>Mở thư mục chứa</span>
+                  <span>Mở thư mục</span>
                 </button>
               </div>
             </div>
@@ -250,7 +323,15 @@ export const RenderModal: React.FC<RenderModalProps> = ({ project, isOpen, onClo
             Đóng
           </button>
 
-          {!renderedFilePath && (
+          {renderedFilePath ? (
+            <button
+              onClick={handleTransferToMarketing}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/25 flex items-center gap-1.5"
+            >
+              <Send className="w-4 h-4" />
+              <span>Chuyển Sang Đăng Bài</span>
+            </button>
+          ) : (
             <button
               onClick={handleStartRender}
               disabled={isRendering || project.scenes.length === 0}

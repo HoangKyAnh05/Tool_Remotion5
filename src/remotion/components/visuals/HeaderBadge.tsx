@@ -7,11 +7,15 @@ interface HeaderBadgeProps {
 }
 
 export const HeaderBadge: React.FC<HeaderBadgeProps> = ({
-  text = '💬 INBOX MỖI NGÀY',
+  text,
   variant = 'purple'
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+
+  if (!text || text.trim() === '') {
+    return null;
+  }
 
   // Entrance spring
   const scale = spring({

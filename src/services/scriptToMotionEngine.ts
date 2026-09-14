@@ -301,7 +301,7 @@ export function analyzeSentenceForMotion(
   return {
     narration: sentence,
     visualType: 'media',
-    headerBadge: badges[index % badges.length],
+    headerBadge: undefined,
     searchKeyword,
     imagePrompt,
     transition,

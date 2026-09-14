@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type WorkflowMode = 'fast' | 'quality' | 'script_voice' | 'split_long_video';
+export type WorkflowMode = 'fast' | 'quality' | 'tiktok_capcut' | 'script_voice' | 'split_long_video';
 
 interface SparkleBadgeProps {
   step: number | string;
@@ -19,11 +19,10 @@ export const SparkleBadge: React.FC<SparkleBadgeProps> = ({
 
   return (
     <span
-      className={`inline-flex items-center justify-center gap-0.5 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 via-pink-500 to-purple-600 text-white font-black text-[11px] shadow-lg shadow-pink-500/50 border border-amber-200/90 sparkle-badge select-none z-10 ${className}`}
+      className={`inline-flex items-center justify-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-500 text-slate-950 font-black text-[10px] tracking-tight shadow-sm select-none border border-amber-600/30 ${className}`}
       title={label ? `Bước ${step}: ${label}` : `Bước ${step}`}
     >
-      <span className="text-[10px] animate-spin-slow">✨</span>
-      <span>{step}</span>
+      <span>Bước {step}</span>
     </span>
   );
 };

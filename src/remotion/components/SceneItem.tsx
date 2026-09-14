@@ -34,6 +34,7 @@ interface SceneItemProps {
   subtitleStyle: SubtitleStyle;
   enableCameraShake?: boolean;
   enableDynamicEmojis?: boolean;
+  showHeaderBadge?: boolean;
 }
 
 export const SceneItem: React.FC<SceneItemProps> = ({
@@ -41,17 +42,20 @@ export const SceneItem: React.FC<SceneItemProps> = ({
   durationInFrames,
   subtitleStyle,
   enableCameraShake = true,
-  enableDynamicEmojis = true
+  enableDynamicEmojis = true,
+  showHeaderBadge = false
 }) => {
   const { fps } = useVideoConfig();
   const frame = useCurrentFrame();
+
+  const activeBadgeText = showHeaderBadge ? scene.headerBadge : undefined;
 
   const renderVisualContent = () => {
     switch (scene.visualType) {
       case 'chat_bubble':
         return (
           <ChatBubbleScene
-            badgeText={scene.headerBadge || '💬 INBOX MỖI NGÀY'}
+            badgeText={activeBadgeText}
             messages={scene.chatMessages}
             punchline={scene.narration}
           />
@@ -59,7 +63,7 @@ export const SceneItem: React.FC<SceneItemProps> = ({
       case 'orbital_glow':
         return (
           <OrbitalGlowScene
-            badgeText={scene.headerBadge || '🔑 HÔM NAY BẬT MÍ'}
+            badgeText={activeBadgeText}
             title={scene.orbitTitle || scene.searchKeyword || 'ỨNG DỤNG AI'}
             centerIcon={scene.orbitIcon || '🤖'}
           />
@@ -67,28 +71,28 @@ export const SceneItem: React.FC<SceneItemProps> = ({
       case 'math_grid':
         return (
           <MathGridScene
-            badgeText={scene.headerBadge || '👀 XEM NGAY ĐÂY'}
+            badgeText={activeBadgeText}
             punchline={scene.narration}
           />
         );
       case 'radar_tech':
         return (
           <RadarTechScene
-            badgeText={scene.headerBadge || '📊 PHÂN TÍCH CHỈ SỐ'}
+            badgeText={activeBadgeText}
             punchline={scene.narration}
           />
         );
       case 'night_highway':
         return (
           <NightHighwayScene
-            badgeText={scene.headerBadge || '🏎️ BỨT PHÁ TỐC ĐỘ'}
+            badgeText={activeBadgeText}
             punchline={scene.narration}
           />
         );
       case 'airplane_takeoff':
         return (
           <AirplaneTakeoffScene
-            badgeText={scene.headerBadge || '✈️ CẤT CÁNH THÀNH CÔNG'}
+            badgeText={activeBadgeText}
             punchline={scene.narration}
           />
         );
@@ -96,28 +100,28 @@ export const SceneItem: React.FC<SceneItemProps> = ({
       case 'rolling_counter':
         return (
           <StockChartScene
-            badgeText={scene.headerBadge || '📈 BÙNG NỔ LỢI NHUẬN'}
+            badgeText={activeBadgeText}
             punchline={scene.narration}
           />
         );
       case 'google_search':
         return (
           <GoogleSearchScene
-            badgeText={scene.headerBadge || '🔍 TÌM KIẾM BÍ QUYẾT'}
+            badgeText={activeBadgeText}
             query={scene.searchKeyword || scene.narration}
           />
         );
       case 'bank_notification':
         return (
           <BankNotificationScene
-            badgeText={scene.headerBadge || '💵 THÔNG BÁO BIẾN ĐỘNG SỐ DƯ'}
+            badgeText={activeBadgeText}
             punchline={scene.narration}
           />
         );
       case 'vs_battle':
         return (
           <VsBattleScene
-            badgeText={scene.headerBadge || '⚡ SO SÁNH ĐỐI ĐẦU'}
+            badgeText={activeBadgeText}
             punchline={scene.narration}
           />
         );
@@ -130,8 +134,8 @@ export const SceneItem: React.FC<SceneItemProps> = ({
           />
         );
       default:
-        // Kích hoạt engine xếp chữ Motion Typography khi bật phông xanh HOẶC khi chọn kiểu xếp chữ / chế độ lớp chữ
-        if (scene.isGreenScreenMotion || scene.motionTypographyLayout || scene.textLayerMode === 'front' || scene.textLayerMode === 'behind' || scene.textLayerMode === 'both_3d') {
+        // Kích hoạt engine xếp chữ Motion Typography khi chọn 100 Kiểu Xếp Chữ hoặc bật Phông Xanh
+        if (scene.isGreenScreenMotion || Boolean(scene.motionTypographyLayout)) {
           return (
             <GreenScreenDepthMotion
               scene={scene}
@@ -302,17 +306,33 @@ export const SceneItem: React.FC<SceneItemProps> = ({
           {scene.visualType && (
             <ExtendedVisualOverlay
               visualType={scene.visualType}
-              badgeText={scene.headerBadge}
+              badgeText={activeBadgeText}
               narration={scene.narration}
             />
           )}
 
           {/* Dynamic Motion HeaderBadge for Media scenes */}
-          {scene.headerBadge && (
-            <div className="absolute top-12 left-0 right-0 z-20 flex justify-center pointer-events-none">
-              <HeaderBadge text={scene.headerBadge} variant="cyan" />
-            </div>
-          )}
+          {showHeaderBadge &&
+            scene.headerBadge &&
+            !scene.headerBadge.toUpperCase().includes('CLIP') &&
+            !scene.headerBadge.startsWith('📍') && (() => {
+              const badgePos = scene.elementPositions?.['header_badge'];
+              const bTop = badgePos ? `${badgePos.y}%` : '48px';
+              const bLeft = badgePos ? `${badgePos.x}%` : '50%';
+              const bTransform = badgePos ? `translate(-50%, -50%) scale(${badgePos.scale ?? 1})` : 'translateX(-50%)';
+              return (
+                <div
+                  className="absolute z-20 flex justify-center pointer-events-none"
+                  style={{
+                    top: bTop,
+                    left: bLeft,
+                    transform: bTransform
+                  }}
+                >
+                  <HeaderBadge text={scene.headerBadge} variant="cyan" />
+                </div>
+              );
+            })()}
         </div>
       )}
 
@@ -362,12 +382,21 @@ export const SceneItem: React.FC<SceneItemProps> = ({
         </div>
       )}
 
-      {/* Synchronized Word-Level Subtitles: Chạy phụ đề theo từ với Text Template, Text Effect hoặc Mix Effects */}
-      {scene.visualType !== 'chat_bubble' && !scene.isGreenScreenMotion && !scene.hideSubtitles && (
+      {/* Synchronized Word-Level Subtitles: Chạy phụ đề khi không dùng 100 Kiểu Xếp Chữ Motion Typography */}
+      {scene.visualType !== 'chat_bubble' &&
+        !scene.isGreenScreenMotion &&
+        !scene.motionTypographyLayout &&
+        !scene.hideSubtitles && (
         <SubtitlesRenderer
           words={scene.words}
           subtitleStyle={subtitleStyle}
-          fallbackText={scene.narration}
+          fallbackText={
+            scene.narration &&
+            !scene.narration.startsWith('Phân đoạn ') &&
+            !/^\(?\d+s\)?$/i.test(scene.narration.trim())
+              ? scene.narration
+              : ''
+          }
           enableDynamicEmojis={enableDynamicEmojis}
           textTemplate={scene.tiktokTextTemplate}
           textEffect={scene.tiktokTextEffect}

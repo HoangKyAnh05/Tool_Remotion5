@@ -309,7 +309,7 @@ export const PlayerStudio: React.FC<PlayerStudioProps> = ({ project, setProject 
                 type="text"
                 value={project.watermark.text || ''}
                 onChange={(e) => updateWatermark({ text: e.target.value })}
-                placeholder="@LaDoHomestaySaPa"
+                placeholder="Nhập tên thương hiệu / kênh..."
                 className="bg-gray-950 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-indigo-500"
               />
               <select
@@ -509,6 +509,25 @@ export const PlayerStudio: React.FC<PlayerStudioProps> = ({ project, setProject 
             >
               <span>📳 Rung Lắc Camera</span>
               <span className="text-[10px] font-bold">{project.showCameraShake ?? true ? 'ON' : 'OFF'}</span>
+            </button>
+
+            {/* Header Badge / Top Title Toggle */}
+            <button
+              onClick={() =>
+                setProject((prev) => ({
+                  ...prev,
+                  showHeaderBadge: !prev.showHeaderBadge
+                }))
+              }
+              className={`flex items-center justify-between p-2 rounded-xl border text-xs font-medium transition-all col-span-2 ${
+                project.showHeaderBadge
+                  ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-200'
+                  : 'bg-gray-950 border-gray-800 text-gray-400'
+              }`}
+              title="Bật/Tắt chữ tiêu đề / huy hiệu trên đỉnh video"
+            >
+              <span>🏷️ Chữ tiêu đề trên đỉnh video (Header Badge)</span>
+              <span className="text-[10px] font-bold">{project.showHeaderBadge ? 'ON (Đang hiện)' : 'OFF (Đã tắt)'}</span>
             </button>
           </div>
         </div>
