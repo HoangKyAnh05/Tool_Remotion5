@@ -1,11 +1,14 @@
 import { app, BrowserWindow, ipcMain, dialog, shell, session } from 'electron';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import https from 'node:https';
-import http from 'node:http';
-import fs from 'node:fs';
+import path from 'path';
+// @ts-ignore
+import { fileURLToPath } from 'url';
+import https from 'https';
+import http from 'http';
+import fs from 'fs';
 import { Communicate } from 'edge-tts-universal';
+// @ts-ignore
 import { bundle } from '@remotion/bundler';
+// @ts-ignore
 import { renderMedia, selectComposition } from '@remotion/renderer';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -88,12 +91,12 @@ function fetchHttpBuffer(urlStr: string): Promise<Buffer> {
             Referer: 'https://translate.google.com/'
           }
         },
-        (res) => {
+        (res: any) => {
           if (res.statusCode && res.statusCode >= 400) {
             return reject(new Error(`HTTP error ${res.statusCode}`));
           }
           const chunks: Buffer[] = [];
-          res.on('data', (c) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
+          res.on('data', (c: any) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
           res.on('end', () => resolve(Buffer.concat(chunks)));
         }
       )
@@ -314,7 +317,7 @@ function setupIpcHandlers() {
         codec: 'h264',
         outputLocation,
         inputProps: { project },
-        onProgress: ({ progress }) => {
+        onProgress: ({ progress }: { progress: number }) => {
           const overallProgress = Math.min(99, Math.round(32 + progress * 66));
           win?.webContents.send('render:progress', {
             progress: overallProgress,

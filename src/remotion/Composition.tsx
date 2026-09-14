@@ -1,5 +1,5 @@
 import React from 'react';
-import { AbsoluteFill, Series, Audio, useVideoConfig, staticFile } from 'remotion';
+import { AbsoluteFill, Series, Sequence, Audio, useVideoConfig, staticFile } from 'remotion';
 import { RemotionVideoProps } from './types';
 import { SceneItem } from './components/SceneItem';
 import { ProgressBar } from './components/ProgressBar';
@@ -67,6 +67,7 @@ export const MainComposition: React.FC<RemotionVideoProps> = ({ project }) => {
   const showCinematicParticles = project.showCinematicParticles ?? true;
   const showCameraShake = project.showCameraShake ?? true;
   const enableDynamicEmojis = project.enableDynamicEmojis ?? true;
+  const timelineSfxList = project.timelineSfx || [];
 
   return (
     <AbsoluteFill className="bg-black">
@@ -113,6 +114,29 @@ export const MainComposition: React.FC<RemotionVideoProps> = ({ project }) => {
           );
         })}
       </Series>
+
+      {/* Timeline Sound Effects Multi-Track (Step 4 SFX Overlay) */}
+      {timelineSfxList.map((sfx) => {
+        const fromFrame = Math.max(0, Math.round(sfx.timestamp * fps));
+        const durationFrames = Math.max(1, Math.round((sfx.duration || 0.5) * fps));
+        const audioSrc = resolveAudioSource(sfx.audioUrl || whooshUrl);
+
+        return (
+          <Sequence
+            key={sfx.id}
+            from={fromFrame}
+            durationInFrames={durationFrames}
+          >
+            {audioSrc && (
+              <Audio
+                src={audioSrc}
+                volume={sfx.volume ?? 0.8}
+                startFrom={0}
+              />
+            )}
+          </Sequence>
+        );
+      })}
 
       {/* Cinematic Floating Particles / Light Leak Overlay */}
       {showCinematicParticles && (

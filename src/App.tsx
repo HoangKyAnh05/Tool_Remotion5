@@ -9,10 +9,13 @@ import { SettingsModal } from './components/SettingsModal';
 import { BatchVocabularyModal } from './components/BatchVocabularyModal';
 import { VideoSplitterModal } from './components/VideoSplitterModal';
 import { AiVideoDirectorModal } from './components/AiVideoDirectorModal';
+import { Step5WorkflowStepper, StepNumber } from './components/Step5WorkflowStepper';
+import { SfxTimelineManager } from './components/SfxTimelineManager';
 import { VideoProject } from './types/video';
 import { sampleHomestayProject } from './remotion/sampleHomestayProject';
 import { synthesizeEdgeTTS } from './services/edgeTtsService';
 import { WorkflowMode } from './components/SparkleBadge';
+import { DEFAULT_OPENAI_KEY } from './services/aiScriptService';
 
 export const App: React.FC = () => {
   const [project, setProject] = useState<VideoProject>(() => {
@@ -31,6 +34,7 @@ export const App: React.FC = () => {
     return sampleHomestayProject;
   });
 
+  const [currentStep, setCurrentStep] = useState<StepNumber>(1);
   const [workflowMode, setWorkflowMode] = useState<WorkflowMode>('fast');
   const [isGenerating, setIsGenerating] = useState(false);
   const [statusText, setStatusText] = useState('');
@@ -44,6 +48,9 @@ export const App: React.FC = () => {
 
   const [apiKeyGemini, setApiKeyGemini] = useState(
     () => localStorage.getItem('GEMINI_API_KEY') || ''
+  );
+  const [apiKeyOpenai, setApiKeyOpenai] = useState(
+    () => localStorage.getItem('OPENAI_API_KEY') || DEFAULT_OPENAI_KEY
   );
   const [apiKeyPexels, setApiKeyPexels] = useState(
     () => localStorage.getItem('PEXELS_API_KEY') || ''
@@ -158,8 +165,26 @@ export const App: React.FC = () => {
         setWorkflowMode={setWorkflowMode}
       />
 
+      {/* 5-Step Workflow Guidance Stepper */}
+      <Step5WorkflowStepper
+        currentStep={currentStep}
+        onSelectStep={(step) => {
+          setCurrentStep(step);
+          if (step === 1 || step === 2) {
+            setIsVideoSplitterOpen(true);
+          } else if (step === 5) {
+            setIsRenderOpen(true);
+          }
+        }}
+        onOpenVideoSplitter={() => setIsVideoSplitterOpen(true)}
+        onOpenRender={() => setIsRenderOpen(true)}
+        sceneCount={project.scenes.length}
+        totalDuration={project.totalDuration}
+        sfxCount={(project.timelineSfx || []).length}
+      />
+
       {/* Main Body (Studio) */}
-      <main className="flex-1 overflow-hidden w-full h-[calc(100vh-64px)] flex flex-col xl:flex-row bg-slate-50">
+      <main className="flex-1 overflow-hidden w-full h-[calc(100vh-112px)] flex flex-col xl:flex-row bg-slate-50">
         {/* CỘT TRÁI (28% Width): Phân cảnh & Kịch bản */}
         <div className="w-full xl:w-[28%] h-full overflow-y-auto p-3 sm:p-4 space-y-4 border-r border-slate-200 bg-slate-50/80 shrink-0">
           {/* Kịch bản */}
@@ -198,12 +223,20 @@ export const App: React.FC = () => {
         </div>
 
         {/* CỘT PHẢI (28% Width): BẢNG ĐIỀU KHIỂN THUỘC TÍNH & HIỆU ỨNG */}
-        <div className="w-full xl:w-[28%] h-full overflow-y-auto shrink-0 bg-white">
-          <InspectorPanel
-            project={project}
-            setProject={setProject}
-            workflowMode={workflowMode}
-          />
+        <div className="w-full xl:w-[28%] h-full overflow-y-auto shrink-0 bg-white p-2 sm:p-3">
+          {currentStep === 4 ? (
+            <SfxTimelineManager
+              project={project}
+              setProject={setProject}
+              currentTime={0}
+            />
+          ) : (
+            <InspectorPanel
+              project={project}
+              setProject={setProject}
+              workflowMode={workflowMode}
+            />
+          )}
         </div>
       </main>
 

@@ -30,7 +30,7 @@ export const CenterPlayerStage: React.FC<CenterPlayerStageProps> = ({ project, s
   const [isLooping, setIsLooping] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showFullscreenControls, setShowFullscreenControls] = useState(true);
-  const fullscreenHideTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const fullscreenHideTimerRef = useRef<any>(null);
 
   const fps = project.fps || 30;
 

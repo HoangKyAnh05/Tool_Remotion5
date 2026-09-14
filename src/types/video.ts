@@ -213,6 +213,17 @@ export interface VideoSegment {
   narration?: string;        // Kịch bản / lời dẫn (nếu có)
 }
 
+export interface TimelineSfxItem {
+  id: string;
+  sfxId: string;       // ID from SOUND_EFFECTS_LIST
+  name: string;
+  timestamp: number;   // Second in total video timeline (e.g. 3.5)
+  duration: number;    // Duration in seconds (e.g. 0.5)
+  volume: number;      // 0.0 to 1.0
+  category?: string;
+  audioUrl?: string;
+}
+
 export interface VideoProject {
   id: string;
   title: string;
@@ -235,6 +246,7 @@ export interface VideoProject {
   showCameraShake?: boolean;
   enableDynamicEmojis?: boolean;
   soundFx: SoundFxConfig;
+  timelineSfx?: TimelineSfxItem[]; // Thư viện Sound Effects kéo thả trên timeline
   bgm: {
     url?: string;
     localPath?: string;

@@ -63,12 +63,14 @@ const PRESET_HIGHLIGHT_COLORS = [
   { name: 'Trắng Sáng', color: '#FFFFFF' }
 ];
 
+import { SfxTimelineManager } from './SfxTimelineManager';
+
 export const InspectorPanel: React.FC<InspectorPanelProps> = ({
   project,
   setProject,
   workflowMode = 'fast'
 }) => {
-  const [activeTab, setActiveTab] = useState<'branding' | 'audio'>('branding');
+  const [activeTab, setActiveTab] = useState<'branding' | 'sfx' | 'audio'>('branding');
 
   const updateSubtitleStyle = (updates: Partial<SubtitleStyle>) => {
     setProject((prev) => ({
@@ -146,19 +148,32 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
         </div>
       )}
 
-      {/* 2 Tabs Điều Hướng Gọn Gàng */}
+      {/* 3 Tabs Điều Hướng Gọn Gàng */}
       <div className="flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200 mb-4 gap-1">
         <button
           type="button"
           onClick={() => setActiveTab('branding')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
             activeTab === 'branding'
-              ? 'bg-white text-slate-900 shadow-sm border border-slate-200'
+              ? 'bg-white text-slate-900 shadow-sm border border-slate-200 font-bold'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
           }`}
         >
           <Type className="w-3.5 h-3.5" />
-          <span className="truncate">Thương hiệu & Phụ đề</span>
+          <span className="truncate">Phụ đề</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('sfx')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            activeTab === 'sfx'
+              ? 'bg-white text-slate-900 shadow-sm border border-slate-200 font-bold text-violet-600'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5 text-violet-500" />
+          <span className="truncate">Sound FX</span>
         </button>
 
         <button
@@ -166,17 +181,26 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
           onClick={() => setActiveTab('audio')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
             activeTab === 'audio'
-              ? 'bg-white text-slate-900 shadow-sm border border-slate-200'
+              ? 'bg-white text-slate-900 shadow-sm border border-slate-200 font-bold'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
           }`}
         >
           <Music className="w-3.5 h-3.5" />
-          <span className="truncate">Âm thanh & Nhạc nền</span>
+          <span className="truncate">Nhạc nền</span>
         </button>
       </div>
 
       {/* Nội dung tương ứng theo Tab */}
       <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+        {activeTab === 'sfx' && (
+          <div className="animate-in fade-in duration-150">
+            <SfxTimelineManager
+              project={project}
+              setProject={setProject}
+              currentTime={0}
+            />
+          </div>
+        )}
         {/* ========================================================================= */}
         {/* TAB 1: THƯƠNG HIỆU & PHỤ ĐỀ */}
         {/* ========================================================================= */}

@@ -24,9 +24,12 @@ import {
   Video,
   FileVideo,
   HardDrive,
-  FolderSearch
+  Key,
+  Bot,
+  Sliders,
+  ChevronRight
 } from 'lucide-react';
-import { VideoProject, VideoSegment, TrimOverflowOption, AspectRatio, TrimSide } from '../types/video';
+import { VideoProject, VideoSegment, TrimOverflowOption, AspectRatio, TrimSide, Scene } from '../types/video';
 import {
   inspectVideoFile,
   splitVideoIntoSegments,
@@ -39,7 +42,7 @@ import {
   VideoMetadata
 } from '../services/videoSplitterService';
 import { GoogleDriveFolderPicker } from './GoogleDriveFolderPicker';
-import { GoogleDriveVideoItem } from '../services/googleDriveService';
+import { generateWithOpenAI, autoSynthesizeScenesVoice, DEFAULT_OPENAI_KEY } from '../services/aiScriptService';
 
 interface VideoSplitterModalProps {
   isOpen: boolean;
@@ -69,6 +72,17 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
   const [inputSourceTab, setInputSourceTab] = useState<'upload' | 'drive'>('upload');
   const [isDriveAppendOpen, setIsDriveAppendOpen] = useState(false);
 
+  // OpenAI Script & Voice State (Bước 1)
+  const [openaiKey, setOpenaiKey] = useState<string>(() => {
+    return localStorage.getItem('OPENAI_API_KEY') || DEFAULT_OPENAI_KEY;
+  });
+  const [aiTopic, setAiTopic] = useState<string>(project.topic || '');
+  const [aiRawScript, setAiRawScript] = useState<string>('');
+  const [aiCustomTimestamps, setAiCustomTimestamps] = useState<string>('0:00 - 0:10: Giới thiệu tổng quan\n0:10 - 0:25: Không gian chi tiết\n0:25 - 0:40: Trải nghiệm & Điểm nổi bật\n0:40 - 0:55: Lời kêu gọi hành động');
+  const [selectedVoice, setSelectedVoice] = useState<string>(project.voice?.name || 'vi-VN-HoaiMyNeural');
+  const [isGeneratingAi, setIsGeneratingAi] = useState<boolean>(false);
+  const [isAiSectionOpen, setIsAiSectionOpen] = useState<boolean>(true);
+
   // Tham chiếu DOM Master Player duy nhất
   const masterVideoRef = useRef<HTMLVideoElement | null>(null);
   const scrubberInputRef = useRef<HTMLInputElement | null>(null);
@@ -97,7 +111,7 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
     loadedVideos.reduce((sum, v) => sum + v.sizeMb, 0).toFixed(2)
   );
 
-  // 1. Nạp và xử lý mảng file video (từ máy tính hoặc tải về từ Google Drive)
+  // 1. Nạp và xử lý mảng file video
   const loadVideoFiles = async (
     files: File[],
     mode: 'replace' | 'append' = 'replace'
@@ -134,29 +148,19 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
         setSegments(initialSegments);
         setActiveSegmentIndex(0);
 
-        // Tạo thumbnails chạy ngầm
         generateAllSegmentThumbnails(initialSegments).then((thumbs) => {
           setThumbnails(thumbs);
         });
 
-        // Cập nhật Master Video Player
         if (masterVideoRef.current && initialSegments[0]) {
           masterVideoRef.current.src = initialSegments[0].sourceUrl;
           masterVideoRef.current.currentTime = initialSegments[0].startOffset;
         }
 
-        const ratioLabel =
-          autoRatio === '9:16'
-            ? '9:16 (Dọc TikTok/Shorts/Reels)'
-            : autoRatio === '1:1'
-            ? '1:1 (Vuông Instagram)'
-            : '16:9 (Ngang YouTube)';
-
         showNotification(
-          `✨ Đã nạp ${newMetas.length} video (${ratioLabel})! Đã tự động chia thành ${initialSegments.length} clip (${splitInterval}s/clip).`
+          `✨ Đã nạp ${newMetas.length} video (${autoRatio})! Đã tự động chia thành ${initialSegments.length} clip (${splitInterval}s/clip).`
         );
       } else {
-        // APPEND MODE: Tiếp nối vào các video hiện tại
         let appendedSegments: VideoSegment[] = [];
         let startOrder = segments.length + 1;
 
@@ -172,13 +176,12 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
         setLoadedVideos(combinedLoaded);
         setSegments(combinedSegments);
 
-        // Tạo thumbnail cho các phân đoạn mới và gộp vào state thumbnails
         generateAllSegmentThumbnails(appendedSegments).then((newThumbs) => {
           setThumbnails((prev) => ({ ...prev, ...newThumbs }));
         });
 
         showNotification(
-          `➕ Đã nạp thêm ${newMetas.length} video tiếp nối! Thêm ${appendedSegments.length} clip mới (Tổng cộng: ${combinedSegments.length} clip).`
+          `➕ Đã nạp thêm ${newMetas.length} video tiếp nối! Thêm ${appendedSegments.length} clip mới.`
         );
       }
     } catch (err: any) {
@@ -198,7 +201,93 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
     e.target.value = '';
   };
 
-  // 2. Chia lại theo khoảng thời gian mới cho toàn bộ các video đã nạp
+  // 2. Tự động sinh Kịch bản & Giọng đọc AI với OpenAI (Bước 1)
+  const handleGenerateOpenAiScript = async () => {
+    if (!openaiKey.trim()) {
+      alert('Vui lòng nhập OpenAI API Key để tiếp tục.');
+      return;
+    }
+
+    try {
+      setIsGeneratingAi(true);
+      localStorage.setItem('OPENAI_API_KEY', openaiKey.trim());
+
+      showNotification('🤖 OpenAI đang phân tích và tạo kịch bản theo các mốc giây...');
+
+      const generatedScenes = await generateWithOpenAI({
+        topic: aiTopic || 'Video clip tổng hợp',
+        rawScriptInput: aiRawScript,
+        customTimestamps: aiCustomTimestamps,
+        sceneCount: segments.length > 0 ? segments.length : 4,
+        apiKey: openaiKey.trim()
+      });
+
+      showNotification('🎙️ Đang tự động sinh giọng lồng tiếng AI chất lượng cao...');
+
+      // Map generated scenes into temporary Scene objects
+      const fullScenes: Scene[] = generatedScenes.map((s, idx) => ({
+        ...s,
+        audioDuration: 4.0,
+        words: []
+      }));
+
+      const synthesizedScenes = await autoSynthesizeScenesVoice(
+        fullScenes,
+        selectedVoice,
+        project.voice?.rate || '+0%',
+        project.voice?.pitch || '+0Hz',
+        (idx, total) => {
+          showNotification(`🎙️ Đang tạo giọng đọc phân cảnh ${idx}/${total}...`);
+        }
+      );
+
+      // Cập nhật vào danh sách segments hiện tại hoặc tạo segments mới
+      if (segments.length > 0) {
+        const updatedSegments = segments.map((seg, idx) => {
+          const matchedScene = synthesizedScenes[idx] || synthesizedScenes[idx % synthesizedScenes.length];
+          return {
+            ...seg,
+            narration: matchedScene?.narration || seg.narration,
+            title: matchedScene?.cutAction ? `Clip #${idx + 1}: ${matchedScene.cutAction}` : seg.title
+          };
+        });
+        setSegments(updatedSegments);
+      } else {
+        // Tạo segments giả định từ scenes nếu chưa nạp video
+        const dummySegments: VideoSegment[] = synthesizedScenes.map((sc, idx) => ({
+          id: `seg-ai-${Date.now()}-${idx + 1}`,
+          order: idx + 1,
+          title: `Phân cảnh #${idx + 1}: ${sc.cutAction || sc.searchKeyword || 'Clip'}`,
+          sourceUrl: '',
+          startOffset: sc.videoStartOffset || idx * 10,
+          endOffset: sc.videoEndOffset || (idx + 1) * 10,
+          duration: sc.audioDuration || 10,
+          narration: sc.narration
+        }));
+        setSegments(dummySegments);
+      }
+
+      // Cập nhật project scenes
+      setProject((prev) => ({
+        ...prev,
+        scenes: synthesizedScenes,
+        topic: aiTopic || prev.topic,
+        voice: {
+          ...prev.voice,
+          name: selectedVoice
+        }
+      }));
+
+      showNotification(`🎉 Thành công! Đã tạo kịch bản & giọng đọc cho ${synthesizedScenes.length} phân cảnh!`);
+    } catch (err: any) {
+      console.error('OpenAI generation error:', err);
+      alert(err.message || 'Lỗi khi gọi OpenAI API. Vui lòng kiểm tra lại API Key.');
+    } finally {
+      setIsGeneratingAi(false);
+    }
+  };
+
+  // 3. Chia lại theo khoảng thời gian mới
   const handleReSplit = (seconds: number) => {
     if (loadedVideos.length === 0) return;
     setSplitInterval(seconds);
@@ -225,11 +314,11 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
     }
 
     showNotification(
-      `Đã chia lại toàn bộ ${loadedVideos.length} video thành ${reSplitSegments.length} clip (${seconds}s/clip)`
+      `Đã chia lại ${loadedVideos.length} video thành ${reSplitSegments.length} clip (${seconds}s/clip)`
     );
   };
 
-  // 3. Chuyển sang xem thử phân đoạn clip khác (xử lý đổi video src mượt mà)
+  // 4. Chuyển sang xem thử phân đoạn clip khác
   const handleSelectSegment = (index: number) => {
     if (index < 0 || index >= segments.length) return;
     setActiveSegmentIndex(index);
@@ -237,7 +326,7 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
     const v = masterVideoRef.current;
     if (v && seg) {
       const isDifferentSrc = !v.src.endsWith(seg.sourceUrl) && v.src !== seg.sourceUrl;
-      if (isDifferentSrc) {
+      if (isDifferentSrc && seg.sourceUrl) {
         v.src = seg.sourceUrl;
         v.load();
       }
@@ -252,7 +341,7 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
     }
   };
 
-  // 4. Phát / Tạm dừng Master Video Player
+  // 5. Phát / Tạm dừng Master Video Player
   const togglePlayPause = () => {
     const v = masterVideoRef.current;
     if (!v || !activeSegment) return;
@@ -262,7 +351,7 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
       setIsPlaying(false);
     } else {
       const isDifferentSrc = !v.src.endsWith(activeSegment.sourceUrl) && v.src !== activeSegment.sourceUrl;
-      if (isDifferentSrc) {
+      if (isDifferentSrc && activeSegment.sourceUrl) {
         v.src = activeSegment.sourceUrl;
         v.load();
       }
@@ -275,7 +364,7 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
     }
   };
 
-  // 5. Native Frame Update bằng direct DOM update (0% React re-render lag)
+  // 6. Native Frame Update bằng direct DOM update
   useEffect(() => {
     const v = masterVideoRef.current;
     if (!v) return;
@@ -283,7 +372,6 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
     const onTimeUpdate = () => {
       if (!activeSegment) return;
 
-      // Xử lý auto-looping mượt mà trong dải [startOffset, endOffset]
       if (v.currentTime >= activeSegment.endOffset) {
         if (isLooping) {
           v.currentTime = activeSegment.startOffset;
@@ -297,7 +385,6 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
         v.currentTime = activeSegment.startOffset;
       }
 
-      // Cập nhật thanh tua & nhãn thời gian trực tiếp qua DOM (Cực nhanh, 0ms overhead)
       if (scrubberInputRef.current) {
         scrubberInputRef.current.value = String(v.currentTime);
       }
@@ -321,7 +408,7 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
     };
   }, [activeSegment, isLooping]);
 
-  // 6. Tua Master Video Player tức thì
+  // 7. Tua Master Video Player
   const handleSeek = (newTime: number) => {
     if (!activeSegment) return;
     const clamped = Math.max(activeSegment.startOffset, Math.min(activeSegment.endOffset, Number(newTime.toFixed(2))));
@@ -342,7 +429,44 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
     }
   };
 
-  // 7. Kéo co ngắn thời lượng (Đầu Trái / Đuôi Phải)
+  // 8. Trimmer kéo sang trái / sang phải mốc bắt đầu & kết thúc (Bước 2)
+  const handleTrimStartOffset = (index: number, newStart: number) => {
+    const seg = segments[index];
+    if (!seg) return;
+    const clampedStart = Math.max(0, Math.min(seg.endOffset - 0.5, Number(newStart.toFixed(2))));
+    const updatedSegments = [...segments];
+    updatedSegments[index] = {
+      ...seg,
+      startOffset: clampedStart,
+      duration: Number((seg.endOffset - clampedStart).toFixed(2))
+    };
+    setSegments(updatedSegments);
+
+    if (index === activeSegmentIndex && masterVideoRef.current) {
+      masterVideoRef.current.currentTime = clampedStart;
+    }
+  };
+
+  const handleTrimEndOffset = (index: number, newEnd: number) => {
+    const seg = segments[index];
+    if (!seg) return;
+    const matchedVideo = loadedVideos.find((v) => v.url === seg.sourceUrl);
+    const maxVideoDur = matchedVideo ? matchedVideo.duration : 9999;
+    const clampedEnd = Math.max(seg.startOffset + 0.5, Math.min(maxVideoDur, Number(newEnd.toFixed(2))));
+
+    const updatedSegments = [...segments];
+    updatedSegments[index] = {
+      ...seg,
+      endOffset: clampedEnd,
+      duration: Number((clampedEnd - seg.startOffset).toFixed(2))
+    };
+    setSegments(updatedSegments);
+
+    if (index === activeSegmentIndex && masterVideoRef.current) {
+      masterVideoRef.current.currentTime = clampedEnd;
+    }
+  };
+
   const handleDurationChange = (
     index: number,
     newDur: number,
@@ -370,7 +494,6 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
     showNotification(message);
   };
 
-  // 8. Co nhanh (1s, 2s) từ Đầu Trái hoặc Đuôi Phải
   const handleQuickTrim = (
     index: number,
     seconds: number,
@@ -409,30 +532,22 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
     showNotification('Đã xóa 1 clip khỏi danh sách.');
   };
 
-  // 10. Cập nhật kịch bản / ghi chú cho từng clip
   const handleUpdateNarration = (index: number, text: string) => {
     const copy = [...segments];
     copy[index].narration = text;
     setSegments(copy);
   };
 
-  // 11. Thay đổi tỉ lệ khung hình thủ công
   const handleSelectRatio = (ratio: AspectRatio) => {
     setSelectedRatio(ratio);
     setProject((prev) => ({ ...prev, aspectRatio: ratio }));
-    const label =
-      ratio === '9:16'
-        ? '9:16 (Dọc TikTok/Reels)'
-        : ratio === '1:1'
-        ? '1:1 (Vuông)'
-        : '16:9 (Ngang YouTube)';
-    showNotification(`Đã chuyển tỉ lệ khung hình sang: ${label}`);
+    showNotification(`Đã chuyển tỉ lệ khung hình sang: ${ratio}`);
   };
 
-  // 12. Chuyển tất cả clip thành Scene trong Remotion Storyboard
+  // 10. Chuyển tất cả clip thành Scene trong Remotion Storyboard
   const handleApplyToStoryboard = (mode: 'replace' | 'append' = 'replace') => {
     if (segments.length === 0) {
-      alert('Chưa có clip nào được tạo. Vui lòng tải video lên trước.');
+      alert('Chưa có clip nào được tạo. Vui lòng tải video lên hoặc tạo kịch bản trước.');
       return;
     }
 
@@ -446,19 +561,15 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
         id: `scene-split-${Date.now()}-${existingCount + i + 1}`
       }));
 
-      const newTotalDuration = Number(
-        (project.totalDuration + totalDurationSeconds).toFixed(2)
-      );
-
       setProject((prev) => ({
         ...prev,
         aspectRatio: selectedRatio,
         scenes: [...prev.scenes, ...renumberedNewScenes],
-        totalDuration: newTotalDuration
+        totalDuration: Number((prev.totalDuration + totalDurationSeconds).toFixed(2))
       }));
 
       alert(
-        `🎉 Thành công! Đã NỐI TIẾP thêm ${renumberedNewScenes.length} đoạn video ngắn vào Storyboard phân cảnh (Tổng cộng: ${project.scenes.length + renumberedNewScenes.length} phân cảnh)!`
+        `🎉 Thành công! Đã NỐI TIẾP thêm ${renumberedNewScenes.length} đoạn video ngắn vào Storyboard!`
       );
     } else {
       setProject((prev) => ({
@@ -469,7 +580,7 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
       }));
 
       alert(
-        `🎉 Thành công! Đã chuyển ${newScenes.length} đoạn video ngắn (${selectedRatio}) vào Storyboard phân cảnh của Remotion Studio!`
+        `🎉 Thành công! Đã chuyển ${newScenes.length} phân cảnh (${selectedRatio}) vào Remotion Studio!`
       );
     }
 
@@ -489,19 +600,18 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                Bộ Chia & Nối Nhiều Video Dài
+                Bước 1 & Bước 2: AI OpenAI Kịch Bản & Cắt Nối Source Video
                 <span className="text-xs px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold">
-                  ⚡ Master Studio 60 FPS Siêu Mượt
+                  ⚡ 5 Bước Hoàn Chỉnh
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                Tự động chia nhỏ video dài, co ngắn 2 đầu và cho phép nạp thêm nhiều video tiếp nối thành chuỗi phân cảnh hoàn chỉnh.
+                Nhập kịch bản theo mốc giây với OpenAI, tự sinh giọng lồng tiếng và kéo trượt trái/phải video gốc khớp từng phân cảnh.
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Nút Bật/Tắt Âm Thanh Preview */}
             <button
               onClick={() => {
                 const nextMuted = !isMuted;
@@ -528,7 +638,7 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
           </div>
         </div>
 
-        {/* Thông báo nổi (Notification banner) */}
+        {/* Notification banner */}
         {notification && (
           <div className="bg-emerald-950/90 border-b border-emerald-500/30 px-6 py-2 flex items-center gap-2 text-xs font-medium text-emerald-300 animate-in slide-in-from-top-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -538,10 +648,142 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
 
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
-          {/* Khu vực Upload Video nếu chưa có video nào */}
+          {/* ========================================================= */}
+          {/* BƯỚC 1: KHU VỰC OPENAI KỊCH BẢN & SINH GIỌNG ĐỌC AI       */}
+          {/* ========================================================= */}
+          <div className="bg-gradient-to-r from-rose-950/40 via-purple-950/30 to-slate-950 border border-rose-500/30 rounded-2xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-300 flex items-center justify-center font-bold text-sm">
+                  1
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Bot className="w-4 h-4 text-pink-400" /> Bước 1: OpenAI Kịch Bản & Giọng Đọc Theo Mốc Giây
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Nhập chủ đề hoặc danh sách mốc giây bạn muốn chia, OpenAI sẽ tự động tạo lời dẫn và sinh giọng đọc AI.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsAiSectionOpen(!isAiSectionOpen)}
+                className="text-xs text-rose-300 hover:text-rose-200 font-semibold px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800"
+              >
+                {isAiSectionOpen ? 'Thu gọn ▲' : 'Mở rộng ▼'}
+              </button>
+            </div>
+
+            {isAiSectionOpen && (
+              <div className="space-y-3 pt-2 border-t border-slate-800/80">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                  {/* Ô nhập API Key OpenAI */}
+                  <div className="md:col-span-6 space-y-1">
+                    <label className="text-[11px] font-bold text-slate-300 flex items-center gap-1">
+                      <Key className="w-3 h-3 text-yellow-400" /> OpenAI API Key:
+                    </label>
+                    <input
+                      type="password"
+                      value={openaiKey}
+                      onChange={(e) => setOpenaiKey(e.target.value)}
+                      placeholder="sk-proj-..."
+                      className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 font-mono focus:outline-none focus:border-rose-500"
+                    />
+                  </div>
+
+                  {/* Chọn giọng lồng tiếng */}
+                  <div className="md:col-span-6 space-y-1">
+                    <label className="text-[11px] font-bold text-slate-300 flex items-center gap-1">
+                      <Volume2 className="w-3 h-3 text-cyan-400" /> Giọng Lồng Tiếng AI:
+                    </label>
+                    <select
+                      value={selectedVoice}
+                      onChange={(e) => setSelectedVoice(e.target.value)}
+                      className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-rose-500"
+                    >
+                      <option value="vi-VN-HoaiMyNeural">Hoài My (Nữ - Truyền cảm, chuẩn Bắc)</option>
+                      <option value="vi-VN-NamMinhNeural">Nam Minh (Nam - Trầm ấm, uy lực)</option>
+                      <option value="en-US-JennyNeural">Jenny (English US - Female)</option>
+                      <option value="en-US-GuyNeural">Guy (English US - Male)</option>
+                    </select>
+                  </div>
+
+                  {/* Chủ đề video */}
+                  <div className="md:col-span-12 space-y-1">
+                    <label className="text-[11px] font-bold text-slate-300">
+                      🎯 Chủ đề / Tên Video:
+                    </label>
+                    <input
+                      type="text"
+                      value={aiTopic}
+                      onChange={(e) => setAiTopic(e.target.value)}
+                      placeholder="Ví dụ: Homestay Đà Lạt săn mây view thung lũng cực chill..."
+                      className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
+                    />
+                  </div>
+
+                  {/* Ô nhập mốc giây tách phân đoạn */}
+                  <div className="md:col-span-12 space-y-1">
+                    <label className="text-[11px] font-bold text-slate-300 flex items-center justify-between">
+                      <span>⏱️ Các Mốc Thời Gian / Giây Cần Tách Thành Phân Đoạn Mới:</span>
+                      <span className="text-[10px] text-slate-400 font-normal">Định dạng: 0:00 - 0:15: Nội dung</span>
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={aiCustomTimestamps}
+                      onChange={(e) => setAiCustomTimestamps(e.target.value)}
+                      placeholder="0:00 - 0:12: Toàn cảnh phòng khách&#10;0:12 - 0:25: Bếp ăn và ban công&#10;0:25 - 0:40: Phòng ngủ ấm cúng..."
+                      className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 font-mono leading-relaxed"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="button"
+                    onClick={handleGenerateOpenAiScript}
+                    disabled={isGeneratingAi}
+                    className="px-5 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-pink-600 via-rose-500 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white shadow-lg shadow-rose-900/40 disabled:opacity-50 flex items-center gap-2 transition-all transform active:scale-95"
+                  >
+                    {isGeneratingAi ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        Đang Tạo Kịch Bản & Giọng Đọc AI...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 text-yellow-300" />
+                        ✨ OpenAI Tự Động Gen Kịch Bản & Giọng Đọc AI
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ========================================================= */}
+          {/* BƯỚC 2: NẠP & KÉO CẮT SOURCE VIDEO CHO TỪNG PHÂN ĐOẠN    */}
+          {/* ========================================================= */}
           {loadedVideos.length === 0 ? (
             <div className="space-y-4 my-2">
-              {/* Tab Selector: Upload từ máy vs Quét Google Drive */}
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-orange-500/20 text-orange-300 flex items-center justify-center font-bold text-sm">
+                  2
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Film className="w-4 h-4 text-orange-400" /> Bước 2: Nạp Source Video Cho Từng Phân Đoạn
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Tải lên file video của bạn để bắt đầu kéo trượt chọn đoạn khớp kịch bản.
+                  </p>
+                </div>
+              </div>
+
+              {/* Tab Selector: Upload vs Drive */}
               <div className="flex items-center justify-center gap-2 p-1.5 bg-slate-950/80 border border-slate-800 rounded-2xl max-w-md mx-auto">
                 <button
                   type="button"
@@ -577,7 +819,7 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
               ) : (
                 <div
                   onClick={() => replaceFileInputRef.current?.click()}
-                  className="border-2 border-dashed border-slate-700 hover:border-rose-500 rounded-2xl p-12 flex flex-col items-center justify-center gap-3 text-center cursor-pointer bg-slate-950/50 hover:bg-slate-950 transition-all group my-4"
+                  className="border-2 border-dashed border-slate-700 hover:border-rose-500 rounded-2xl p-10 flex flex-col items-center justify-center gap-3 text-center cursor-pointer bg-slate-950/50 hover:bg-slate-950 transition-all group my-2"
                 >
                   <input
                     ref={replaceFileInputRef}
@@ -587,26 +829,26 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                     onChange={(e) => handleFileUpload(e, 'replace')}
                     className="hidden"
                   />
-                  <div className="w-16 h-16 rounded-2xl bg-slate-800 group-hover:bg-rose-600/20 border border-slate-700 group-hover:border-rose-500 flex items-center justify-center text-slate-400 group-hover:text-rose-400 transition-all">
-                    <Upload className="w-8 h-8" />
+                  <div className="w-14 h-14 rounded-2xl bg-slate-800 group-hover:bg-rose-600/20 border border-slate-700 group-hover:border-rose-500 flex items-center justify-center text-slate-400 group-hover:text-rose-400 transition-all">
+                    <Upload className="w-7 h-7" />
                   </div>
-                  <h3 className="text-base font-semibold text-white">
-                    Nhấn để tải lên một hoặc nhiều video dài từ máy tính
+                  <h3 className="text-sm font-semibold text-white">
+                    Nhấn để tải lên video từ máy tính
                   </h3>
                   <p className="text-xs text-slate-400 max-w-md">
-                    Hỗ trợ chọn cùng lúc nhiều file hoặc nạp thêm tiếp nối sau. Hệ thống tự động chia đều theo số giây mong muốn và giữ nguyên độ nét 100%.
+                    Hỗ trợ file video dài MP4/MOV/WebM. Hệ thống giữ nguyên độ nét 100% 60 FPS.
                   </p>
                 </div>
               )}
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Drawer Quét thêm từ Google Drive khi đã có video */}
+              {/* Drawer Quét thêm từ Google Drive */}
               {isDriveAppendOpen && (
                 <div className="relative bg-slate-950/90 border border-cyan-500/40 rounded-2xl p-4 space-y-3 animate-in fade-in-50">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
-                      <HardDrive className="w-4 h-4" /> Nạp thêm video tiếp nối từ Google Drive:
+                      <HardDrive className="w-4 h-4" /> Nạp thêm video từ Google Drive:
                     </span>
                     <button
                       type="button"
@@ -626,7 +868,7 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                 </div>
               )}
 
-              {/* Thanh Thông Tin Video Đã Nạp & Bộ Điều Khiển Tỉ Lệ */}
+              {/* Thanh Thông Tin Video Đã Nạp */}
               <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
@@ -649,13 +891,10 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Nút Chọn Tỉ Lệ Khung Hình & Chia Giây Nhanh & Nạp Thêm Video */}
+                  {/* Nút Chọn Tỉ Lệ Khung Hình & Nạp Thêm */}
                   <div className="flex flex-wrap items-center gap-2">
                     {/* Tỉ Lệ */}
                     <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg p-1 gap-1">
-                      <span className="text-[10px] font-bold text-slate-400 px-1.5 flex items-center gap-1">
-                        <Sparkles className="w-3 h-3 text-yellow-400" /> Tỉ lệ:
-                      </span>
                       <button
                         onClick={() => handleSelectRatio('9:16')}
                         className={`px-2.5 py-1 rounded text-xs font-bold transition-all ${
@@ -664,7 +903,7 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                             : 'text-slate-400 hover:text-white'
                         }`}
                       >
-                        <Smartphone className="w-3 h-3 inline mr-1" /> 9:16 Dọc
+                        <Smartphone className="w-3 h-3 inline mr-1" /> 9:16
                       </button>
                       <button
                         onClick={() => handleSelectRatio('16:9')}
@@ -674,7 +913,7 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                             : 'text-slate-400 hover:text-white'
                         }`}
                       >
-                        <Tv className="w-3 h-3 inline mr-1" /> 16:9 Ngang
+                        <Tv className="w-3 h-3 inline mr-1" /> 16:9
                       </button>
                       <button
                         onClick={() => handleSelectRatio('1:1')}
@@ -688,7 +927,7 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                       </button>
                     </div>
 
-                    {/* Nút Chia Lại */}
+                    {/* Chia nhanh */}
                     <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-lg p-1">
                       {[5, 10, 15].map((sec) => (
                         <button
@@ -705,11 +944,10 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                       ))}
                     </div>
 
-                    {/* NÚT NẠP THÊM VIDEO TIẾP NỐI TỪ MÁY */}
+                    {/* Nạp Thêm */}
                     <button
                       onClick={() => appendFileInputRef.current?.click()}
-                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-900/30 transition-all flex items-center gap-1.5 active:scale-95"
-                      title="Nạp thêm video từ máy tính để tiếp nối vào chuỗi clip hiện tại"
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition-all flex items-center gap-1.5"
                     >
                       <PlusCircle className="w-3.5 h-3.5" /> + Từ máy
                     </button>
@@ -722,21 +960,17 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                       className="hidden"
                     />
 
-                    {/* NÚT NẠP THÊM TỪ GOOGLE DRIVE */}
                     <button
                       type="button"
                       onClick={() => setIsDriveAppendOpen(!isDriveAppendOpen)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white shadow-md shadow-blue-900/30 transition-all flex items-center gap-1.5 active:scale-95"
-                      title="Quét và nạp thêm video từ Google Drive"
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md transition-all flex items-center gap-1.5"
                     >
                       <HardDrive className="w-3.5 h-3.5" /> + Từ Drive
                     </button>
 
-                    {/* Nút Thay Thế Toàn Bộ */}
                     <button
                       onClick={() => replaceFileInputRef.current?.click()}
                       className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors flex items-center gap-1"
-                      title="Tải lại từ đầu (xóa các video cũ)"
                     >
                       <RefreshCw className="w-3 h-3" /> Đổi mới
                     </button>
@@ -750,52 +984,28 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                     />
                   </div>
                 </div>
-
-                {/* Danh sách các file video nguồn đã nạp (Tags bar) */}
-                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-850">
-                  <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
-                    <FileVideo className="w-3.5 h-3.5 text-rose-400" /> Các video đã nạp ({loadedVideos.length}):
-                  </span>
-                  {loadedVideos.map((v, idx) => {
-                    const videoSegments = segments.filter((s) => s.sourceUrl === v.url);
-                    return (
-                      <div
-                        key={idx}
-                        className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-md text-[11px] text-slate-300 font-mono"
-                      >
-                        <span className="w-4 h-4 rounded-full bg-rose-500/20 text-rose-300 font-bold flex items-center justify-center text-[9px]">
-                          {idx + 1}
-                        </span>
-                        <span className="truncate max-w-[140px] font-sans font-medium text-white">{v.name}</span>
-                        <span className="text-slate-400">({formatTimeDisplay(v.duration)})</span>
-                        <span className="text-cyan-400 font-semibold">• {videoSegments.length} clips</span>
-                      </div>
-                    );
-                  })}
-                </div>
               </div>
 
-              {/* BỐ CỤC MASTER STUDIO (2 CỘT: PLAYER TRUNG TÂM & DANH SÁCH PHÂN ĐOẠN) */}
+              {/* BỐ CỤC 2 CỘT: PLAYER TRUNG TÂM & DANH SÁCH CLIPS */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-                {/* CỘT TRÁI (MASTER PLAYER NATIVE 60 FPS) */}
+                {/* CỘT TRÁI: MASTER PLAYER */}
                 <div className="lg:col-span-5 bg-slate-950/90 border border-slate-800 rounded-2xl p-4 space-y-3 sticky top-0 shadow-xl">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-rose-300 flex items-center gap-1.5">
                       <Film className="w-4 h-4 text-rose-400" />
-                      MASTER PLAYER (60 FPS MƯỢT TUYỆT ĐỐI)
+                      MASTER PLAYER (60 FPS)
                     </span>
                     <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[11px] font-mono text-cyan-300 font-bold">
                       Clip #{activeSegment?.order || 1} / {segments.length}
                     </span>
                   </div>
 
-                  {/* Khung Chiếu Video Master (1 Thẻ Duy Nhất) */}
                   <div
                     className={`relative rounded-xl overflow-hidden bg-black border border-slate-800 mx-auto w-full flex items-center justify-center select-none shadow-2xl ${
                       selectedRatio === '9:16'
-                        ? 'aspect-[9/16] max-h-[420px]'
+                        ? 'aspect-[9/16] max-h-[400px]'
                         : selectedRatio === '1:1'
-                        ? 'aspect-square max-h-[360px]'
+                        ? 'aspect-square max-h-[350px]'
                         : 'aspect-video'
                     }`}
                   >
@@ -813,12 +1023,10 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                       }}
                     />
 
-                    {/* Nút Play/Pause To Ở Giữa Video */}
                     <button
                       type="button"
                       onClick={togglePlayPause}
                       className="absolute inset-0 m-auto w-14 h-14 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center backdrop-blur-sm transition-all transform hover:scale-105 border border-white/20 shadow-2xl z-10"
-                      title={isPlaying ? 'Tạm dừng (Space)' : 'Phát mượt 60 FPS (Space)'}
                     >
                       {isPlaying ? (
                         <Pause className="w-6 h-6 fill-white" />
@@ -827,7 +1035,6 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                       )}
                     </button>
 
-                    {/* Badge Tỉ lệ & Trạng Thái Lặp */}
                     <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-sm text-[10px] text-white font-mono border border-white/10 z-10">
                       {selectedRatio}
                     </div>
@@ -840,13 +1047,12 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                           ? 'bg-rose-500/80 text-white border-rose-400'
                           : 'bg-black/60 text-slate-400 border-white/10'
                       }`}
-                      title={isLooping ? 'Đang bật lặp lại clip' : 'Tắt lặp lại clip'}
                     >
                       🔁 Lặp lại
                     </button>
                   </div>
 
-                  {/* Thanh Scrubber Tua Master Video Player (Native DOM Performance) */}
+                  {/* Thanh Scrubber */}
                   <div className="space-y-1.5 bg-slate-900/95 p-3 rounded-xl border border-slate-800">
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="text-slate-400 font-medium">Tua vị trí clip đang xem:</span>
@@ -866,14 +1072,12 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                       className="w-full accent-rose-500 h-2 bg-slate-800 rounded-lg cursor-pointer hover:accent-pink-400 transition-all"
                     />
 
-                    {/* Các Nút Điều Khiển Master Player */}
                     <div className="flex items-center justify-between pt-1">
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
                           onClick={() => handleSeek(activeSegment?.startOffset || 0)}
                           className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
-                          title="Về đầu clip"
                         >
                           <SkipBack className="w-3.5 h-3.5" />
                         </button>
@@ -881,7 +1085,6 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                           type="button"
                           onClick={() => handleStep(-1)}
                           className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono transition-colors"
-                          title="Tua lùi 1 giây"
                         >
                           -1s
                         </button>
@@ -890,7 +1093,7 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                           onClick={togglePlayPause}
                           className={`px-3 py-1 rounded-lg font-bold text-xs transition-colors ${
                             isPlaying
-                              ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/40'
+                              ? 'bg-rose-600 text-white shadow-lg'
                               : 'bg-rose-600/30 hover:bg-rose-600/50 text-rose-300'
                           }`}
                         >
@@ -900,7 +1103,6 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                           type="button"
                           onClick={() => handleStep(1)}
                           className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono transition-colors"
-                          title="Tua tiến 1 giây"
                         >
                           +1s
                         </button>
@@ -908,7 +1110,6 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                           type="button"
                           onClick={() => handleSeek(activeSegment?.endOffset || 0)}
                           className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
-                          title="Đến cuối clip"
                         >
                           <SkipForward className="w-3.5 h-3.5" />
                         </button>
@@ -936,27 +1137,21 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                   </div>
                 </div>
 
-                {/* CỘT PHẢI (DANH SÁCH CÁC CLIP CON & CÔNG CỤ CO 2 ĐẦU) */}
+                {/* CỘT PHẢI: DANH SÁCH CLIPS & BỘ KÉO TRÁI/PHẢI */}
                 <div className="lg:col-span-7 space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
                       <Layers className="w-4 h-4 text-rose-400" />
-                      Danh Sách Phân Đoạn ({segments.length} Clips):
+                      Bước 2: Cắt Trái / Phải Khớp Kịch Bản ({segments.length} Clips):
                     </h3>
-                    <button
-                      onClick={() => appendFileInputRef.current?.click()}
-                      className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Nạp thêm video nối tiếp
-                    </button>
                   </div>
 
-                  <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
+                  <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
                     {segments.map((seg, idx) => {
                       const isCurrent = idx === activeSegmentIndex;
-                      const isFirst = idx === 0;
-                      const isLast = idx === segments.length - 1;
                       const thumb = thumbnails[seg.id] || seg.thumbnail;
+                      const matchedVideo = loadedVideos.find((v) => v.url === seg.sourceUrl);
+                      const maxVideoDuration = matchedVideo ? matchedVideo.duration : 100;
 
                       return (
                         <div
@@ -968,7 +1163,7 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                               : 'border-slate-800 hover:border-slate-700'
                           }`}
                         >
-                          {/* Tiêu đề & Thông tin mốc & Tên video nguồn */}
+                          {/* Header Phân đoạn */}
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <span
@@ -985,21 +1180,16 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                                   {seg.title}
                                   {isCurrent && (
                                     <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[10px] font-semibold border border-rose-500/30">
-                                      Đang Chiếu Trên Player
+                                      Đang Chiếu
                                     </span>
                                   )}
                                 </span>
-                                {seg.sourceName && (
-                                  <span className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
-                                    <Video className="w-2.5 h-2.5 text-rose-400" /> Nguồn: {seg.sourceName}
-                                  </span>
-                                )}
                               </div>
                             </div>
 
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-mono px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-cyan-300 font-bold">
-                                {formatTimeDisplay(seg.startOffset)} - {formatTimeDisplay(seg.endOffset)}
+                                {formatTimeDisplay(seg.startOffset)} - {formatTimeDisplay(seg.endOffset)} ({seg.duration}s)
                               </span>
                               <button
                                 onClick={(e) => {
@@ -1007,118 +1197,70 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                                   handleDeleteSegment(seg.id);
                                 }}
                                 className="p-1 text-slate-500 hover:text-rose-400 transition-colors"
-                                title="Xóa clip này"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           </div>
 
-                          {/* Thân thẻ: Thumbnail nhỏ + Bộ công cụ Co Ngắn 2 Đầu */}
-                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
-                            {/* Thumbnail Snapshot Sắc Nét */}
-                            <div className="sm:col-span-3 aspect-[9/16] max-h-[110px] rounded-lg overflow-hidden bg-black border border-slate-800 mx-auto sm:mx-0 relative flex items-center justify-center">
-                              {thumb ? (
-                                <img
-                                  src={thumb}
-                                  alt={seg.title}
-                                  className="w-full h-full object-contain bg-black"
-                                />
-                              ) : (
-                                <Film className="w-6 h-6 text-slate-600" />
-                              )}
-                              <div className="absolute bottom-1 right-1 px-1.5 py-0.2 rounded bg-black/80 text-[10px] font-mono text-white">
-                                {seg.duration}s
-                              </div>
+                          {/* Kéo Trái / Phải Trực Tiếp Trên File Video Đã Đẩy Lên */}
+                          <div className="space-y-2 bg-slate-900/90 p-3 rounded-xl border border-slate-850" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-between text-xs text-slate-300 font-semibold">
+                              <span className="flex items-center gap-1 text-amber-400">
+                                👈 Kéo Mốc Bắt Đầu (Trái): {formatTimeDisplay(seg.startOffset)}
+                              </span>
+                              <span className="flex items-center gap-1 text-rose-400">
+                                👉 Kéo Mốc Kết Thúc (Phải): {formatTimeDisplay(seg.endOffset)}
+                              </span>
                             </div>
 
-                            {/* Bộ Công Cụ Co Ngắn Đầu Trái & Đuôi Phải */}
-                            <div
-                              onClick={(e) => e.stopPropagation()}
-                              className="sm:col-span-9 space-y-2 bg-slate-900/90 p-2.5 rounded-xl border border-slate-850"
-                            >
-                              {/* Thanh Kéo Co Thời Lượng */}
-                              <div className="flex items-center justify-between text-xs">
-                                <span className="text-slate-400 font-medium">
-                                  Kéo co ngắn thời lượng:
-                                </span>
-                                <span className="text-cyan-300 font-bold font-mono">
-                                  {seg.duration} giây
+                            {/* Dual Scrubber Controls */}
+                            <div className="space-y-1.5">
+                              {/* Thanh kéo Mốc Bắt Đầu (Trái) */}
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-amber-300 w-12 shrink-0 font-mono">Bắt đầu:</span>
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max={Math.max(0, seg.endOffset - 0.5)}
+                                  step="0.1"
+                                  value={seg.startOffset}
+                                  onChange={(e) => handleTrimStartOffset(idx, parseFloat(e.target.value))}
+                                  className="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer accent-amber-400"
+                                  title="Kéo sang trái/phải để dời mốc bắt đầu của clip"
+                                />
+                                <span className="text-[10px] text-slate-400 font-mono w-14 text-right">
+                                  {seg.startOffset.toFixed(1)}s
                                 </span>
                               </div>
 
-                              <input
-                                type="range"
-                                min="0.5"
-                                max={Math.max(1, Math.min(60, Number((seg.duration + 20).toFixed(1))))}
-                                step="0.5"
-                                value={seg.duration}
-                                onChange={(e) =>
-                                  handleDurationChange(idx, parseFloat(e.target.value), 'right')
-                                }
-                                className="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer accent-cyan-400"
-                              />
-
-                              {/* Các Nút Thao Tác Co Đầu Trái / Đuôi Phải Trực Tiếp */}
-                              <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1 border-t border-slate-800/80 text-[11px]">
-                                {/* Cụm Co Đầu Trái */}
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleQuickTrim(idx, 1, 'left', 'discard')}
-                                    disabled={seg.duration <= 1}
-                                    className="px-2 py-0.5 rounded bg-slate-800 hover:bg-amber-900/40 text-amber-300 border border-slate-750 text-[10px] font-semibold transition-colors disabled:opacity-40"
-                                    title="Co 1s ở đầu trái (Xóa bỏ)"
-                                  >
-                                    ⬅️ Co 1s Đầu (Xóa)
-                                  </button>
-                                  {!isFirst && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleQuickTrim(idx, 2, 'left', 'shift_to_prev')}
-                                      disabled={seg.duration <= 2}
-                                      className="px-2 py-0.5 rounded bg-slate-800 hover:bg-amber-900/40 text-amber-300 border border-slate-750 text-[10px] font-semibold transition-colors disabled:opacity-40"
-                                      title={`Co 2s ở đầu và đẩy sang đuôi Clip #${idx}`}
-                                    >
-                                      🔄 Co 2s (Đẩy về #{idx})
-                                    </button>
-                                  )}
-                                </div>
-
-                                {/* Cụm Co Đuôi Phải */}
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleQuickTrim(idx, 1, 'right', 'discard')}
-                                    disabled={seg.duration <= 1}
-                                    className="px-2 py-0.5 rounded bg-slate-800 hover:bg-rose-900/40 text-rose-300 border border-slate-750 text-[10px] font-semibold transition-colors disabled:opacity-40"
-                                    title="Co 1s ở đuôi phải (Xóa bỏ)"
-                                  >
-                                    Co 1s Đuôi (Xóa) ➡️
-                                  </button>
-                                  {!isLast && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleQuickTrim(idx, 2, 'right', 'shift_to_next')}
-                                      disabled={seg.duration <= 2}
-                                      className="px-2 py-0.5 rounded bg-slate-800 hover:bg-cyan-900/40 text-cyan-300 border border-slate-750 text-[10px] font-semibold transition-colors disabled:opacity-40"
-                                      title={`Co 2s ở đuôi và đẩy sang đầu Clip #${idx + 2}`}
-                                    >
-                                      🔄 Co 2s (Đẩy sang #{idx + 2})
-                                    </button>
-                                  )}
-                                </div>
+                              {/* Thanh kéo Mốc Kết Thúc (Phải) */}
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-rose-300 w-12 shrink-0 font-mono">Kết thúc:</span>
+                                <input
+                                  type="range"
+                                  min={seg.startOffset + 0.5}
+                                  max={maxVideoDuration}
+                                  step="0.1"
+                                  value={seg.endOffset}
+                                  onChange={(e) => handleTrimEndOffset(idx, parseFloat(e.target.value))}
+                                  className="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer accent-rose-400"
+                                  title="Kéo sang trái/phải để dời mốc kết thúc của clip"
+                                />
+                                <span className="text-[10px] text-slate-400 font-mono w-14 text-right">
+                                  {seg.endOffset.toFixed(1)}s
+                                </span>
                               </div>
                             </div>
                           </div>
 
-                          {/* Ghi chú / Lời thuyết minh phân cảnh */}
+                          {/* Kịch bản lời dẫn phân cảnh */}
                           <div onClick={(e) => e.stopPropagation()}>
                             <input
                               type="text"
                               value={seg.narration || ''}
                               onChange={(e) => handleUpdateNarration(idx, e.target.value)}
-                              placeholder={`Ghi chú kịch bản clip #${seg.order} (vd: Giới thiệu phòng ngủ, view săn mây...)`}
+                              placeholder={`Lời dẫn kịch bản phân cảnh #${seg.order}...`}
                               className="w-full px-3 py-1.5 bg-slate-900 border border-slate-800 focus:border-rose-500 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-none"
                             />
                           </div>
@@ -1137,7 +1279,7 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
           <div className="text-xs text-slate-400">
             {segments.length > 0 && (
               <span>
-                💡 Đã tạo <strong>{segments.length} clips</strong> từ <strong>{loadedVideos.length} videos</strong> ({selectedRatio}). Bạn có thể chọn thay thế hoặc nối tiếp vào Storyboard hiện tại.
+                💡 Đã có <strong>{segments.length} phân cảnh</strong> ({selectedRatio}).
               </span>
             )}
           </div>
@@ -1150,25 +1292,13 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
               Đóng
             </button>
 
-            {/* Nút Nối Tiếp Vào Storyboard */}
-            <button
-              onClick={() => handleApplyToStoryboard('append')}
-              disabled={segments.length === 0}
-              className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-600 text-white shadow-md shadow-emerald-900/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-all"
-              title="Thêm các clip này vào cuối danh sách các phân cảnh Storyboard hiện có"
-            >
-              <PlusCircle className="w-3.5 h-3.5" />
-              + Nối Tiếp Vào Storyboard ({segments.length} Clips)
-            </button>
-
-            {/* Nút Đưa Vào Storyboard (Thay Thế) */}
             <button
               onClick={() => handleApplyToStoryboard('replace')}
               disabled={segments.length === 0}
-              className="px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600 hover:from-rose-600 hover:to-pink-600 text-white shadow-lg shadow-rose-900/40 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all transform active:scale-95"
+              className="px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600 hover:from-rose-600 hover:to-pink-600 text-white shadow-lg shadow-rose-900/40 disabled:opacity-50 flex items-center gap-2 transition-all transform active:scale-95"
             >
               <Sparkles className="w-4 h-4" />
-              Đưa Vào Storyboard (Thay Thế Toàn Bộ)
+              Đưa Vào Storyboard Video Studio
             </button>
           </div>
         </div>

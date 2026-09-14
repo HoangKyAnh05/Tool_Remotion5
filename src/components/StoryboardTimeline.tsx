@@ -153,7 +153,7 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
   const [recordingSeconds, setRecordingSeconds] = useState<number>(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingTimerRef = useRef<any>(null);
   const speechRecognitionRef = useRef<any>(null);
   const liveTranscribedTextRef = useRef<string>('');
 
