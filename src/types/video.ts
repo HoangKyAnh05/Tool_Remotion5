@@ -272,50 +272,64 @@ export interface VoiceOption {
 }
 
 export const VIETNAMESE_VOICES: VoiceOption[] = [
-  // --- 👑 GIỌNG ĐỌC NAM STUDIO CHUẨN TIKTOK (100% Miễn Phí, Tự Nhiên, Không Cần Key) ---
+  // --- 🌸 GIỌNG ĐỌC NỮ TIẾNG VIỆT (100% Miễn Phí, Siêu Tự Nhiên, Ngọt Ngào & Truyền Cảm) ---
+  {
+    id: 'vi-VN-HoaiMyNeural:sweet',
+    name: '🌸 Nữ Hoài My - Reviewer Ngọt Ngào (Food, Travel, Cafe, Homestay - 100% Free)',
+    locale: 'vi-VN',
+    gender: 'Female',
+    description: 'Giọng nữ ngọt ngào, tươi tắn, âm sắc trong trẻo tự nhiên, chuẩn tone reviewer ẩm thực, du lịch trải nghiệm.'
+  },
+  {
+    id: 'vi-VN-HoaiMyNeural:live',
+    name: '🛍️ Nữ Hoài My - Livestream Bán Hàng (TikTok Shop Năng Động, Chốt Đơn - 100% Free)',
+    locale: 'vi-VN',
+    gender: 'Female',
+    description: 'Giọng nữ sôi động, nhịp điệu nhanh, cuốn hút khách hàng và kích thích chuyển đổi đơn hàng.'
+  },
+  {
+    id: 'vi-VN-HoaiMyNeural',
+    name: '🇻🇳 Nữ Hoài My - Phát Thanh Viên (Truyền Cảm, Chuẩn Giọng Hà Nội - 100% Free)',
+    locale: 'vi-VN',
+    gender: 'Female',
+    description: 'Giọng nữ chuẩn Hà Nội, mượt mà, sâu lắng, tin tức chính thống, giới thiệu sản phẩm trang trọng.'
+  },
+  {
+    id: 'vi-VN-HoaiMyNeural:genz',
+    name: '✨ Nữ Hoài My - GenZ Bắt Trend (Nhí Nhảnh, Hài Hước, Tươi Tắn - 100% Free)',
+    locale: 'vi-VN',
+    gender: 'Female',
+    description: 'Giọng nữ tươi vui, trẻ trung, phù hợp video giải trí, meme, drama TikTok.'
+  },
+  {
+    id: 'vi-VN-HoaiMyNeural:story',
+    name: '📖 Nữ Hoài My - Tâm Sự & Kể Chuyện (Sâu Lắng, Podcast Cảm Xúc - 100% Free)',
+    locale: 'vi-VN',
+    gender: 'Female',
+    description: 'Giọng nữ trầm lắng, tình cảm, phù hợp podcast tâm sự, chuyện đêm muộn, triết lý cuộc sống.'
+  },
+
+  // --- 🎙️ GIỌNG ĐỌC NAM TIẾNG VIỆT (100% Miễn Phí, Trầm Ấm, Uy Lực) ---
   {
     id: 'vi-VN-NamMinhNeural',
-    name: '🎙️ Giọng Nam Studio TikTok (Nam Trầm Ấm, Quyền Lực, Review Triệu View - 100% Free)',
+    name: '🎙️ Nam Minh - Studio TikTok (Nam Trầm Ấm, Quyền Lực, Review Triệu View - 100% Free)',
     locale: 'vi-VN',
     gender: 'Male',
     description: 'Giọng đọc Nam tiêu chuẩn Studio, âm sắc trầm ấm, đĩnh đạc, phát âm tròn vành rõ chữ, tự động căn chuẩn nhịp từng từ phụ đề.'
   },
   {
     id: 'vi-VN-NamMinhNeural:fast',
-    name: '⚡ Giọng Nam Viral TikTok (Nhanh Cuốn Hút, Review Bán Hàng - 100% Free)',
+    name: '⚡ Nam Minh - Nam Viral TikTok (Nhanh Cuốn Hút, Review Bán Hàng - 100% Free)',
     locale: 'vi-VN',
     gender: 'Male',
     description: 'Phong cách đọc nhanh cuốn hút, bắt trend, giật tít kịch tính cho video ngắn TikTok/Reels.'
   },
   {
     id: 'vi-VN-NamMinhNeural:recap',
-    name: '🔥 Giọng Nam Tóm Tắt Phim (Recap Siêu Tốc, Anime & Truyện Tranh - 100% Free)',
+    name: '🔥 Nam Minh - Tóm Tắt Phim (Recap Siêu Tốc, Anime & Truyện Tranh - 100% Free)',
     locale: 'vi-VN',
     gender: 'Male',
     description: 'Giọng đọc tóm tắt phim dồn dập, kịch tính, phong cách review truyện tranh triệu view.'
-  },
-
-  // --- 🌸 GIỌNG ĐỌC NỮ STUDIO CHUẨN TIKTOK (100% Miễn Phí) ---
-  {
-    id: 'vi-VN-HoaiMyNeural:sweet',
-    name: '🌸 Giọng Nữ Review Food & Travel (Ngọt Ngào, Tươi Tắn - 100% Free)',
-    locale: 'vi-VN',
-    gender: 'Female',
-    description: 'Giọng nữ ngọt ngào, tươi tắn, chuẩn tone reviewer quán ăn, cafe, homestay du lịch trải nghiệm.'
-  },
-  {
-    id: 'vi-VN-HoaiMyNeural:live',
-    name: '🛍️ Giọng Nữ Livestream Bán Hàng (TikTok Shop, Chốt Đơn - 100% Free)',
-    locale: 'vi-VN',
-    gender: 'Female',
-    description: 'Giọng nữ năng động, kích thích tương tác và chuyển đổi đơn hàng.'
-  },
-  {
-    id: 'vi-VN-HoaiMyNeural',
-    name: '🇻🇳 Giọng Nữ Phát Thanh Viên (Truyền Cảm, Chuẩn Hà Nội - 100% Free)',
-    locale: 'vi-VN',
-    gender: 'Female',
-    description: 'Giọng nữ chuẩn Hà Nội, mượt mà, sâu lắng, tin tức chính thống và tâm sự.'
   },
 
   // --- 👑 GIỌNG ADAM NGUYÊN BẢN (Dành cho ai có Key ElevenLabs / VClip) ---

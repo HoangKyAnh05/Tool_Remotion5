@@ -862,20 +862,43 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
               <div className="space-y-1.5">
                 <label className="text-[11px] font-semibold text-slate-600 block">Chọn giọng đọc AI:</label>
                 <select
-                  value={project.voice?.name || 'google-vi-male'}
+                  value={project.voice?.name || 'vi-VN-HoaiMyNeural:sweet'}
                   onChange={(e) =>
                     setProject((prev) => ({
                       ...prev,
                       voice: { ...prev.voice, name: e.target.value }
                     }))
                   }
-                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
                 >
-                  {VIETNAMESE_VOICES.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name} ({v.gender === 'Female' ? 'Nữ' : 'Nam'})
-                    </option>
-                  ))}
+                  <optgroup label="🌸 GIỌNG NỮ TIẾNG VIỆT (100% Free - Ngọt Ngào, Truyền Cảm)">
+                    {VIETNAMESE_VOICES.filter((v) => v.gender === 'Female' && v.locale.startsWith('vi')).map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="🎙️ GIỌNG NAM TIẾNG VIỆT (100% Free - Trầm Ấm, Uy Lực)">
+                    {VIETNAMESE_VOICES.filter((v) => v.gender === 'Male' && v.locale.startsWith('vi') && !v.id.startsWith('elevenlabs:') && !v.id.startsWith('vclip:')).map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="👑 GIỌNG ADAM STUDIO (Cần API Key)">
+                    {VIETNAMESE_VOICES.filter((v) => v.id.startsWith('elevenlabs:') || v.id.startsWith('vclip:')).map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="🇺🇸 GIỌNG QUỐC TẾ (Tiếng Anh - 100% Free)">
+                    {VIETNAMESE_VOICES.filter((v) => v.locale.startsWith('en')).map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name}
+                      </option>
+                    ))}
+                  </optgroup>
                 </select>
               </div>
 
