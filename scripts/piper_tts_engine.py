@@ -61,6 +61,27 @@ VOICE_MAP = {
     'chieuthanh': 'chieuthanh.onnx',
     'piper:chieuthanh': 'chieuthanh.onnx',
 
+    # --- VIETNAMESE CELEBRITY & INFLUENCER STYLES ---
+    'blv_quanghuy': 'manhdung.onnx',
+    'piper:blv_quanghuy': 'manhdung.onnx',
+    'quanghuy': 'manhdung.onnx',
+    'piper:quanghuy': 'manhdung.onnx',
+    'tabiencuong': 'manhdung.onnx',
+    'piper:tabiencuong': 'manhdung.onnx',
+
+    'domixi': 'tranthanh3870.onnx',
+    'piper:domixi': 'tranthanh3870.onnx',
+    'mixigaming': 'tranthanh3870.onnx',
+    'piper:mixigaming': 'tranthanh3870.onnx',
+
+    'duynen': 'manhdung.onnx',
+    'piper:duynen': 'manhdung.onnx',
+    'hanoipho': 'manhdung.onnx',
+    'piper:hanoipho': 'manhdung.onnx',
+
+    'sharkhung': 'manhdung.onnx',
+    'piper:sharkhung': 'manhdung.onnx',
+
     # --- ENGLISH AUTHENTIC VITS VOICES ---
     'en_amy': 'en_amy.onnx',
     'piper:en_amy': 'en_amy.onnx',
@@ -81,6 +102,68 @@ VOICE_MAP = {
     'en_joe': 'en_joe.onnx',
     'piper:en_joe': 'en_joe.onnx',
     'joe': 'en_joe.onnx',
+
+    # --- HOLLYWOOD & WORLD CELEBRITY STYLES ---
+    'morgan_freeman': 'en_joe.onnx',
+    'piper:morgan_freeman': 'en_joe.onnx',
+    'freeman': 'en_joe.onnx',
+    'piper:freeman': 'en_joe.onnx',
+
+    'david_attenborough': 'en_alan.onnx',
+    'piper:david_attenborough': 'en_alan.onnx',
+    'attenborough': 'en_alan.onnx',
+    'piper:attenborough': 'en_alan.onnx',
+
+    'scarlett_johansson': 'en_amy.onnx',
+    'piper:scarlett_johansson': 'en_amy.onnx',
+    'samantha': 'en_amy.onnx',
+    'piper:samantha': 'en_amy.onnx',
+
+    'batman': 'en_joe.onnx',
+    'piper:batman': 'en_joe.onnx',
+    'christian_bale': 'en_joe.onnx',
+    'piper:christian_bale': 'en_joe.onnx',
+
+    'mrbeast': 'en_ryan.onnx',
+    'piper:mrbeast': 'en_ryan.onnx',
+
+    'joe_rogan': 'en_joe.onnx',
+    'piper:joe_rogan': 'en_joe.onnx',
+
+    'elon_musk': 'en_ryan.onnx',
+    'piper:elon_musk': 'en_ryan.onnx',
+
+    'barack_obama': 'en_alan.onnx',
+    'piper:barack_obama': 'en_alan.onnx',
+
+    'gordon_ramsay': 'en_alan.onnx',
+    'piper:gordon_ramsay': 'en_alan.onnx',
+}
+
+# Persona speed multiplier adjustments to naturally match celebrity pacing
+PERSONA_SPEED_ADJUSTMENTS = {
+    'piper:blv_quanghuy': 1.16,
+    'piper:quanghuy': 1.16,
+    'piper:tabiencuong': 1.18,
+    'piper:domixi': 1.12,
+    'piper:mixigaming': 1.12,
+    'piper:duynen': 0.84,
+    'piper:hanoipho': 0.84,
+    'piper:sharkhung': 0.96,
+
+    'piper:morgan_freeman': 0.86,
+    'piper:freeman': 0.86,
+    'piper:david_attenborough': 0.90,
+    'piper:attenborough': 0.90,
+    'piper:scarlett_johansson': 0.95,
+    'piper:samantha': 0.95,
+    'piper:batman': 0.88,
+    'piper:christian_bale': 0.88,
+    'piper:mrbeast': 1.22,
+    'piper:joe_rogan': 1.04,
+    'piper:elon_musk': 0.92,
+    'piper:barack_obama': 0.90,
+    'piper:gordon_ramsay': 1.18,
 }
 
 _loaded_voices = {}
@@ -148,7 +231,9 @@ def synthesize_piper_audio(text, voice_name='ngochuyen', speed=1.0):
     if not sentences:
         return b'', 1.0, []
         
-    speed_float = max(0.5, min(2.0, float(speed)))
+    norm_voice = voice_name.lower().strip()
+    persona_mult = PERSONA_SPEED_ADJUSTMENTS.get(norm_voice, PERSONA_SPEED_ADJUSTMENTS.get('piper:' + norm_voice.replace('piper:', ''), 1.0))
+    speed_float = max(0.5, min(2.0, float(speed) * persona_mult))
     syn_config = SynthesisConfig(length_scale=1.0 / speed_float)
     
     audio_buffers = []

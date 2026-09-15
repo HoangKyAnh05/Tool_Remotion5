@@ -272,7 +272,7 @@ export interface VoiceOption {
 }
 
 export const VIETNAMESE_VOICES: VoiceOption[] = [
-  // --- 👑 BỘ SƯU TẬP GIỌNG ĐỌC THẬT TIẾNG VIỆT (Piper VITS Neural - 100% Giọng Thật, Không Đánh Vần) ---
+  // --- 👑 BỘ SƯU TẬP GIỌNG ĐỌC THẬT TIẾNG VIỆT & NGƯỜI NỔI TIẾNG (Piper VITS 100% Giọng Thật) ---
   {
     id: 'piper:ngochuyen',
     name: '🌸 Nữ Ngọc Huyền (Nữ Miền Bắc - 100% Giọng Thật Piper VITS, Truyền Cảm, Liền Mạch)',
@@ -336,42 +336,133 @@ export const VIETNAMESE_VOICES: VoiceOption[] = [
     gender: 'Male',
     description: 'Giọng đọc lồng tiếng phim kiếm hiệp Hong Kong kinh điển thập niên 90, trầm hùng và kịch tính.'
   },
-
-  // --- 🇺🇸🇬🇧 BỘ SƯU TẬP GIỌNG ĐỌC THẬT TIẾNG ANH (Piper VITS US & UK Studio) ---
   {
-    id: 'piper:en_ryan',
-    name: '🎙️ Ryan (US Male - 100% Piper VITS, YouTuber & Tech Reviewer Năng Động)',
+    id: 'piper:quanghuy',
+    name: '⚽ BLV Quang Huy / BLV Tạ Biên Cương (Hào Sảng, Năng Lượng Thể Thao Kịch Tính)',
+    locale: 'vi-VN',
+    gender: 'Male',
+    description: 'Giọng bình luận viên bóng đá hào sảng, dồn dập, bùng nổ năng lượng cho highlight thể thao và trận cầu đỉnh cao.'
+  },
+  {
+    id: 'piper:domixi',
+    name: '🎮 Độ Mixi Tộc Trưởng (Dí Dỏm, Chân Chất, Livestream & Tâm Sự Đời Sống)',
+    locale: 'vi-VN',
+    gender: 'Male',
+    description: 'Giọng nam dí dỏm, tếu táo, phong cách streamer trò chuyện gần gũi cho video giải trí, gaming.'
+  },
+  {
+    id: 'piper:duynen',
+    name: '🍲 Duy Nến Hà Nội Phố (Review Tản Văn Chậm Rãi, Hoài Niệm Ẩm Thực)',
+    locale: 'vi-VN',
+    gender: 'Male',
+    description: 'Tông giọng review tản văn ẩm thực chậm rãi, từ ngữ hoa mỹ, hoài niệm phố cổ.'
+  },
+  {
+    id: 'piper:sharkhung',
+    name: '💼 Shark Hưng / Doanh Nhân (Nam Trung Trầm, Đĩnh Đạc, Tư Duy Làm Giàu)',
+    locale: 'vi-VN',
+    gender: 'Male',
+    description: 'Tông giọng doanh nhân điềm đạm, tự tin, chuẩn mực cho video bài học kinh doanh, đầu tư bất động sản.'
+  },
+
+  // --- 🇺🇸🇬🇧 BỘ SƯU TẬP GIỌNG ĐỌC THẬT TIẾNG ANH & HOLLYWOOD (Piper VITS US & UK) ---
+  {
+    id: 'piper:morgan_freeman',
+    name: '🌌 Morgan Freeman (Huyền Thoại Phim Tài Liệu, Vũ Trụ, Siêu Trầm & Quyền Uy)',
     locale: 'en-US',
     gender: 'Male',
-    description: 'Giọng nam Mỹ hiện đại, trẻ trung, tự tin, chuyên dụng video công nghệ, gaming và TikTok triệu view.'
+    description: 'Giọng đọc phim tài liệu huyền thoại nhất thế giới, tông nam siêu trầm thông thái và vang vọng.'
+  },
+  {
+    id: 'piper:david_attenborough',
+    name: '🌿 Sir David Attenborough (Huyền Thoại BBC Planet Earth & Thế Giới Hoang Dã)',
+    locale: 'en-GB',
+    gender: 'Male',
+    description: 'Giọng quý tộc Anh Quốc huyền thoại của phim tài liệu thiên nhiên BBC Planet Earth.'
+  },
+  {
+    id: 'piper:scarlett_johansson',
+    name: '🤖 Scarlett Johansson / Samantha (Giọng Nữ Phim Her, Quyến Rũ & Truyền Cảm)',
+    locale: 'en-US',
+    gender: 'Female',
+    description: 'Giọng nữ thì thầm, quyến rũ, ấm áp và thông minh chuẩn trợ lý AI Samantha.'
+  },
+  {
+    id: 'piper:batman',
+    name: '🦇 Christian Bale / Batman (Gằn Giọng Siêu Trầm, Bí Ẩn, Trailer Điện Ảnh)',
+    locale: 'en-US',
+    gender: 'Male',
+    description: 'Giọng nam siêu trầm, phong trần, kịch tính cho trailer phim hành động và điện ảnh.'
+  },
+  {
+    id: 'piper:mrbeast',
+    name: '💰 MrBeast (YouTuber Số 1 Thế Giới, Năng Lượng Bùng Nổ, Kích Thích Xem)',
+    locale: 'en-US',
+    gender: 'Male',
+    description: 'Giọng năng lượng bùng nổ, dồn dập, cực kỳ cuốn hút giữ chân người xem video TikTok & Shorts.'
+  },
+  {
+    id: 'piper:joe_rogan',
+    name: '🎙️ Joe Rogan (Host Podcast #1 Spotify, Nam Tính & Phóng Khoáng)',
+    locale: 'en-US',
+    gender: 'Male',
+    description: 'Giọng podcast mộc mạc, phóng khoáng, trò chuyện tự nhiên.'
+  },
+  {
+    id: 'piper:elon_musk',
+    name: '🚀 Elon Musk (Tư Duy Công Nghệ, Ngắt Nghỉ Độc Đáo, Vũ Trụ & AI)',
+    locale: 'en-US',
+    gender: 'Male',
+    description: 'Tông giọng suy tư, ngắt nghỉ đặc trưng của CEO Tesla & SpaceX.'
+  },
+  {
+    id: 'piper:barack_obama',
+    name: '🏛️ Barack Obama (Diễn Thuyết Chính Khách, Nhấn Nhá Truyền Cảm Hứng)',
+    locale: 'en-US',
+    gender: 'Male',
+    description: 'Giọng diễn thuyết hùng hồn, phong thái đĩnh đạc và truyền cảm hứng.'
+  },
+  {
+    id: 'piper:gordon_ramsay',
+    name: '🍳 Gordon Ramsay (Đầu Bếp Cá Tính, Dứt Khoát, Review Ẩm Thực Gắt Gao)',
+    locale: 'en-GB',
+    gender: 'Male',
+    description: 'Giọng đầu bếp dứt khoát, nhịp nhanh, sắc sảo cho video nấu ăn và review ẩm thực.'
+  },
+  {
+    id: 'piper:en_ryan',
+    name: '🎙️ Ryan YouTuber (US Male - Tech Reviewer & Gaming Năng Động)',
+    locale: 'en-US',
+    gender: 'Male',
+    description: 'Giọng nam Mỹ hiện đại, trẻ trung, tự tin, chuyên dụng video công nghệ và gaming.'
   },
   {
     id: 'piper:en_amy',
-    name: '🌸 Amy (US Female - 100% Piper VITS, Ấm Áp, Lifestyle & Vlogs)',
+    name: '🌸 Amy Lifestyle (US Female - Ấm Áp, Vlogs & Tutorials)',
     locale: 'en-US',
     gender: 'Female',
-    description: 'Giọng nữ Mỹ tự nhiên, gần gũi, phát âm chuẩn bản xứ cho video lifestyle, du lịch và hướng dẫn.'
+    description: 'Giọng nữ Mỹ tự nhiên, gần gũi, phát âm chuẩn bản xứ cho video lifestyle và du lịch.'
   },
   {
     id: 'piper:en_lessac',
-    name: '📚 Lessac (US Female - 100% Piper VITS, AudioBook Chuẩn Phòng Thu New York)',
+    name: '📚 Lessac AudioBook (US Female - Chuẩn Phòng Thu New York)',
     locale: 'en-US',
     gender: 'Female',
-    description: 'Giọng đọc sách audio chuẩn mực, sâu lắng, truyền cảm cho podcast tài liệu và tóm tắt sách.'
+    description: 'Giọng đọc sách audio chuẩn mực, sâu lắng, truyền cảm cho podcast tài liệu.'
   },
   {
     id: 'piper:en_alan',
-    name: '👑 Sir Alan (UK British Male - 100% Piper VITS, Quý Tộc Phim Tài Liệu BBC)',
+    name: '👑 Sir Alan (UK Male - Quý Tộc Anh Quốc, Lịch Sử & Triết Học)',
     locale: 'en-GB',
     gender: 'Male',
-    description: 'Giọng nam Anh Quốc trầm hùng, thông thái, quý phái chuẩn phong cách phim tài liệu khoa học và lịch sử.'
+    description: 'Giọng nam Anh Quốc trầm hùng, thông thái, quý phái chuẩn phong cách phim tài liệu lịch sử.'
   },
   {
     id: 'piper:en_joe',
-    name: '⚡ Joe (US Deep Male - 100% Piper VITS, Trầm Ấm, Motivation & Trailer)',
+    name: '⚡ Joe Deep Tone (US Deep Male - Trầm Ấm, Motivation & Trailer)',
     locale: 'en-US',
     gender: 'Male',
-    description: 'Giọng nam Mỹ siêu trầm, cuốn hút và mạnh mẽ, thích hợp video truyền động lực và trailer phim điện ảnh.'
+    description: 'Giọng nam Mỹ siêu trầm, cuốn hút, video truyền động lực.'
   },
 
   // --- 🌸 GIỌNG ĐỌC NỮ TIẾNG VIỆT (Edge-TTS 100% Free, Ngọt Ngào & Truyền Cảm) ---
