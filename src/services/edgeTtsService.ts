@@ -80,7 +80,45 @@ export async function synthesizeEdgeTTS(
   let effectivePitch = preset.effectivePitch;
   let isFallback = false;
 
-  // 0. If voice is a VClip AI voice (vclip.io)
+  // 0. If voice is a TikTok Narrator voice
+  if (voice.startsWith('tiktok:')) {
+    const tVoice = voice.replace('tiktok:', '') || 'en_male_narration';
+    try {
+      const tRes = await fetch('https://tiktok-tts.weilnet.workers.dev/api/generation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: cleanText, voice: tVoice })
+      });
+      const tData = await tRes.json().catch(() => ({}));
+      if (tData.success && tData.data) {
+        const audioUrl = `data:audio/mp3;base64,${tData.data}`;
+        const rawWords = cleanText.split(/\s+/).filter(Boolean);
+        const estimatedDuration = Math.max(2.5, tData.data.length / 4500);
+        const timePerWord = (estimatedDuration - 0.4) / Math.max(rawWords.length, 1);
+        const words: WordTimestamp[] = [];
+        let cur = 0.15;
+        for (const w of rawWords) {
+          words.push({
+            word: w,
+            start: Number(cur.toFixed(2)),
+            end: Number((cur + timePerWord).toFixed(2))
+          });
+          cur += timePerWord;
+        }
+        return {
+          audioUrl,
+          duration: Number((cur + 0.3).toFixed(2)),
+          words,
+          usedVoice: voice,
+          isFallback: false
+        };
+      }
+    } catch (err: any) {
+      console.warn('TikTok TTS synthesis failed:', err);
+    }
+  }
+
+  // 0.1 If voice is a VClip AI voice (vclip.io)
   if (voice.startsWith('vclip:')) {
     const vclipKey = getSavedVClipApiKey().trim();
     try {
@@ -96,7 +134,7 @@ export async function synthesizeEdgeTTS(
     isFallback = true;
   }
 
-  // 0.1 If voice is an ElevenLabs voice
+  // 0.2 If voice is an ElevenLabs voice
   if (voice.startsWith('elevenlabs:')) {
     const savedKey = getSavedElevenLabsApiKey().trim();
     if (savedKey) {

@@ -272,20 +272,27 @@ export interface VoiceOption {
 }
 
 export const VIETNAMESE_VOICES: VoiceOption[] = [
-  // --- 👑 GIỌNG ADAM & HOT TIKTOK VIRAL (100% Miễn Phí GitHub Edge-TTS) ---
-  {
-    id: 'vi-VN-NamMinhNeural:adam',
-    name: '👑 Adam AI TikTok Studio (Nam Trầm Quyền Lực, Viral Triệu View - 100% Miễn Phí)',
-    locale: 'vi-VN',
-    gender: 'Male',
-    description: 'Giọng đọc Adam AI hot TikTok quốc dân, âm điệu trầm cuốn hút, dứt khoát, bắt tai người xem. Chạy trực tiếp qua thư viện GitHub mã nguồn mở, không tốn phí, không giới hạn token.'
-  },
+  // --- 👑 GIỌNG ADAM CHUẨN TIKTOK (ElevenLabs Multilingual v2) ---
   {
     id: 'elevenlabs:pNInz6obpgDQGcFmaJgB',
-    name: '👑 Adam AI (ElevenLabs - Nam Trầm Quyền Lực, Chuẩn Giọng Adam Quốc Tế)',
+    name: '👑 Adam AI (ElevenLabs - Nam Trầm Khàn Uy Lực Chuẩn TikTok 100%)',
     locale: 'vi-VN',
     gender: 'Male',
-    description: 'Giọng đọc Adam nguyên bản nổi tiếng thế giới (yêu cầu ElevenLabs API key hoặc tự động fallback sang Adam Studio miễn phí).'
+    description: 'Giọng đọc Adam nguyên bản nổi tiếng thế giới của ElevenLabs. Âm sắc trầm khàn, uy lực, rất cuốn hút, chuẩn 100% phong cách review TikTok triệu view (cần nhập API Key ElevenLabs / VClip trong Cài đặt).'
+  },
+  {
+    id: 'tiktok:en_male_narration',
+    name: '🎙️ Adam TikTok Narrator (ByteDance TTS - Giọng Đọc Trầm Viral TikTok)',
+    locale: 'vi-VN',
+    gender: 'Male',
+    description: 'Giọng nam đọc dẫn truyện truyền thống trên TikTok, âm trầm vang phong cách tài liệu ngắn (100% miễn phí).'
+  },
+  {
+    id: 'vclip:adam',
+    name: '🎙️ Adam VClip AI (Viral TikTok Studio - vclip.io)',
+    locale: 'vi-VN',
+    gender: 'Male',
+    description: 'Giọng đọc Adam AI kết nối qua nền tảng VClip.io.'
   },
 
   // --- 🇻🇳 GIỌNG TIẾNG VIỆT HOT TIKTOK (100% Miễn phí, Chuẩn Studio Neural) ---
