@@ -7,7 +7,7 @@ import j from "http";
 import $ from "fs";
 import { Communicate as F } from "edge-tts-universal";
 import { bundle as z } from "@remotion/bundler";
-import { selectComposition as G, renderMedia as H } from "@remotion/renderer";
+import { selectComposition as H, renderMedia as G } from "@remotion/renderer";
 const O = D(import.meta.url), A = M.dirname(O);
 process.env.DIST = M.join(A, "../dist");
 process.env.VITE_PUBLIC = C.isPackaged ? process.env.DIST : M.join(process.env.DIST, "../public");
@@ -135,7 +135,7 @@ function Z(g = "vi-VN-NamMinhNeural", v = "+0%", p = "+0Hz") {
     e = "vi-VN-HoaiMyNeural";
   else if (g.includes(":") && !g.startsWith("elevenlabs:")) {
     const [r, n] = g.split(":");
-    e = r || "vi-VN-NamMinhNeural", t === "+0%" && (n === "fast" || n === "live" || n === "adam" ? t = "+18%" : n === "recap" ? t = "+28%" : n === "sweet" ? t = "+8%" : n === "genz" ? t = "+20%" : n === "story" && (t = "-8%"));
+    e = r || "vi-VN-NamMinhNeural", t === "+0%" && (n === "fast" || n === "live" || n === "adam" ? t = "+18%" : n === "recap" ? t = "+28%" : n === "sweet" ? t = "+8%" : n === "genz" ? t = "+20%" : n === "story" ? t = "-8%" : (n === "ngochuyen" || n === "manhdung") && (t = "+0%")), n === "manhdung" && (o = "-1Hz");
   }
   return { effectiveVoice: e, effectiveRate: t, effectivePitch: o };
 }
@@ -235,7 +235,7 @@ function ee() {
         stage: "composition",
         message: "Đang thiết lập cấu hình video và phân cảnh..."
       });
-      const s = e.aspectRatio === "9:16" ? "Shorts916" : "Landscape169", l = await G({
+      const s = e.aspectRatio === "9:16" ? "Shorts916" : "Landscape169", l = await H({
         serveUrl: E,
         id: s,
         inputProps: { project: e }
@@ -251,7 +251,7 @@ function ee() {
         progress: 32,
         stage: "rendering",
         message: `Bắt đầu render ${d} khung hình (${u}x${b})...`
-      }), await H({
+      }), await G({
         composition: {
           ...l,
           durationInFrames: d,

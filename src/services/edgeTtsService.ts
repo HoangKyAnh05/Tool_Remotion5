@@ -69,7 +69,12 @@ export function parseVoicePreset(
         effectiveRate = '+20%';
       } else if (modifier === 'story') {
         effectiveRate = '-8%';
+      } else if (modifier === 'ngochuyen' || modifier === 'manhdung') {
+        effectiveRate = '+0%';
       }
+    }
+    if (modifier === 'manhdung') {
+      effectivePitch = '-1Hz';
     }
   }
 

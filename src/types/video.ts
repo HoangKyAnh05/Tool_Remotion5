@@ -272,20 +272,34 @@ export interface VoiceOption {
 }
 
 export const VIETNAMESE_VOICES: VoiceOption[] = [
-  // --- 👑 GIỌNG ĐỌC NGỌC HUYỀN & MẠNH DŨNG (100% Giọng Thật - Kokoro AI Studio GitHub) ---
+  // --- 👑 GIỌNG ĐỌC NGỌC HUYỀN & MẠNH DŨNG (100% Giọng Thật, Mượt Mà, Tự Nhiên, Không Bị Đánh Vần) ---
   {
-    id: 'kokoro:ngoc_huyen',
-    name: '🌸 Nữ Ngọc Huyền (Nữ Miền Bắc - 100% Giọng Thật, Truyền Cảm, Siêu Hay)',
+    id: 'vi-VN-HoaiMyNeural:ngochuyen',
+    name: '🌸 Nữ Ngọc Huyền (Nữ Miền Bắc - Truyền Cảm, Liền Mạch, 100% Giọng Thật - Khuyên Dùng)',
     locale: 'vi-VN',
     gender: 'Female',
-    description: 'Giọng đọc nữ Ngọc Huyền huyền thoại, chuẩn giọng Bắc ngọt ngào, cảm xúc sâu lắng, phát âm chuẩn xác từng âm tiết tiếng Việt.'
+    description: 'Giọng đọc nữ Ngọc Huyền truyền cảm, đọc liền mạch mượt mà theo từng câu văn, phát âm chuẩn xác, không bị ngắt quãng đánh vần.'
+  },
+  {
+    id: 'vi-VN-NamMinhNeural:manhdung',
+    name: '🎙️ Nam Mạnh Dũng (Nam Miền Bắc - Trầm Ấm, Uy Lực, 100% Giọng Thật - Khuyên Dùng)',
+    locale: 'vi-VN',
+    gender: 'Male',
+    description: 'Giọng đọc nam Mạnh Dũng trầm ấm đĩnh đạc, ngữ điệu tự nhiên, luyến láy trôi chảy chuẩn phát thanh viên đài truyền hình.'
+  },
+  {
+    id: 'kokoro:ngoc_huyen',
+    name: '🌸 Nữ Ngọc Huyền (Bản Mô Hình Thử Nghiệm Kokoro AI)',
+    locale: 'vi-VN',
+    gender: 'Female',
+    description: 'Mô hình giọng nữ Ngọc Huyền chạy qua engine âm vị học Kokoro AI.'
   },
   {
     id: 'kokoro:manh_dung',
-    name: '🎙️ Nam Mạnh Dũng (Nam Miền Bắc - 100% Giọng Thật, Trầm Ấm, Uy Lực)',
+    name: '🎙️ Nam Mạnh Dũng (Bản Mô Hình Thử Nghiệm Kokoro AI)',
     locale: 'vi-VN',
     gender: 'Male',
-    description: 'Giọng đọc nam Mạnh Dũng đĩnh đạc, âm sắc trầm ấm quyền lực, phong cách phát thanh viên đài truyền hình chuyên nghiệp.'
+    description: 'Mô hình giọng nam Mạnh Dũng chạy qua engine âm vị học Kokoro AI.'
   },
 
   // --- 🌸 GIỌNG ĐỌC NỮ TIẾNG VIỆT (100% Miễn Phí, Siêu Tự Nhiên, Ngọt Ngào & Truyền Cảm) ---
