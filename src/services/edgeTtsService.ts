@@ -10,243 +10,71 @@ export interface SynthesizeResult {
   isFallback?: boolean;
 }
 
-export function parseRateMultiplier(rate: string = '+0%'): number {
-  if (!rate) return 1.0;
-  const trimmed = rate.trim();
-  if (trimmed.endsWith('x') || trimmed.endsWith('X')) {
-    const val = parseFloat(trimmed.replace(/x/i, ''));
-    return isNaN(val) || val <= 0 ? 1.0 : val;
-  }
+/**
+ * Chuẩn hóa tham số tốc độ thành chuỗi phần trăm SSML chuẩn (ví dụ: '2.0x' -> '+100%', '1.5x' -> '+50%', '+25%' -> '+25%')
+ */
+export function normalizeRateToPercent(rate: string = '+0%'): string {
+  if (!rate) return '+0%';
+  const trimmed = String(rate).trim();
   if (trimmed.includes('%')) {
-    const percent = parseFloat(trimmed.replace('%', ''));
-    if (!isNaN(percent)) {
-      return Math.max(0.5, Math.min(3.0, 1 + percent / 100));
+    const num = parseInt(trimmed.replace('%', ''));
+    if (!isNaN(num)) {
+      return num >= 0 ? `+${num}%` : `${num}%`;
+    }
+    return trimmed;
+  }
+  if (trimmed.toLowerCase().endsWith('x')) {
+    const mult = parseFloat(trimmed.replace(/x/i, ''));
+    if (!isNaN(mult)) {
+      const pct = Math.round((mult - 1) * 100);
+      return pct >= 0 ? `+${pct}%` : `${pct}%`;
     }
   }
   const num = parseFloat(trimmed);
-  return isNaN(num) || num <= 0 ? 1.0 : num;
+  if (!isNaN(num) && num > 0 && num <= 3) {
+    const pct = Math.round((num - 1) * 100);
+    return pct >= 0 ? `+${pct}%` : `${pct}%`;
+  }
+  return '+0%';
 }
 
 export function parseVoicePreset(
-  voice: string = 'google-vi-male',
+  voice: string = 'vi-VN-NamMinhNeural',
   rate: string = '+0%',
   pitch: string = '+0Hz'
 ): { effectiveVoice: string; effectiveRate: string; effectivePitch: string } {
-  let effectiveVoice = voice || 'google-vi-male';
-  let effectiveRate = rate || '+0%';
+  let effectiveVoice = voice || 'vi-VN-NamMinhNeural';
+  let effectiveRate = normalizeRateToPercent(rate);
   let effectivePitch = '+0Hz';
+
+  if (voice === 'google-vi-male' || voice === 'vi-male' || voice === 'adam' || voice === 'adam-tiktok' || voice === 'vclip:adam') {
+    effectiveVoice = 'vi-VN-NamMinhNeural';
+  } else if (voice === 'google-vi' || voice === 'vi-female') {
+    effectiveVoice = 'vi-VN-HoaiMyNeural';
+  } else if (voice.includes(':') && !voice.startsWith('elevenlabs:')) {
+    const [baseVoice, modifier] = voice.split(':');
+    effectiveVoice = baseVoice || 'vi-VN-NamMinhNeural';
+    if (effectiveRate === '+0%') {
+      if (modifier === 'fast' || modifier === 'live' || modifier === 'adam') {
+        effectiveRate = '+18%';
+      } else if (modifier === 'recap') {
+        effectiveRate = '+28%';
+      } else if (modifier === 'sweet') {
+        effectiveRate = '+8%';
+      } else if (modifier === 'genz') {
+        effectiveRate = '+20%';
+      } else if (modifier === 'story') {
+        effectiveRate = '-8%';
+      }
+    }
+  }
 
   return { effectiveVoice, effectiveRate, effectivePitch };
 }
 
-/**
- * Converts Web Audio API AudioBuffer to clean 16-bit WAV Base64 Data URL
- */
-function audioBufferToWavDataUrl(buffer: AudioBuffer): string {
-  const numOfChan = buffer.numberOfChannels;
-  const length = buffer.length * numOfChan * 2 + 44;
-  const out = new ArrayBuffer(length);
-  const view = new DataView(out);
-  const channels: Float32Array[] = [];
-  const sampleRate = buffer.sampleRate;
-  let offset = 0;
-  let pos = 0;
-
-  function setUint16(data: number) {
-    view.setUint16(pos, data, true);
-    pos += 2;
-  }
-  function setUint32(data: number) {
-    view.setUint32(pos, data, true);
-    pos += 4;
-  }
-
-  // RIFF header
-  setUint32(0x46464952); // "RIFF"
-  setUint32(length - 8);
-  setUint32(0x45564157); // "WAVE"
-
-  // fmt chunk
-  setUint32(0x20746d66); // "fmt "
-  setUint32(16); // format size (16 for PCM)
-  setUint16(1); // PCM
-  setUint16(numOfChan);
-  setUint32(sampleRate);
-  setUint32(sampleRate * 2 * numOfChan);
-  setUint16(numOfChan * 2);
-  setUint16(16); // 16-bit
-
-  // data chunk
-  setUint32(0x61746164); // "data"
-  setUint32(length - pos - 4);
-
-  for (let i = 0; i < buffer.numberOfChannels; i++) {
-    channels.push(buffer.getChannelData(i));
-  }
-
-  while (pos < length) {
-    for (let i = 0; i < numOfChan; i++) {
-      let sample = Math.max(-1, Math.min(1, channels[i][offset]));
-      sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0;
-      view.setInt16(pos, sample, true);
-      pos += 2;
-    }
-    offset++;
-  }
-
-  let binary = '';
-  const bytes = new Uint8Array(out);
-  const byteLen = bytes.byteLength;
-  for (let i = 0; i < byteLen; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return `data:audio/wav;base64,${btoa(binary)}`;
-}
-
-/**
- * Universal synthesis for Google Neural Vietnamese TTS (Male & Female)
- */
-async function synthesizeGoogleTTS(
-  text: string,
-  isMale: boolean = true,
-  rate: string = '+0%'
-): Promise<SynthesizeResult> {
-  const cleanText = text.trim();
-  const rawWords = cleanText.split(/\s+/).filter(Boolean);
-  if (!rawWords.length) {
-    return { audioUrl: '', duration: 2.0, words: [], usedVoice: isMale ? 'google-vi-male' : 'google-vi' };
-  }
-
-  // Split into chunks of max 180 chars to avoid URL limit
-  const chunks: string[] = [];
-  let cur = '';
-  for (const w of rawWords) {
-    if ((cur + ' ' + w).length > 180) {
-      chunks.push(cur.trim());
-      cur = w;
-    } else {
-      cur = cur ? cur + ' ' + w : w;
-    }
-  }
-  if (cur) chunks.push(cur.trim());
-
-  const audioBuffers: ArrayBuffer[] = [];
-  for (const chunk of chunks) {
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=vi&client=tw-ob`;
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-      }
-    });
-    if (!res.ok) {
-      throw new Error(`Google TTS request failed with status: ${res.status}`);
-    }
-    const ab = await res.arrayBuffer();
-    audioBuffers.push(ab);
-  }
-
-  // Combine ArrayBuffers
-  let totalLength = 0;
-  for (const ab of audioBuffers) totalLength += ab.byteLength;
-  const merged = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const ab of audioBuffers) {
-    merged.set(new Uint8Array(ab), offset);
-    offset += ab.byteLength;
-  }
-
-  let finalAudioUrl = '';
-
-  // If Male voice requested and Web Audio API is available, apply male baritone vocal filter
-  if (isMale && typeof window !== 'undefined' && (window.AudioContext || (window as any).webkitAudioContext)) {
-    try {
-      const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
-      const audioCtx = new AudioCtxClass();
-      const decoded = await audioCtx.decodeAudioData(merged.buffer.slice(0));
-
-      const speedMult = parseRateMultiplier(rate);
-      const playbackRate = 0.86 * speedMult; // Transform pitch down to male baritone ~120Hz while keeping speed
-      const targetDuration = decoded.duration / playbackRate;
-
-      const offlineCtx = new OfflineAudioContext(
-        decoded.numberOfChannels,
-        Math.ceil(targetDuration * decoded.sampleRate),
-        decoded.sampleRate
-      );
-
-      const source = offlineCtx.createBufferSource();
-      source.buffer = decoded;
-      source.playbackRate.value = playbackRate;
-
-      // 1. Male chest resonance low-shelf filter (+5dB at 160Hz)
-      const lowShelf = offlineCtx.createBiquadFilter();
-      lowShelf.type = 'lowshelf';
-      lowShelf.frequency.value = 160;
-      lowShelf.gain.value = 5.5;
-
-      // 2. Male warmth body filter (+2.5dB at 450Hz)
-      const midPeak = offlineCtx.createBiquadFilter();
-      midPeak.type = 'peaking';
-      midPeak.frequency.value = 450;
-      midPeak.Q.value = 1.0;
-      midPeak.gain.value = 2.5;
-
-      // 3. De-ess / female brightness rolloff (-4.5dB at 3600Hz)
-      const highShelf = offlineCtx.createBiquadFilter();
-      highShelf.type = 'highshelf';
-      highShelf.frequency.value = 3600;
-      highShelf.gain.value = -4.5;
-
-      source.connect(lowShelf);
-      lowShelf.connect(midPeak);
-      midPeak.connect(highShelf);
-      highShelf.connect(offlineCtx.destination);
-
-      source.start(0);
-      const rendered = await offlineCtx.startRendering();
-      finalAudioUrl = audioBufferToWavDataUrl(rendered);
-    } catch (e) {
-      console.warn('Male acoustic filter fallback to standard audio:', e);
-    }
-  }
-
-  if (!finalAudioUrl) {
-    let binary = '';
-    const len = merged.byteLength;
-    for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(merged[i]);
-    }
-    const base64 = typeof btoa !== 'undefined' ? btoa(binary) : Buffer.from(merged).toString('base64');
-    finalAudioUrl = `data:audio/mp3;base64,${base64}`;
-  }
-
-  // Calculate synchronized word-level timestamps scaled with speed/rate
-  const speed = parseRateMultiplier(rate);
-  const timePerWord = 0.35 / speed;
-  const words: WordTimestamp[] = [];
-  let curTime = 0.12 / speed;
-  for (const w of rawWords) {
-    words.push({
-      word: w,
-      start: Number(curTime.toFixed(2)),
-      end: Number((curTime + timePerWord).toFixed(2))
-    });
-    curTime += timePerWord;
-  }
-  const duration = Number((curTime + 0.35 / speed).toFixed(2));
-
-  return {
-    audioUrl: finalAudioUrl,
-    duration: Math.max(1.5, duration),
-    words,
-    usedVoice: isMale ? 'google-vi-male' : 'google-vi',
-    isFallback: false
-  };
-}
-
 export async function synthesizeEdgeTTS(
   text: string,
-  voice: string = 'google-vi-male',
+  voice: string = 'vi-VN-NamMinhNeural',
   rate: string = '+0%',
   pitch: string = '+0Hz'
 ): Promise<SynthesizeResult> {
@@ -270,9 +98,9 @@ export async function synthesizeEdgeTTS(
         return { ...res, usedVoice: voice, isFallback: false };
       }
     } catch (err: any) {
-      console.warn('VClip synthesis failed, falling back to Google Neural voice:', err);
+      console.warn('VClip synthesis failed, falling back to Studio voice:', err);
     }
-    effectiveVoice = 'google-vi-male';
+    effectiveVoice = 'vi-VN-NamMinhNeural';
     isFallback = true;
   }
 
@@ -284,7 +112,7 @@ export async function synthesizeEdgeTTS(
         const res = await synthesizeElevenLabsTTS(cleanText, voice, savedKey);
         return { ...res, usedVoice: voice, isFallback: false };
       } catch (err: any) {
-        console.warn('ElevenLabs synthesis failed, falling back to Google Neural voice:', err);
+        console.warn('ElevenLabs synthesis failed, falling back to Studio voice:', err);
       }
     }
     const fallbackInfo = getEquivalentFallbackVoice(voice);
@@ -292,26 +120,8 @@ export async function synthesizeEdgeTTS(
     isFallback = true;
   }
 
-  // 3. Primary Google Neural TTS (Male & Female Vietnamese Voices - 100% Free)
-  if (
-    effectiveVoice === 'google-vi-male' ||
-    effectiveVoice === 'google-vi' ||
-    effectiveVoice.startsWith('google') ||
-    effectiveVoice.startsWith('vi-')
-  ) {
-    const isMaleVoice = effectiveVoice.includes('male') || effectiveVoice === 'google-vi-male';
-    try {
-      const gRes = await synthesizeGoogleTTS(cleanText, isMaleVoice, effectiveRate);
-      if (gRes && gRes.audioUrl) {
-        return { ...gRes, usedVoice: effectiveVoice, isFallback };
-      }
-    } catch (gErr) {
-      console.warn('Direct Google TTS failed, trying backend /api/tts endpoint:', gErr);
-    }
-  }
-
-  // 4. If running inside Electron, use IPC
-  if (window.electronAPI?.synthesizeTTS) {
+  // 3. If running inside Electron, use IPC
+  if (typeof window !== 'undefined' && window.electronAPI?.synthesizeTTS) {
     try {
       const result = await window.electronAPI.synthesizeTTS({
         text: cleanText,
@@ -331,7 +141,7 @@ export async function synthesizeEdgeTTS(
     }
   }
 
-  // 5. If running in browser (Vite dev or preview server), call /api/tts endpoint
+  // 4. If running in browser (Vite dev or preview server), call /api/tts endpoint
   try {
     const res = await fetch('/api/tts', {
       method: 'POST',
@@ -359,10 +169,10 @@ export async function synthesizeEdgeTTS(
       }
     }
   } catch (err) {
-    console.warn('Fetch /api/tts error, fallback to browser synthesis:', err);
+    console.warn('Fetch /api/tts error, fallback to calculated synthesis:', err);
   }
 
-  // 6. Fallback: Browser Web Audio tone or calculated timestamps
+  // 5. Fallback: Browser Web Audio tone or calculated timestamps
   const fallbackRes = createBrowserFallbackAudio(cleanText);
   return { ...fallbackRes, usedVoice: effectiveVoice, isFallback: true };
 }

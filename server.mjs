@@ -58,97 +58,57 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-function parseVoicePreset(voice = 'vi-VN-HoaiMyNeural', rate = '+0%', pitch = '+0Hz') {
-  let effectiveVoice = voice || 'vi-VN-HoaiMyNeural';
-  let effectiveRate = rate || '+0%';
+function normalizeRateToPercent(rate = '+0%') {
+  if (!rate) return '+0%';
+  const trimmed = String(rate).trim();
+  if (trimmed.includes('%')) {
+    const num = parseInt(trimmed.replace('%', ''));
+    if (!isNaN(num)) return num >= 0 ? `+${num}%` : `${num}%`;
+    return trimmed;
+  }
+  if (trimmed.toLowerCase().endsWith('x')) {
+    const mult = parseFloat(trimmed.replace(/x/i, ''));
+    if (!isNaN(mult)) {
+      const pct = Math.round((mult - 1) * 100);
+      return pct >= 0 ? `+${pct}%` : `${pct}%`;
+    }
+  }
+  const num = parseFloat(trimmed);
+  if (!isNaN(num) && num > 0 && num <= 3) {
+    const pct = Math.round((num - 1) * 100);
+    return pct >= 0 ? `+${pct}%` : `${pct}%`;
+  }
+  return '+0%';
+}
+
+function parseVoicePreset(voice = 'vi-VN-NamMinhNeural', rate = '+0%', pitch = '+0Hz') {
+  let effectiveVoice = voice || 'vi-VN-NamMinhNeural';
+  let effectiveRate = normalizeRateToPercent(rate);
   let effectivePitch = '+0Hz';
 
-  if (voice === 'adam' || voice === 'adam-tiktok' || voice === 'vclip:adam') {
-    return { effectiveVoice: 'vi-VN-NamMinhNeural', effectiveRate: '+18%', effectivePitch: '+0Hz' };
-  }
-
-  if (voice && voice.includes(':') && !voice.startsWith('elevenlabs:')) {
+  if (voice === 'google-vi-male' || voice === 'vi-male' || voice === 'adam' || voice === 'adam-tiktok' || voice === 'vclip:adam') {
+    effectiveVoice = 'vi-VN-NamMinhNeural';
+  } else if (voice === 'google-vi' || voice === 'vi-female') {
+    effectiveVoice = 'vi-VN-HoaiMyNeural';
+  } else if (voice.includes(':') && !voice.startsWith('elevenlabs:')) {
     const [baseVoice, modifier] = voice.split(':');
-    effectiveVoice = baseVoice;
-    switch (modifier) {
-      case 'adam':
-      case 'fast':
+    effectiveVoice = baseVoice || 'vi-VN-NamMinhNeural';
+    if (effectiveRate === '+0%') {
+      if (modifier === 'fast' || modifier === 'live' || modifier === 'adam') {
         effectiveRate = '+18%';
-        break;
-      case 'recap':
-        effectiveRate = '+25%';
-        break;
-      case 'live':
-        effectiveRate = '+18%';
-        break;
-      case 'sweet':
+      } else if (modifier === 'recap') {
+        effectiveRate = '+28%';
+      } else if (modifier === 'sweet') {
         effectiveRate = '+8%';
-        break;
-      case 'genz':
-        effectiveRate = '+22%';
-        break;
-      case 'story':
+      } else if (modifier === 'genz') {
+        effectiveRate = '+20%';
+      } else if (modifier === 'story') {
         effectiveRate = '-8%';
-        break;
-      case 'deep':
-        effectiveRate = '-4%';
-        break;
-      case 'asmr':
-        effectiveRate = '-3%';
-        break;
-      case 'meme':
-        effectiveRate = '+12%';
-        break;
-      default:
-        break;
+      }
     }
   }
 
   return { effectiveVoice, effectiveRate, effectivePitch };
-}
-
-async function synthesizeGoogleTTSNode(cleanText) {
-  const words = cleanText.split(/\s+/).filter(Boolean);
-  if (!words.length) return { audioUrl: '', duration: 2.0, words: [] };
-
-  const chunks = [];
-  let cur = '';
-  for (const w of words) {
-    if ((cur + ' ' + w).length > 180) {
-      chunks.push(cur.trim());
-      cur = w;
-    } else {
-      cur = cur ? cur + ' ' + w : w;
-    }
-  }
-  if (cur) chunks.push(cur.trim());
-
-  const audioBuffers = [];
-  for (const chunk of chunks) {
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=vi&client=tw-ob`;
-    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
-    if (!res.ok) throw new Error(`Google TTS request error: ${res.status}`);
-    const ab = await res.arrayBuffer();
-    audioBuffers.push(Buffer.from(ab));
-  }
-
-  const fullBuffer = Buffer.concat(audioBuffers);
-  const audioUrl = `data:audio/mp3;base64,${fullBuffer.toString('base64')}`;
-
-  const timePerWord = 0.35;
-  const wordTimestamps = [];
-  let curTime = 0.12;
-  for (const w of words) {
-    wordTimestamps.push({
-      word: w,
-      start: Number(curTime.toFixed(2)),
-      end: Number((curTime + timePerWord).toFixed(2))
-    });
-    curTime += timePerWord;
-  }
-  const duration = Number((curTime + 0.35).toFixed(2));
-
-  return { audioUrl, duration: Math.max(2.0, duration), words: wordTimestamps };
 }
 
   // Handle TTS API on Web Service
@@ -159,23 +119,12 @@ async function synthesizeGoogleTTSNode(cleanText) {
     });
     req.on('end', async () => {
       try {
-        const { text, voice = 'google-vi', rate = '+0%', pitch = '+0Hz' } = JSON.parse(body || '{}');
+        const { text, voice = 'vi-VN-NamMinhNeural', rate = '+0%', pitch = '+0Hz' } = JSON.parse(body || '{}');
         const cleanText = (text || '').trim();
         if (!cleanText) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ audioUrl: '', duration: 2.0, words: [] }));
           return;
-        }
-
-        if (voice === 'google-vi' || voice.startsWith('google') || voice.startsWith('vi-')) {
-          try {
-            const gResult = await synthesizeGoogleTTSNode(cleanText);
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify(gResult));
-            return;
-          } catch (gErr) {
-            console.warn('Google TTS failed in server.mjs, falling back to edge-tts:', gErr);
-          }
         }
 
         const { effectiveVoice, effectiveRate, effectivePitch } = parseVoicePreset(voice, rate, pitch);

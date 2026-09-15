@@ -272,29 +272,59 @@ export interface VoiceOption {
 }
 
 export const VIETNAMESE_VOICES: VoiceOption[] = [
-  // --- 🇻🇳 GIỌNG ĐỌC TIẾNG VIỆT AI CHUẨN MỚI (100% Miễn Phí, Tự Nhiên, Tròn Vành Rõ Chữ) ---
+  // --- 👑 GIỌNG ĐỌC NAM STUDIO CHUẨN TIKTOK (100% Miễn Phí, Tự Nhiên, Không Cần Key) ---
   {
-    id: 'google-vi-male',
-    name: '🎙️ Giọng Nam Tiếng Việt AI (Nam Trầm Ấm, Điềm Đạm, Truyền Cảm - 100% Free)',
+    id: 'vi-VN-NamMinhNeural',
+    name: '🎙️ Giọng Nam Studio TikTok (Nam Trầm Ấm, Quyền Lực, Review Triệu View - 100% Free)',
     locale: 'vi-VN',
     gender: 'Male',
-    description: 'Giọng đọc Nam tiếng Việt AI thế hệ mới, âm sắc trầm ấm, đĩnh đạc, cuốn hút, phát âm rõ ràng, hoàn toàn miễn phí 100% không giới hạn token.'
+    description: 'Giọng đọc Nam tiêu chuẩn Studio, âm sắc trầm ấm, đĩnh đạc, phát âm tròn vành rõ chữ, tự động căn chuẩn nhịp từng từ phụ đề.'
   },
   {
-    id: 'google-vi',
-    name: '🌸 Giọng Nữ Tiếng Việt AI (Google Neural - Tự Nhiên, Chuẩn Ngữ Điệu - 100% Free)',
+    id: 'vi-VN-NamMinhNeural:fast',
+    name: '⚡ Giọng Nam Viral TikTok (Nhanh Cuốn Hút, Review Bán Hàng - 100% Free)',
     locale: 'vi-VN',
-    gender: 'Female',
-    description: 'Giọng đọc Nữ tiếng Việt AI thế hệ mới, âm điệu tự nhiên, phát âm tròn vành rõ chữ, truyền cảm, hoàn toàn miễn phí 100% không giới hạn token.'
+    gender: 'Male',
+    description: 'Phong cách đọc nhanh cuốn hút, bắt trend, giật tít kịch tính cho video ngắn TikTok/Reels.'
+  },
+  {
+    id: 'vi-VN-NamMinhNeural:recap',
+    name: '🔥 Giọng Nam Tóm Tắt Phim (Recap Siêu Tốc, Anime & Truyện Tranh - 100% Free)',
+    locale: 'vi-VN',
+    gender: 'Male',
+    description: 'Giọng đọc tóm tắt phim dồn dập, kịch tính, phong cách review truyện tranh triệu view.'
   },
 
-  // --- 👑 GIỌNG ADAM CHUẨN TIKTOK (Dành cho tài khoản ElevenLabs / VClip) ---
+  // --- 🌸 GIỌNG ĐỌC NỮ STUDIO CHUẨN TIKTOK (100% Miễn Phí) ---
+  {
+    id: 'vi-VN-HoaiMyNeural:sweet',
+    name: '🌸 Giọng Nữ Review Food & Travel (Ngọt Ngào, Tươi Tắn - 100% Free)',
+    locale: 'vi-VN',
+    gender: 'Female',
+    description: 'Giọng nữ ngọt ngào, tươi tắn, chuẩn tone reviewer quán ăn, cafe, homestay du lịch trải nghiệm.'
+  },
+  {
+    id: 'vi-VN-HoaiMyNeural:live',
+    name: '🛍️ Giọng Nữ Livestream Bán Hàng (TikTok Shop, Chốt Đơn - 100% Free)',
+    locale: 'vi-VN',
+    gender: 'Female',
+    description: 'Giọng nữ năng động, kích thích tương tác và chuyển đổi đơn hàng.'
+  },
+  {
+    id: 'vi-VN-HoaiMyNeural',
+    name: '🇻🇳 Giọng Nữ Phát Thanh Viên (Truyền Cảm, Chuẩn Hà Nội - 100% Free)',
+    locale: 'vi-VN',
+    gender: 'Female',
+    description: 'Giọng nữ chuẩn Hà Nội, mượt mà, sâu lắng, tin tức chính thống và tâm sự.'
+  },
+
+  // --- 👑 GIỌNG ADAM NGUYÊN BẢN (Dành cho ai có Key ElevenLabs / VClip) ---
   {
     id: 'elevenlabs:pNInz6obpgDQGcFmaJgB',
     name: '👑 Adam AI (ElevenLabs - Nam Trầm Khàn Uy Lực Chuẩn TikTok 100%)',
     locale: 'vi-VN',
     gender: 'Male',
-    description: 'Giọng đọc Adam nguyên bản nổi tiếng thế giới của ElevenLabs. Âm sắc trầm khàn, uy lực, rất cuốn hút, chuẩn 100% phong cách review TikTok triệu view (cần nhập API Key ElevenLabs trong Cài đặt).'
+    description: 'Giọng đọc Adam nguyên bản của ElevenLabs (cần nhập API Key ElevenLabs trong Cài đặt).'
   },
   {
     id: 'vclip:adam',
@@ -304,20 +334,20 @@ export const VIETNAMESE_VOICES: VoiceOption[] = [
     description: 'Giọng đọc Adam AI kết nối qua nền tảng VClip.io (cần nhập API Key VClip trong Cài đặt).'
   },
 
-  // --- 🇺🇸 🇬🇧 🇦🇺 GIỌNG TIẾNG ANH QUỐC TẾ (English Native Neural - 100% Free) ---
+  // --- 🇺🇸 🇬🇧 GIỌNG TIẾNG ANH (100% Free) ---
   {
     id: 'en-US-GuyNeural',
-    name: '🔥 Guy (US Nam - Năng Động, Tự Tin, Viral Shorts / TikTok)',
+    name: '🔥 Guy (US Nam - Năng Động, Tự Tin, Viral Shorts)',
     locale: 'en-US',
     gender: 'Male',
-    description: 'Energetic American male voice, popular for viral TikTok, tech, and sports.'
+    description: 'Energetic American male voice for viral TikTok, sports & tech.'
   },
   {
     id: 'en-US-JennyNeural',
     name: '✨ Jenny (US Nữ - Sống Động, Lifestyle & Storytelling)',
     locale: 'en-US',
     gender: 'Female',
-    description: 'Natural, lively American female voice for global vlogs, travel, and storytelling.'
+    description: 'Natural, lively American female voice for vlogs and storytelling.'
   },
   {
     id: 'en-US-AriaNeural',
