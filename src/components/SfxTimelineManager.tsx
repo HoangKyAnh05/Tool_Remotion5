@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Volume2,
   VolumeX,
@@ -10,10 +10,24 @@ import {
   Sliders,
   Clock,
   Layers,
-  HelpCircle
+  HelpCircle,
+  FolderOpen,
+  Upload,
+  MapPin,
+  RefreshCw
 } from 'lucide-react';
 import { VideoProject, TimelineSfxItem } from '../types/video';
 import { SOUND_EFFECTS_LIST, SoundEffectItem } from '../services/soundEffectsService';
+import { convertAudioOrVideoFileToAudio, extractAudioFromVideoData } from '../services/speechToTextService';
+
+interface CustomSfxItem {
+  id: string;
+  name: string;
+  audioUrl: string;
+  duration: number;
+  category: 'custom';
+  description?: string;
+}
 
 interface SfxTimelineManagerProps {
   project: VideoProject;
@@ -31,12 +45,15 @@ export const SfxTimelineManager: React.FC<SfxTimelineManagerProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [playingSfxId, setPlayingSfxId] = useState<string | null>(null);
+  const [customSfxList, setCustomSfxList] = useState<CustomSfxItem[]>([]);
+  const sfxFileInputRef = useRef<HTMLInputElement>(null);
 
   const totalDuration = Math.max(project.totalDuration || 10, 1);
   const timelineSfxList = project.timelineSfx || [];
 
   const categories = [
     { id: 'all', name: 'Tất cả' },
+    ...(customSfxList.length > 0 ? [{ id: 'custom', name: `📁 Từ PC (${customSfxList.length})` }] : []),
     { id: 'transitions_whoosh', name: '🌪️ Vụt Gió (Whoosh)' },
     { id: 'pops_clicks', name: '✨ Pops & Clicks' },
     { id: 'impacts_boom', name: '💥 Nổ Bùng (Boom)' },
@@ -45,20 +62,31 @@ export const SfxTimelineManager: React.FC<SfxTimelineManagerProps> = ({
     { id: 'cinematic', name: '🎬 Bom Tấn' }
   ];
 
-  const filteredEffects = SOUND_EFFECTS_LIST.filter((sfx) => {
+  // Kết hợp thư viện mặc định + các file Sound Effect tải từ máy
+  const combinedEffects: Array<SoundEffectItem | CustomSfxItem> = [
+    ...customSfxList,
+    ...SOUND_EFFECTS_LIST
+  ];
+
+  const filteredEffects = combinedEffects.filter((sfx) => {
     const matchCat = selectedCategory === 'all' || sfx.category === selectedCategory;
     const matchQuery =
       searchQuery === '' ||
       sfx.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      sfx.description.toLowerCase().includes(searchQuery.toLowerCase());
+      ((sfx as any).description && (sfx as any).description.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchCat && matchQuery;
   });
 
   // Nghe thử âm thanh
-  const handlePreviewSfx = (sfx: SoundEffectItem) => {
+  const handlePreviewSfx = (sfx: SoundEffectItem | CustomSfxItem) => {
     setPlayingSfxId(sfx.id);
     try {
-      sfx.play();
+      if ('play' in sfx && typeof (sfx as any).play === 'function') {
+        (sfx as any).play();
+      } else if ('audioUrl' in sfx && (sfx as any).audioUrl) {
+        const audio = new Audio((sfx as any).audioUrl);
+        audio.play();
+      }
     } catch (e) {
       console.warn('Preview SFX error', e);
     }
@@ -68,8 +96,10 @@ export const SfxTimelineManager: React.FC<SfxTimelineManagerProps> = ({
   };
 
   // Thêm SFX vào timeline tại vị trí con trỏ hiện tại
-  const handleAddSfxToTimeline = (sfx: SoundEffectItem, targetTime?: number) => {
+  const handleAddSfxToTimeline = (sfx: SoundEffectItem | CustomSfxItem, targetTime?: number) => {
     const atTime = typeof targetTime === 'number' ? targetTime : Number(currentTime.toFixed(2));
+    const sfxAudioUrl = 'audioUrl' in sfx ? (sfx as any).audioUrl : undefined;
+
     const newItem: TimelineSfxItem = {
       id: `sfx-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       sfxId: sfx.id,
@@ -77,7 +107,8 @@ export const SfxTimelineManager: React.FC<SfxTimelineManagerProps> = ({
       timestamp: Math.min(totalDuration, Math.max(0, atTime)),
       duration: sfx.duration || 0.5,
       volume: 0.8,
-      category: sfx.category
+      category: sfx.category,
+      audioUrl: sfxAudioUrl
     };
 
     setProject((prev) => ({
@@ -87,8 +118,119 @@ export const SfxTimelineManager: React.FC<SfxTimelineManagerProps> = ({
 
     // Tự động phát âm thanh khi thêm
     try {
-      sfx.play();
+      if ('play' in sfx && typeof (sfx as any).play === 'function') {
+        (sfx as any).play();
+      } else if (sfxAudioUrl) {
+        const audio = new Audio(sfxAudioUrl);
+        audio.play();
+      }
     } catch {}
+  };
+
+  // Lưu và gắn file SFX từ máy tính lên Timeline
+  const saveAndAttachCustomSfx = (name: string, url: string, duration: number) => {
+    const cleanName = name.replace(/\.[^/.]+$/, '');
+    const customItem: CustomSfxItem = {
+      id: `custom-sfx-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      name: `📁 ${cleanName}`,
+      audioUrl: url,
+      duration: duration || 1.0,
+      category: 'custom',
+      description: 'File âm thanh Sound Effect tải lên từ máy tính'
+    };
+
+    setCustomSfxList((prev) => [customItem, ...prev]);
+
+    // Gắn ngay vào mốc thời gian đang Preview
+    const atTime = Number(currentTime.toFixed(2));
+    const newTimelineItem: TimelineSfxItem = {
+      id: `sfx-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      sfxId: customItem.id,
+      name: customItem.name,
+      timestamp: Math.min(totalDuration, Math.max(0, atTime)),
+      duration: customItem.duration,
+      volume: 0.8,
+      category: 'custom',
+      audioUrl: url
+    };
+
+    setProject((prev) => ({
+      ...prev,
+      timelineSfx: [...(prev.timelineSfx || []), newTimelineItem].sort((a, b) => a.timestamp - b.timestamp)
+    }));
+
+    // Phát thử âm thanh
+    try {
+      const audio = new Audio(url);
+      audio.play();
+    } catch {}
+  };
+
+  // Xử lý chọn file từ máy tính
+  const handleSelectCustomSfxFromPC = async () => {
+    if (window.electronAPI?.selectFile) {
+      try {
+        const files = await window.electronAPI.selectFile({
+          title: 'Chọn file âm thanh MP3 hoặc video MP4 từ máy tính (.mp3, .wav, .m4a, .mp4, .mov)',
+          filters: [
+            { name: 'Audio & Video Files', extensions: ['mp3', 'wav', 'aac', 'm4a', 'ogg', 'mp4', 'mov', 'webm', 'mkv'] },
+            { name: 'Audio Files', extensions: ['mp3', 'wav', 'aac', 'm4a', 'ogg'] },
+            { name: 'Video Files', extensions: ['mp4', 'mov', 'webm', 'mkv'] }
+          ]
+        });
+        if (files && files.length > 0) {
+          const filePath = files[0];
+          const fileName = filePath.split(/[\\/]/).pop() || 'Sound Effect';
+          const isVideo = /\.(mp4|mov|webm|mkv|avi|m4v)$/i.test(filePath);
+
+          if (isVideo) {
+            let base64Info = null;
+            if (window.electronAPI?.readAudioBase64) {
+              base64Info = await window.electronAPI.readAudioBase64(filePath);
+            }
+            if (base64Info?.dataUrl) {
+              const extracted = await extractAudioFromVideoData(base64Info.dataUrl);
+              if (extracted) {
+                saveAndAttachCustomSfx(fileName, extracted.dataUrl, extracted.duration || 1.0);
+                return;
+              }
+            }
+          }
+
+          const fileUrl = `file://${filePath.replace(/\\/g, '/')}`;
+          const tempAudio = new Audio(fileUrl);
+          tempAudio.onloadedmetadata = () => {
+            const dur = Number(tempAudio.duration.toFixed(2)) || 1.0;
+            saveAndAttachCustomSfx(fileName, fileUrl, dur);
+          };
+          tempAudio.onerror = () => {
+            saveAndAttachCustomSfx(fileName, fileUrl, 1.0);
+          };
+          return;
+        }
+      } catch (err) {
+        console.warn('Electron SFX select failed, falling back to browser input:', err);
+      }
+    }
+
+    if (sfxFileInputRef.current) {
+      sfxFileInputRef.current.value = '';
+      sfxFileInputRef.current.click();
+    }
+  };
+
+  const handleBrowserFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const result = await convertAudioOrVideoFileToAudio(file);
+      saveAndAttachCustomSfx(result.fileName, result.audioUrl, result.duration || 1.0);
+    } catch (err) {
+      console.warn('SFX file extraction error, fallback to URL:', err);
+      const fileUrl = URL.createObjectURL(file);
+      saveAndAttachCustomSfx(file.name, fileUrl, 1.0);
+    }
   };
 
   // Xóa SFX khỏi timeline
@@ -110,6 +252,11 @@ export const SfxTimelineManager: React.FC<SfxTimelineManagerProps> = ({
     }));
   };
 
+  // Cập nhật timestamp của 1 SFX về đúng vị trí Preview hiện tại
+  const handleSnapToCurrentTime = (id: string) => {
+    handleUpdateTimestamp(id, currentTime);
+  };
+
   // Điều chỉnh âm lượng của SFX
   const handleUpdateVolume = (id: string, newVol: number) => {
     setProject((prev) => ({
@@ -122,30 +269,51 @@ export const SfxTimelineManager: React.FC<SfxTimelineManagerProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Hidden File Input for Custom Sound Effect Upload */}
+      <input
+        type="file"
+        ref={sfxFileInputRef}
+        onChange={handleBrowserFileInputChange}
+        accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac"
+        className="hidden"
+      />
+
       {/* 1. Header & Thông tin Sound Effects Timeline */}
-      <div className="bg-gradient-to-r from-violet-900/40 via-purple-900/20 to-slate-900 border border-violet-500/30 rounded-2xl p-4">
+      <div className="bg-gradient-to-r from-violet-950 via-purple-950 to-slate-900 border border-violet-500/30 rounded-2xl p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-violet-600/20 border border-violet-500/40 flex items-center justify-center text-violet-400 shadow-md">
+            <div className="w-10 h-10 rounded-xl bg-violet-600/20 border border-violet-500/40 flex items-center justify-center text-violet-400 shadow-md shrink-0">
               <Music className="w-5 h-5" />
             </div>
             <div>
               <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-                Bước 4: Nhạc Nền & Sound Effects Timeline
+                Sound Effects Timeline
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 font-semibold border border-violet-500/30">
                   {timelineSfxList.length} Âm thanh đã gán
                 </span>
               </h3>
               <p className="text-xs text-slate-400">
-                Thêm sound effect vào bất kỳ giây nào trên video. Khi xem video hoặc tua dừng tại đâu, âm thanh sẽ tự động phát tại đó.
+                Thêm hiệu ứng âm thanh vào đúng số giây trên video. Khi xem video hoặc tua dừng tại đâu, âm thanh sẽ tự động phát tại đó.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
-              ⏱️ Vị trí hiện tại: <strong className="text-violet-400 font-mono">{currentTime.toFixed(2)}s</strong> / {totalDuration.toFixed(1)}s
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-slate-300 bg-slate-900/90 px-3 py-1.5 rounded-lg border border-slate-700 shadow-xs flex items-center gap-1.5">
+              <span>⏱️ Vị trí Preview:</span>
+              <strong className="text-violet-400 font-mono text-sm">{currentTime.toFixed(2)}s</strong>
+              <span className="text-slate-500">/ {totalDuration.toFixed(1)}s</span>
             </span>
+
+            {/* Nút tải âm thanh từ PC */}
+            <button
+              onClick={handleSelectCustomSfxFromPC}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold shadow-md transition-all active:scale-95 cursor-pointer"
+              title="Tải file âm thanh sound effect từ máy tính (.mp3, .wav, .m4a...)"
+            >
+              <FolderOpen className="w-3.5 h-3.5 text-yellow-300" />
+              <span>Từ PC (Tải SFX)</span>
+            </button>
           </div>
         </div>
 
@@ -155,7 +323,7 @@ export const SfxTimelineManager: React.FC<SfxTimelineManagerProps> = ({
             <span className="font-semibold text-slate-300 flex items-center gap-1.5">
               <Layers className="w-3.5 h-3.5 text-violet-400" /> Trục thời gian SFX toàn video:
             </span>
-            <span>Click trên thanh để thêm âm thanh hoặc tua video</span>
+            <span className="text-[11px] text-violet-300">Click trên thanh để tua video hoặc xem mốc âm thanh</span>
           </div>
 
           {/* Interactive Timeline Bar */}
@@ -195,8 +363,8 @@ export const SfxTimelineManager: React.FC<SfxTimelineManagerProps> = ({
                   onClick={(e) => {
                     e.stopPropagation();
                     if (onSeek) onSeek(item.timestamp);
-                    const matchedSfx = SOUND_EFFECTS_LIST.find((s) => s.id === item.sfxId);
-                    if (matchedSfx) matchedSfx.play();
+                    const matchedSfx = combinedEffects.find((s) => s.id === item.sfxId);
+                    if (matchedSfx) handlePreviewSfx(matchedSfx);
                   }}
                   className="absolute top-1.5 bottom-5 px-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-[10px] font-bold flex items-center gap-1 shadow-lg border border-violet-400/40 hover:scale-105 transition-transform z-10 truncate cursor-pointer"
                   style={{ left: `${leftPercent}%`, maxWidth: '140px' }}
@@ -229,7 +397,7 @@ export const SfxTimelineManager: React.FC<SfxTimelineManagerProps> = ({
 
           <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
             {timelineSfxList.map((item) => {
-              const matchedSfx = SOUND_EFFECTS_LIST.find((s) => s.id === item.sfxId);
+              const matchedSfx = combinedEffects.find((s) => s.id === item.sfxId);
               return (
                 <div
                   key={item.id}
@@ -237,7 +405,13 @@ export const SfxTimelineManager: React.FC<SfxTimelineManagerProps> = ({
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <button
-                      onClick={() => matchedSfx?.play()}
+                      onClick={() => {
+                        if (matchedSfx) {
+                          handlePreviewSfx(matchedSfx);
+                        } else if (item.audioUrl) {
+                          new Audio(item.audioUrl).play();
+                        }
+                      }}
                       className="w-7 h-7 rounded-lg bg-violet-600/20 hover:bg-violet-600 text-violet-300 hover:text-white flex items-center justify-center transition-colors shrink-0"
                       title="Phát thử âm thanh"
                     >
@@ -251,9 +425,19 @@ export const SfxTimelineManager: React.FC<SfxTimelineManagerProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 shrink-0">
-                    {/* Timestamp Slider & Input */}
-                    <div className="flex items-center gap-1.5 bg-slate-900 px-2 py-1 rounded-lg border border-slate-800">
+                  <div className="flex items-center gap-2 shrink-0">
+                    {/* Nút đặt nhanh timestamp theo vị trí preview hiện tại */}
+                    <button
+                      onClick={() => handleSnapToCurrentTime(item.id)}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-violet-950/80 hover:bg-violet-900 border border-violet-600/40 text-violet-300 hover:text-white text-[10.5px] font-medium transition-all shadow-2xs active:scale-95 cursor-pointer"
+                      title={`Đổi mốc âm thanh này về đúng vị trí Preview hiện tại (${currentTime.toFixed(2)}s)`}
+                    >
+                      <MapPin className="w-3 h-3 text-yellow-400" />
+                      <span>{currentTime.toFixed(1)}s</span>
+                    </button>
+
+                    {/* Timestamp Input */}
+                    <div className="flex items-center gap-1 bg-slate-900 px-2 py-1 rounded-lg border border-slate-800">
                       <Clock className="w-3 h-3 text-slate-400" />
                       <input
                         type="number"
@@ -262,9 +446,9 @@ export const SfxTimelineManager: React.FC<SfxTimelineManagerProps> = ({
                         step="0.1"
                         value={item.timestamp}
                         onChange={(e) => handleUpdateTimestamp(item.id, parseFloat(e.target.value) || 0)}
-                        className="w-14 bg-transparent text-xs font-mono text-violet-300 text-center focus:outline-none"
+                        className="w-12 bg-transparent text-xs font-mono text-violet-300 text-center focus:outline-none"
                       />
-                      <span className="text-[10px] text-slate-500">giây</span>
+                      <span className="text-[10px] text-slate-500">s</span>
                     </div>
 
                     {/* Volume Slider */}
@@ -277,7 +461,7 @@ export const SfxTimelineManager: React.FC<SfxTimelineManagerProps> = ({
                         step="0.05"
                         value={item.volume}
                         onChange={(e) => handleUpdateVolume(item.id, parseFloat(e.target.value))}
-                        className="w-16 h-1 accent-violet-500 cursor-pointer"
+                        className="w-14 h-1 accent-violet-500 cursor-pointer"
                         title={`Âm lượng: ${Math.round(item.volume * 100)}%`}
                       />
                       <span className="text-[10px] text-slate-400 font-mono w-7 text-right">
@@ -301,26 +485,38 @@ export const SfxTimelineManager: React.FC<SfxTimelineManagerProps> = ({
         </div>
       )}
 
-      {/* 4. Thư Viện Sound Effects 50+ Từ App */}
+      {/* 4. Thư Viện Sound Effects & Tải File Từ PC */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h4 className="text-xs sm:text-sm font-bold text-white flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-yellow-400" /> Thư viện Sound Effects (50+ Âm Thanh Chất Lượng Cao)
+              <Sparkles className="w-4 h-4 text-yellow-400" /> Thư viện Sound Effects & File Từ Máy
             </h4>
             <p className="text-[11px] text-slate-400">
-              Nhấn Play để nghe thử tức thì, hoặc nhấn "+ Thêm vào Timeline" để gắn vào giây hiện tại.
+              Nhấn Play để nghe thử tức thì, hoặc nhấn nút "+ Gắn (giây)" để tự động thêm âm thanh vào đúng vị trí đang dừng Preview.
             </p>
           </div>
 
-          {/* Search Box */}
-          <input
-            type="text"
-            placeholder="🔍 Tìm kiếm âm thanh..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="px-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-violet-500"
-          />
+          <div className="flex items-center gap-2">
+            {/* Search Box */}
+            <input
+              type="text"
+              placeholder="🔍 Tìm kiếm âm thanh..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="px-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-violet-500"
+            />
+
+            {/* Quick Upload Button */}
+            <button
+              onClick={handleSelectCustomSfxFromPC}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-violet-600/30 hover:bg-violet-600 border border-violet-500/40 text-violet-200 hover:text-white text-xs font-semibold transition-all active:scale-95 shrink-0"
+              title="Tải thêm âm thanh hiệu ứng từ máy tính"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>Tải từ PC</span>
+            </button>
+          </div>
         </div>
 
         {/* Category Tabs */}
@@ -365,16 +561,16 @@ export const SfxTimelineManager: React.FC<SfxTimelineManagerProps> = ({
                     <div className="text-xs font-bold text-slate-200 group-hover:text-white truncate">
                       {sfx.name}
                     </div>
-                    <div className="text-[10px] text-slate-500 truncate">{sfx.description}</div>
+                    <div className="text-[10px] text-slate-500 truncate">{(sfx as any).description || 'Sound Effect'}</div>
                   </div>
                 </div>
 
                 <button
                   onClick={() => handleAddSfxToTimeline(sfx)}
-                  className="px-2.5 py-1 rounded-lg text-xs font-bold bg-violet-600/20 hover:bg-violet-600 text-violet-300 hover:text-white border border-violet-500/30 hover:border-transparent transition-all flex items-center gap-1 shrink-0 active:scale-95"
-                  title={`Gắn âm thanh này vào mốc ${currentTime.toFixed(2)}s`}
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-violet-600/20 hover:bg-violet-600 text-violet-300 hover:text-white border border-violet-500/30 hover:border-transparent transition-all flex items-center gap-1 shrink-0 active:scale-95 cursor-pointer"
+                  title={`Gắn âm thanh này vào đúng số giây đang Preview (${currentTime.toFixed(2)}s)`}
                 >
-                  <Plus className="w-3 h-3" /> Gắn ({currentTime.toFixed(1)}s)
+                  <Plus className="w-3.5 h-3.5" /> Gắn ({currentTime.toFixed(1)}s)
                 </button>
               </div>
             );

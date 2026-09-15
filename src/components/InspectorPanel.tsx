@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { VideoProject, SubtitleStyle, WatermarkConfig, SoundFxConfig, VIETNAMESE_VOICES } from '../types/video';
 import { SparkleBadge, WorkflowMode } from './SparkleBadge';
+import { convertAudioOrVideoFileToAudio, extractAudioFromVideoData } from '../services/speechToTextService';
 import {
   Type,
   Sparkles,
@@ -14,13 +15,16 @@ import {
   Layers,
   HelpCircle,
   Eye,
-  EyeOff
+  EyeOff,
+  RefreshCw
 } from 'lucide-react';
 
 interface InspectorPanelProps {
   project: VideoProject;
   setProject: React.Dispatch<React.SetStateAction<VideoProject>>;
   workflowMode?: WorkflowMode;
+  currentTime?: number;
+  onSeek?: (time: number) => void;
 }
 
 const BGM_OPTIONS = [
@@ -36,13 +40,8 @@ const BGM_OPTIONS = [
   },
   {
     id: 'bgm-cinematic-1',
-    name: '🏔️ Điện Ảnh Săn Mây Sa Pa (Cinematic Landscape)',
+    name: '🎬 Hùng Vĩ & Cảm Xúc (Cinematic Ambient)',
     url: '/audio/bgm-cinematic.wav'
-  },
-  {
-    id: 'bgm-none',
-    name: '🔇 Không nhạc nền (Chỉ giọng đọc thuyết minh)',
-    url: ''
   }
 ];
 
@@ -68,9 +67,14 @@ import { SfxTimelineManager } from './SfxTimelineManager';
 export const InspectorPanel: React.FC<InspectorPanelProps> = ({
   project,
   setProject,
-  workflowMode = 'fast'
+  workflowMode = 'fast',
+  currentTime = 0,
+  onSeek
 }) => {
   const [activeTab, setActiveTab] = useState<'branding' | 'sfx' | 'audio'>('branding');
+  const bgmFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isExtractingBgm, setIsExtractingBgm] = useState<boolean>(false);
+  const [bgmNoticeText, setBgmNoticeText] = useState<string | null>(null);
 
   const updateSubtitleStyle = (updates: Partial<SubtitleStyle>) => {
     setProject((prev) => ({
@@ -112,30 +116,105 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
     }));
   };
 
+  const handleBrowserBgmUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsExtractingBgm(true);
+    setBgmNoticeText('Đang quét và tự động trích xuất âm thanh MP3/WAV...');
+
+    try {
+      const result = await convertAudioOrVideoFileToAudio(file);
+      setProject((prev) => ({
+        ...prev,
+        bgm: {
+          ...prev.bgm,
+          url: result.audioUrl,
+          localPath: result.fileName
+        }
+      }));
+
+      if (result.isVideo) {
+        setBgmNoticeText(`✨ Đã tự động tách âm thanh từ video "${result.fileName}" sang MP3/WAV thành công!`);
+      } else {
+        setBgmNoticeText(`✅ Đã nạp file nhạc "${result.fileName}" thành công!`);
+      }
+
+      setTimeout(() => {
+        setBgmNoticeText(null);
+      }, 4000);
+    } catch (err) {
+      console.error('BGM upload error:', err);
+      setBgmNoticeText('⚠️ Không thể trích xuất âm thanh từ file này, vui lòng thử lại.');
+      setTimeout(() => setBgmNoticeText(null), 4000);
+    } finally {
+      setIsExtractingBgm(false);
+      if (bgmFileInputRef.current) {
+        bgmFileInputRef.current.value = '';
+      }
+    }
+  };
+
   const handleSelectCustomBgmFile = async () => {
     if (window.electronAPI?.selectFile) {
       try {
         const files = await window.electronAPI.selectFile({
-          title: 'Chọn file nhạc MP3/WAV từ máy tính làm nhạc nền',
+          title: 'Chọn file nhạc MP3 hoặc video MP4 từ máy tính làm nhạc nền',
           filters: [
-            { name: 'Audio Files', extensions: ['mp3', 'wav', 'aac', 'm4a', 'ogg'] }
+            { name: 'Audio & Video Files', extensions: ['mp3', 'wav', 'aac', 'm4a', 'ogg', 'mp4', 'mov', 'webm', 'mkv'] },
+            { name: 'Audio Files', extensions: ['mp3', 'wav', 'aac', 'm4a', 'ogg'] },
+            { name: 'Video Files', extensions: ['mp4', 'mov', 'webm', 'mkv'] }
           ]
         });
         if (files && files.length > 0) {
           const filePath = files[0];
+          const fileName = filePath.split(/[\\/]/).pop() || 'Nhạc nền';
+          const isVideo = /\.(mp4|mov|webm|mkv|avi|m4v)$/i.test(filePath);
+
+          if (isVideo) {
+            setIsExtractingBgm(true);
+            setBgmNoticeText(`Đang quét video "${fileName}" và tự động tách lấy âm thanh...`);
+            let base64Info = null;
+            if (window.electronAPI?.readAudioBase64) {
+              base64Info = await window.electronAPI.readAudioBase64(filePath);
+            }
+            if (base64Info?.dataUrl) {
+              const extracted = await extractAudioFromVideoData(base64Info.dataUrl);
+              if (extracted) {
+                setProject((prev) => ({
+                  ...prev,
+                  bgm: {
+                    ...prev.bgm,
+                    url: extracted.dataUrl,
+                    localPath: fileName
+                  }
+                }));
+                setBgmNoticeText(`✨ Đã tự động tách nhạc từ video "${fileName}" thành công!`);
+                setTimeout(() => setBgmNoticeText(null), 4000);
+                setIsExtractingBgm(false);
+                return;
+              }
+            }
+            setIsExtractingBgm(false);
+          }
+
           const audioUrl = `file://${filePath.replace(/\\/g, '/')}`;
           setProject((prev) => ({
             ...prev,
             bgm: {
               ...prev.bgm,
               url: audioUrl,
-              localPath: filePath
+              localPath: fileName
             }
           }));
+          setBgmNoticeText(`✅ Đã nạp nhạc "${fileName}" thành công!`);
+          setTimeout(() => setBgmNoticeText(null), 4000);
         }
       } catch (err) {
         console.error('BGM select error:', err);
       }
+    } else {
+      bgmFileInputRef.current?.click();
     }
   };
 
@@ -197,7 +276,8 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
             <SfxTimelineManager
               project={project}
               setProject={setProject}
-              currentTime={0}
+              currentTime={currentTime}
+              onSeek={onSeek}
             />
           </div>
         )}
@@ -695,13 +775,34 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                 <button
                   type="button"
                   onClick={handleSelectCustomBgmFile}
-                  className="flex items-center gap-1 text-[11px] text-emerald-700 hover:text-emerald-800 py-0.5 px-2 rounded-md bg-emerald-50 border border-emerald-200 transition-colors font-medium"
-                  title="Chọn file MP3/WAV từ máy tính của bạn"
+                  disabled={isExtractingBgm}
+                  className="flex items-center gap-1 text-[11px] text-emerald-700 hover:text-emerald-800 py-0.5 px-2 rounded-md bg-emerald-50 border border-emerald-200 transition-colors font-medium cursor-pointer active:scale-95 disabled:opacity-50"
+                  title="Chọn file MP3 hoặc video MP4 (tự động tách sound) từ máy tính"
                 >
-                  <FolderOpen className="w-3 h-3" />
-                  <span>Tải file riêng</span>
+                  {isExtractingBgm ? (
+                    <RefreshCw className="w-3 h-3 animate-spin text-emerald-600" />
+                  ) : (
+                    <FolderOpen className="w-3 h-3" />
+                  )}
+                  <span>{isExtractingBgm ? 'Đang tách nhạc...' : 'Tải file riêng'}</span>
                 </button>
               </div>
+
+              {/* Hidden file input for browser BGM upload */}
+              <input
+                type="file"
+                ref={bgmFileInputRef}
+                onChange={handleBrowserBgmUpload}
+                accept="audio/*,video/*,.mp3,.wav,.m4a,.aac,.ogg,.mp4,.mov,.webm,.mkv"
+                className="hidden"
+              />
+
+              {/* Notice banner khi tách nhạc từ video hoặc tải thành công */}
+              {bgmNoticeText && (
+                <div className="px-2.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-[10.5px] text-emerald-800 flex items-center gap-1.5 animate-in fade-in">
+                  <span>{bgmNoticeText}</span>
+                </div>
+              )}
 
               <select
                 value={project.bgm?.url || ''}
@@ -715,7 +816,7 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                 ))}
                 {project.bgm?.localPath && (
                   <option value={project.bgm.url}>
-                    📂 {project.bgm.localPath.split('\\').pop() || 'Nhạc từ máy tính'}
+                    📂 {project.bgm.localPath.split(/[\\/]/).pop() || 'Nhạc từ máy tính'}
                   </option>
                 )}
               </select>

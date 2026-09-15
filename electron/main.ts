@@ -171,6 +171,55 @@ async function fallbackTTS(text: string, voice: string) {
   }
 }
 
+function parseVoicePreset(voice = 'vi-VN-HoaiMyNeural', rate = '+0%', pitch = '+0Hz') {
+  let effectiveVoice = voice || 'vi-VN-HoaiMyNeural';
+  let effectiveRate = rate || '+0%';
+  let effectivePitch = '+0Hz';
+
+  if (voice === 'adam' || voice === 'adam-tiktok' || voice === 'vclip:adam') {
+    return { effectiveVoice: 'vi-VN-NamMinhNeural', effectiveRate: '+18%', effectivePitch: '+0Hz' };
+  }
+
+  if (voice && voice.includes(':') && !voice.startsWith('elevenlabs:')) {
+    const [baseVoice, modifier] = voice.split(':');
+    effectiveVoice = baseVoice;
+    switch (modifier) {
+      case 'adam':
+      case 'fast':
+        effectiveRate = '+18%';
+        break;
+      case 'recap':
+        effectiveRate = '+25%';
+        break;
+      case 'live':
+        effectiveRate = '+18%';
+        break;
+      case 'sweet':
+        effectiveRate = '+8%';
+        break;
+      case 'genz':
+        effectiveRate = '+22%';
+        break;
+      case 'story':
+        effectiveRate = '-8%';
+        break;
+      case 'deep':
+        effectiveRate = '-4%';
+        break;
+      case 'asmr':
+        effectiveRate = '-3%';
+        break;
+      case 'meme':
+        effectiveRate = '+12%';
+        break;
+      default:
+        break;
+    }
+  }
+
+  return { effectiveVoice, effectiveRate, effectivePitch };
+}
+
 function setupIpcHandlers() {
   // TTS Handler: Synthesizes high quality natural speech with accurate word timing using Edge-TTS
   ipcMain.handle(
@@ -182,10 +231,12 @@ function setupIpcHandlers() {
           return { audioUrl: '', duration: 1.0, words: [] };
         }
 
+        const { effectiveVoice, effectiveRate, effectivePitch } = parseVoicePreset(voice, rate, pitch);
+
         const comm = new Communicate(cleanText, {
-          voice,
-          rate,
-          pitch
+          voice: effectiveVoice,
+          rate: effectiveRate,
+          pitch: effectivePitch
         });
 
         const words: Array<{ word: string; start: number; end: number }> = [];
@@ -393,9 +444,12 @@ function setupIpcHandlers() {
     }
   });
 
+  const DEFAULT_GEMINI_KEY = process.env.GEMINI_API_KEY || '';
+
   // High-performance AI Audio-To-Text (Speech-to-Text)
   ipcMain.handle('audio:transcribe', async (_, params: { audioBase64: string; mimeType?: string; apiKey?: string }) => {
-    const { audioBase64, mimeType = 'audio/mp3', apiKey } = params;
+    const { audioBase64, mimeType = 'audio/mp3' } = params;
+    const apiKey = (params.apiKey && params.apiKey.trim()) ? params.apiKey.trim() : DEFAULT_GEMINI_KEY;
     if (!audioBase64) return { error: 'Không tìm thấy dữ liệu âm thanh' };
 
     const cleanMime = (mimeType || 'audio/mp3').split(';')[0].trim().toLowerCase();
@@ -432,6 +486,7 @@ TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (KHÔNG KÈM KÝ TỰ MARKDOWN):
 
       // 1. Tự động khám phá danh sách model hợp lệ từ chính API Key của người dùng
       let targetModels = [
+        'gemini-2.5-flash',
         'gemini-2.0-flash',
         'gemini-1.5-flash-latest',
         'gemini-1.5-flash',
@@ -730,6 +785,68 @@ TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (KHÔNG KÈM KÝ TỰ MARKDOWN):
       return [];
     }
   });
+
+  // AI: Groq & AI Engine Generation
+  ipcMain.handle(
+    'ai:gemini-generate',
+    async (_, params: { prompt: string; modelId?: number; thinkMode?: number; cookie?: string; apiKey?: string; xsrfToken?: string }) => {
+      try {
+        const { prompt, cookie, apiKey } = params || {};
+        const cleanPrompt = (prompt || '').trim();
+        if (!cleanPrompt) {
+          throw new Error('Prompt is required');
+        }
+
+        const activeKey = (apiKey || cookie || process.env.GROQ_API_KEY || '').trim();
+
+        // 1. Thử gọi Groq API
+        if (activeKey.startsWith('gsk_') || activeKey.length > 20) {
+          for (const model of ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768']) {
+            try {
+              const gRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${activeKey}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  model,
+                  messages: [
+                    {
+                      role: 'system',
+                      content:
+                        'You are an expert AI video scriptwriter, director, and creative content producer. Always return high quality, clear, and well-structured JSON or text responses.'
+                    },
+                    { role: 'user', content: cleanPrompt }
+                  ],
+                  temperature: 0.7
+                })
+              });
+
+              if (gRes.ok) {
+                const data = await gRes.json();
+                const content = data?.choices?.[0]?.message?.content;
+                if (content && typeof content === 'string') {
+                  const cleaned = content
+                    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+                    .replace(/```(?:python|javascript|text)\?code_(?:reference|stdout)&code_event_index=\d+\n[\s\S]*?```\n?/g, '')
+                    .trim();
+                  return { text: cleaned, rawLength: content.length };
+                }
+              }
+            } catch (groqErr) {
+              console.warn('Groq model failed in Electron main:', model, groqErr);
+            }
+          }
+        }
+
+        return { text: '', rawLength: 0 };
+      } catch (err: any) {
+        console.error('Electron AI Generate error:', err);
+        throw err;
+      }
+    }
+  );
 
   // App Lifecycle: Restart & Reload
   ipcMain.handle('app:restart', () => {

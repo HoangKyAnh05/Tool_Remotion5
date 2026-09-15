@@ -15,7 +15,7 @@ import { VideoProject } from './types/video';
 import { sampleHomestayProject } from './remotion/sampleHomestayProject';
 import { synthesizeEdgeTTS } from './services/edgeTtsService';
 import { WorkflowMode } from './components/SparkleBadge';
-import { DEFAULT_OPENAI_KEY } from './services/aiScriptService';
+import { DEFAULT_OPENAI_KEY, DEFAULT_GEMINI_KEY } from './services/aiScriptService';
 
 export const App: React.FC = () => {
   const [project, setProject] = useState<VideoProject>(() => {
@@ -45,9 +45,15 @@ export const App: React.FC = () => {
   const [isAiDirectorOpen, setIsAiDirectorOpen] = useState(false);
   const [aiDirectorInitialTab, setAiDirectorInitialTab] = useState<'copy_prompt' | 'paste_json' | 'missing_sources'>('copy_prompt');
   const [activeView, setActiveView] = useState<'editor' | 'roadmap100'>('editor');
+  const [previewCurrentTime, setPreviewCurrentTime] = useState<number>(0);
+
+  const handleSeekPlayer = (timeInSeconds: number) => {
+    setPreviewCurrentTime(timeInSeconds);
+    window.dispatchEvent(new CustomEvent('remotion-seek-to-time', { detail: { time: timeInSeconds } }));
+  };
 
   const [apiKeyGemini, setApiKeyGemini] = useState(
-    () => localStorage.getItem('GEMINI_API_KEY') || ''
+    () => localStorage.getItem('GEMINI_API_KEY') || DEFAULT_GEMINI_KEY
   );
   const [apiKeyOpenai, setApiKeyOpenai] = useState(
     () => localStorage.getItem('OPENAI_API_KEY') || DEFAULT_OPENAI_KEY
@@ -61,6 +67,16 @@ export const App: React.FC = () => {
   const [voicePitch, setVoicePitch] = useState(
     () => localStorage.getItem('VOICE_PITCH') || '+0Hz'
   );
+
+  // Lưu key Gemini và OpenAI mặc định vào localStorage nếu chưa có
+  useEffect(() => {
+    if (!localStorage.getItem('GEMINI_API_KEY')) {
+      localStorage.setItem('GEMINI_API_KEY', DEFAULT_GEMINI_KEY);
+    }
+    if (!localStorage.getItem('OPENAI_API_KEY')) {
+      localStorage.setItem('OPENAI_API_KEY', DEFAULT_OPENAI_KEY);
+    }
+  }, []);
 
   // Auto-synthesize voiceover for any scene missing audioUrl so speech plays immediately on Play
   useEffect(() => {
@@ -165,26 +181,8 @@ export const App: React.FC = () => {
         setWorkflowMode={setWorkflowMode}
       />
 
-      {/* 5-Step Workflow Guidance Stepper */}
-      <Step5WorkflowStepper
-        currentStep={currentStep}
-        onSelectStep={(step) => {
-          setCurrentStep(step);
-          if (step === 1 || step === 2) {
-            setIsVideoSplitterOpen(true);
-          } else if (step === 5) {
-            setIsRenderOpen(true);
-          }
-        }}
-        onOpenVideoSplitter={() => setIsVideoSplitterOpen(true)}
-        onOpenRender={() => setIsRenderOpen(true)}
-        sceneCount={project.scenes.length}
-        totalDuration={project.totalDuration}
-        sfxCount={(project.timelineSfx || []).length}
-      />
-
       {/* Main Body (Studio) */}
-      <main className="flex-1 overflow-hidden w-full h-[calc(100vh-112px)] flex flex-col xl:flex-row bg-slate-50">
+      <main className="flex-1 overflow-hidden w-full h-[calc(100vh-64px)] flex flex-col xl:flex-row bg-slate-50">
         {/* CỘT TRÁI (28% Width): Phân cảnh & Kịch bản */}
         <div className="w-full xl:w-[28%] h-full overflow-y-auto p-3 sm:p-4 space-y-4 border-r border-slate-200 bg-slate-50/80 shrink-0">
           {/* Kịch bản */}
@@ -210,6 +208,7 @@ export const App: React.FC = () => {
             apiKeyPexels={apiKeyPexels}
             onOpenBatchVocab={() => setIsBatchVocabOpen(true)}
             onOpenVideoSplitter={() => setIsVideoSplitterOpen(true)}
+            onOpenSettings={() => setIsSettingsOpen(true)}
             workflowMode={workflowMode}
           />
         </div>
@@ -219,6 +218,8 @@ export const App: React.FC = () => {
           <CenterPlayerStage
             project={project}
             setProject={setProject}
+            currentTime={previewCurrentTime}
+            onTimeUpdate={setPreviewCurrentTime}
           />
         </div>
 
@@ -228,13 +229,16 @@ export const App: React.FC = () => {
             <SfxTimelineManager
               project={project}
               setProject={setProject}
-              currentTime={0}
+              currentTime={previewCurrentTime}
+              onSeek={handleSeekPlayer}
             />
           ) : (
             <InspectorPanel
               project={project}
               setProject={setProject}
               workflowMode={workflowMode}
+              currentTime={previewCurrentTime}
+              onSeek={handleSeekPlayer}
             />
           )}
         </div>

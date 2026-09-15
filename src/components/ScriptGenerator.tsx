@@ -6,11 +6,10 @@ import {
   CheckCircle2,
   Loader2,
   FileText,
-  PlayCircle,
-  HardDrive,
-  Scissors
+  Sparkles,
+  HardDrive
 } from 'lucide-react';
-import { WorkflowMode, SparkleBadge } from './SparkleBadge';
+import { WorkflowMode } from './SparkleBadge';
 
 interface ScriptGeneratorProps {
   project: VideoProject;
@@ -41,7 +40,17 @@ export const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
 }) => {
   const [userScript, setUserScript] = useState(DEFAULT_SCRIPT);
   const detectedScenesCount = splitScriptIntoSentences(userScript).length;
-  const [selectedVoice, setSelectedVoice] = useState(project.voice.name || 'vi-VN-HoaiMyNeural');
+  const currentVoice = project.voice?.name || 'vi-VN-NamMinhNeural';
+
+  const handleVoiceChange = (newVoice: string) => {
+    setProject((prev) => ({
+      ...prev,
+      voice: {
+        ...prev.voice,
+        name: newVoice
+      }
+    }));
+  };
 
   const handleGenerateFromUserScript = async () => {
     if (!userScript.trim()) return;
@@ -51,7 +60,7 @@ export const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
 
     try {
       const { scenes, totalDuration } = await buildMotionScenesFromScript(userScript, {
-        voiceName: selectedVoice,
+        voiceName: currentVoice,
         voiceRate: project.voice.rate,
         voicePitch: project.voice.pitch,
         aspectRatio: project.aspectRatio,
@@ -69,7 +78,7 @@ export const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
         topic: cleanTitle,
         voice: {
           ...prev.voice,
-          name: selectedVoice
+          name: currentVoice
         },
         scenes,
         totalDuration
@@ -90,34 +99,22 @@ export const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
       {/* Header with Title & Voice Selector */}
       <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2 border-b border-slate-100">
         <div className="flex items-center gap-2">
-          {workflowMode === 'fast' && (
-            <SparkleBadge step={1} label="Dán kịch bản & Chọn giọng đọc" />
-          )}
-          {workflowMode === 'quality' && (
-            <SparkleBadge step={1} label="Nhập Kịch Bản" />
-          )}
-          {workflowMode === 'tiktok_capcut' && (
-            <SparkleBadge step={1} label="Kịch Bản TikTok" />
-          )}
-          {workflowMode === 'script_voice' && (
-            <SparkleBadge step={1} label="Kịch Bản & Chọn Giọng AI" />
-          )}
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
+          <div className="w-2.5 h-2.5 rounded-full bg-emerald-600 ring-2 ring-emerald-100" />
           <h3 className="text-xs font-bold text-slate-900 tracking-wide">
-            Kịch Bản Video & Giọng Đọc
+            Kịch Bản & Lồng Tiếng AI
           </h3>
         </div>
 
         {/* Voice Selector */}
         <div className="flex items-center gap-1.5">
           <label className="text-[11px] font-medium text-slate-500 flex items-center gap-1">
-            <Mic className="w-3.5 h-3.5 text-slate-400" />
+            <Mic className="w-3.5 h-3.5 text-emerald-600" />
             <span>Giọng đọc:</span>
           </label>
           <select
-            value={selectedVoice}
-            onChange={(e) => setSelectedVoice(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-md px-2 py-1 text-xs font-medium text-slate-800 focus:bg-white focus:outline-none focus:border-emerald-600 transition-all cursor-pointer"
+            value={currentVoice}
+            onChange={(e) => handleVoiceChange(e.target.value)}
+            className="bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all cursor-pointer max-w-[210px] sm:max-w-[270px] truncate"
           >
             {VIETNAMESE_VOICES.map((v) => (
               <option key={v.id} value={v.id}>
@@ -135,7 +132,7 @@ export const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
             <FileText className="w-3.5 h-3.5 text-slate-400" />
             <span>Nội dung kịch bản:</span>
           </span>
-          <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+          <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
             {detectedScenesCount} câu phân cảnh
           </span>
         </div>
@@ -145,14 +142,14 @@ export const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
           value={userScript}
           onChange={(e) => setUserScript(e.target.value)}
           rows={4}
-          className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-600 focus:bg-white rounded-lg px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-600 transition-all font-sans leading-relaxed resize-y"
+          className="w-full bg-slate-50/70 border border-slate-200 focus:border-emerald-600 focus:bg-white rounded-lg px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all font-sans leading-relaxed resize-y"
           placeholder="Nhập hoặc dán nội dung kịch bản video tại đây..."
         />
       </div>
 
       {/* Helper description */}
-      <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[11px] text-slate-600 flex items-center justify-between">
-        <span>Tự động tạo phân cảnh, gán hình ảnh/video nền và lồng tiếng phụ đề.</span>
+      <div className="bg-slate-50/80 border border-slate-200/80 rounded-lg px-3 py-1.5 text-[11px] text-slate-600 flex items-center justify-between">
+        <span>Tự động phân đoạn video, ghép giọng đọc AI chuẩn và tạo phụ đề chuyển động.</span>
       </div>
 
       {/* Action Row */}
@@ -178,11 +175,11 @@ export const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
             <button
               type="button"
               onClick={onOpenVideoSplitter}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-semibold text-xs shadow-sm transition-all active:scale-95"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold text-xs shadow-xs transition-all active:scale-95 cursor-pointer"
               title="Quét thư mục Google Drive chứa video homestay & tự động tải chia đoạn"
             >
               <HardDrive className="w-3.5 h-3.5 text-blue-600" />
-              <span>Quét Google Drive / Cắt Video</span>
+              <span>Quét Drive / Cắt Video</span>
             </button>
           )}
 
@@ -190,11 +187,8 @@ export const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
           <button
             onClick={handleGenerateFromUserScript}
             disabled={isGenerating || !userScript.trim()}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer"
           >
-            {workflowMode === 'fast' && (
-              <SparkleBadge step={2} label="Tạo Video Từ Kịch Bản" />
-            )}
             {isGenerating ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -202,8 +196,8 @@ export const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
               </>
             ) : (
               <>
-                <PlayCircle className="w-4 h-4" />
-                <span>Bước 2: Tạo Video Từ Kịch Bản</span>
+                <Sparkles className="w-3.5 h-3.5 text-emerald-200" />
+                <span>Tạo Video Từ Kịch Bản</span>
               </>
             )}
           </button>

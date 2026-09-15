@@ -20,9 +20,11 @@ import {
 interface CenterPlayerStageProps {
   project: VideoProject;
   setProject: React.Dispatch<React.SetStateAction<VideoProject>>;
+  currentTime?: number;
+  onTimeUpdate?: (timeInSeconds: number) => void;
 }
 
-export const CenterPlayerStage: React.FC<CenterPlayerStageProps> = ({ project, setProject }) => {
+export const CenterPlayerStage: React.FC<CenterPlayerStageProps> = ({ project, setProject, onTimeUpdate }) => {
   const playerRef = useRef<PlayerRef>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -100,6 +102,20 @@ export const CenterPlayerStage: React.FC<CenterPlayerStageProps> = ({ project, s
   const compositionWidth = project.aspectRatio === '9:16' ? 1080 : 1920;
   const compositionHeight = project.aspectRatio === '9:16' ? 1920 : 1080;
 
+  // Lắng nghe sự kiện tua thời gian từ ngoài (SFX timeline, audio scrubber...)
+  useEffect(() => {
+    const handleGlobalSeek = (e: any) => {
+      if (e?.detail && typeof e.detail.time === 'number' && playerRef.current) {
+        const targetFrame = Math.max(0, Math.min(totalFrames - 1, Math.round(e.detail.time * fps)));
+        playerRef.current.seekTo(targetFrame);
+        setCurrentFrame(targetFrame);
+        onTimeUpdate?.(Number((targetFrame / fps).toFixed(2)));
+      }
+    };
+    window.addEventListener('remotion-seek-to-time', handleGlobalSeek);
+    return () => window.removeEventListener('remotion-seek-to-time', handleGlobalSeek);
+  }, [fps, totalFrames, onTimeUpdate]);
+
   // Cập nhật trạng thái play/pause và frame khi Player phát
   useEffect(() => {
     const player = playerRef.current;
@@ -109,6 +125,7 @@ export const CenterPlayerStage: React.FC<CenterPlayerStageProps> = ({ project, s
     const onPause = () => setIsPlaying(false);
     const onFrameUpdate = (e: { detail: { frame: number } }) => {
       setCurrentFrame(e.detail.frame);
+      onTimeUpdate?.(Number((e.detail.frame / fps).toFixed(2)));
     };
 
     player.addEventListener('play', onPlay);
@@ -120,7 +137,7 @@ export const CenterPlayerStage: React.FC<CenterPlayerStageProps> = ({ project, s
       player.removeEventListener('pause', onPause);
       player.removeEventListener('frameupdate', onFrameUpdate);
     };
-  }, [playerRef.current]);
+  }, [playerRef.current, fps, onTimeUpdate]);
 
   // Hỗ trợ phím tắt Space để Play/Pause và ArrowRight/ArrowLeft để tua frame
   useEffect(() => {
@@ -158,6 +175,7 @@ export const CenterPlayerStage: React.FC<CenterPlayerStageProps> = ({ project, s
     if (!playerRef.current) return;
     playerRef.current.seekTo(frame);
     setCurrentFrame(frame);
+    onTimeUpdate?.(Number((frame / fps).toFixed(2)));
   };
 
   const handleStepFrame = (delta: number) => {
@@ -165,6 +183,7 @@ export const CenterPlayerStage: React.FC<CenterPlayerStageProps> = ({ project, s
     const target = Math.max(0, Math.min(totalFrames - 1, currentFrame + delta));
     playerRef.current.seekTo(target);
     setCurrentFrame(target);
+    onTimeUpdate?.(Number((target / fps).toFixed(2)));
   };
 
   const formatTimecode = (frame: number) => {

@@ -1,6 +1,7 @@
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { Communicate } from 'edge-tts-universal';
 
@@ -57,6 +58,55 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+function parseVoicePreset(voice = 'vi-VN-HoaiMyNeural', rate = '+0%', pitch = '+0Hz') {
+  let effectiveVoice = voice || 'vi-VN-HoaiMyNeural';
+  let effectiveRate = rate || '+0%';
+  let effectivePitch = '+0Hz';
+
+  if (voice === 'adam' || voice === 'adam-tiktok' || voice === 'vclip:adam') {
+    return { effectiveVoice: 'vi-VN-NamMinhNeural', effectiveRate: '+18%', effectivePitch: '+0Hz' };
+  }
+
+  if (voice && voice.includes(':') && !voice.startsWith('elevenlabs:')) {
+    const [baseVoice, modifier] = voice.split(':');
+    effectiveVoice = baseVoice;
+    switch (modifier) {
+      case 'adam':
+      case 'fast':
+        effectiveRate = '+18%';
+        break;
+      case 'recap':
+        effectiveRate = '+25%';
+        break;
+      case 'live':
+        effectiveRate = '+18%';
+        break;
+      case 'sweet':
+        effectiveRate = '+8%';
+        break;
+      case 'genz':
+        effectiveRate = '+22%';
+        break;
+      case 'story':
+        effectiveRate = '-8%';
+        break;
+      case 'deep':
+        effectiveRate = '-4%';
+        break;
+      case 'asmr':
+        effectiveRate = '-3%';
+        break;
+      case 'meme':
+        effectiveRate = '+12%';
+        break;
+      default:
+        break;
+    }
+  }
+
+  return { effectiveVoice, effectiveRate, effectivePitch };
+}
+
   // Handle Edge-TTS API on Web Service
   if (req.url === '/api/tts' && req.method === 'POST') {
     let body = '';
@@ -73,7 +123,8 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        const comm = new Communicate(cleanText, { voice, rate, pitch });
+        const { effectiveVoice, effectiveRate, effectivePitch } = parseVoicePreset(voice, rate, pitch);
+        const comm = new Communicate(cleanText, { voice: effectiveVoice, rate: effectiveRate, pitch: effectivePitch });
         const words = [];
         const audioChunks = [];
 
@@ -242,6 +293,116 @@ const server = http.createServer(async (req, res) => {
       res.end(JSON.stringify({ error: err?.message || 'Download failed' }));
       return;
     }
+  }
+
+  // Handle Gemini Web2API (Free Zero-Token AI Generation)
+  if (req.url === '/api/gemini/generate' && req.method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk;
+    });
+    req.on('end', async () => {
+      try {
+        const { prompt, modelId = 1, thinkMode = 4, cookie, xsrfToken } = JSON.parse(body || '{}');
+        const cleanPrompt = (prompt || '').trim();
+        if (!cleanPrompt) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Prompt is required' }));
+          return;
+        }
+
+        const inner = new Array(102).fill(null);
+        inner[0] = [cleanPrompt, 0, null, null, null, null, 0];
+        inner[1] = ['en'];
+        inner[2] = ['', '', '', null, null, null, null, null, null, ''];
+        inner[6] = [0];
+        inner[7] = 1;
+        inner[10] = 1;
+        inner[11] = 0;
+        inner[17] = [[thinkMode]];
+        inner[18] = 0;
+        inner[27] = 1;
+        inner[30] = [4];
+        inner[41] = [2];
+        inner[53] = 0;
+        inner[59] = crypto.randomUUID();
+        inner[61] = [];
+        inner[68] = 1;
+        inner[79] = Number(modelId) || 1;
+
+        const outer = [null, JSON.stringify(inner)];
+        const bodyParams = new URLSearchParams();
+        bodyParams.append('f.req', JSON.stringify(outer));
+        if (xsrfToken) {
+          bodyParams.append('at', xsrfToken);
+        }
+
+        const reqid = Math.floor(Date.now() / 1000) % 1000000;
+        const bl = 'boq_assistant-bard-web-server_20260716.08_p0';
+        const url = `https://gemini.google.com/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate?bl=${bl}&hl=en&_reqid=${reqid}&rt=c`;
+
+        const headers = {
+          'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
+          'Origin': 'https://gemini.google.com',
+          'Referer': 'https://gemini.google.com/app',
+          'X-Same-Domain': '1',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+        };
+        if (cookie) {
+          headers['Cookie'] = cookie;
+        }
+
+        const gRes = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: bodyParams.toString()
+        });
+
+        if (!gRes.ok) {
+          res.writeHead(gRes.status, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: `Gemini Web returned HTTP ${gRes.status}` }));
+          return;
+        }
+
+        const raw = await gRes.text();
+        let lastText = '';
+        for (const line of raw.split('\n')) {
+          if (!line.includes('"wrb.fr"') || line.length < 200) continue;
+          try {
+            const arr = JSON.parse(line);
+            const innerStr = arr?.[0]?.[2];
+            if (!innerStr || innerStr.length < 50) continue;
+            const parsedInner = JSON.parse(innerStr);
+            if (Array.isArray(parsedInner?.[4])) {
+              for (const part of parsedInner[4]) {
+                if (Array.isArray(part) && Array.isArray(part[1])) {
+                  for (const t of part[1]) {
+                    if (typeof t === 'string' && t.length > lastText.length) {
+                      lastText = t;
+                    }
+                  }
+                }
+              }
+            }
+          } catch {
+            // Ignore parse errors on chunks
+          }
+        }
+
+        const cleaned = lastText
+          .replace(/```(?:python|javascript|text)\?code_(?:reference|stdout)&code_event_index=\d+\n[\s\S]*?```\n?/g, '')
+          .replace(/http:\/\/googleusercontent\.com\/card_content\/\d+\n?/g, '')
+          .trim();
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ text: cleaned, rawLength: raw.length }));
+      } catch (err) {
+        console.error('Gemini Web API error:', err);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err?.message || 'Gemini Web generation failed' }));
+      }
+    });
+    return;
   }
 
   // Serve static files from dist/

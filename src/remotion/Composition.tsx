@@ -63,7 +63,7 @@ export const MainComposition: React.FC<RemotionVideoProps> = ({ project }) => {
   const bgmUrl = resolveAudioSource(project.bgm?.url);
   const whooshUrl = resolveAudioSource(WHOOSH_SFX_URL);
 
-  const showAudioVisualizer = project.showAudioVisualizer ?? true;
+  const showAudioVisualizer = project.showAudioVisualizer ?? false;
   const showCinematicParticles = project.showCinematicParticles ?? true;
   const showCameraShake = project.showCameraShake ?? true;
   const enableDynamicEmojis = project.enableDynamicEmojis ?? true;

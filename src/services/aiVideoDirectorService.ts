@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Scene, VideoProject, TransitionType, KenBurnsEffect } from '../types/video';
+import { generateTextWithGeminiWeb } from './geminiWebService';
 
 export interface AiScriptSceneRaw {
   order?: number;
@@ -753,15 +754,24 @@ BẮT BUỘC: Trả về JSON hợp lệ (không kèm văn bản lan man ngoài 
           }
         } catch (err: any) {
           lastError = err?.response?.data?.error?.message || err?.message || err;
-          // Nếu lỗi là 401 hoặc API_KEY_INVALID, ném lỗi rõ ràng cho người dùng
-          if (err?.response?.status === 401 || String(lastError).includes('API_KEY_INVALID') || String(lastError).includes('unauthenticated')) {
-            throw new Error(`Google Gemini API Key không hợp lệ hoặc đã hết hạn (Mã lỗi 401). Vui lòng kiểm tra lại API Key từ Google AI Studio (aistudio.google.com)!`);
-          }
-          if (err?.response?.status === 429 || String(lastError).includes('RESOURCE_EXHAUSTED')) {
-            throw new Error(`Google Gemini API Key đã hết lượt gọi miễn phí (Mã lỗi 429 Quota Exceeded).`);
-          }
         }
       }
+    }
+
+    // Fallback qua Gemini Web2API Engine (Miễn phí 100% không cần key)
+    try {
+      const fullPrompt = `${systemPrompt}\n\n${masterPrompt}`;
+      const webText = await generateTextWithGeminiWeb(fullPrompt, { model: 'gemini-3.7-flash' });
+      if (webText) {
+        const parsedResult = this.parseAiScriptJson(webText);
+        return {
+          projectData: parsedResult.projectData,
+          scenes: parsedResult.scenes,
+          rawJsonText: webText
+        };
+      }
+    } catch (webErr: any) {
+      console.warn('Gemini Web fallback in aiVideoDirectorService failed:', webErr);
     }
 
     // Nếu các model đều không phản hồi nhưng không phải lỗi xác thực (ví dụ rớt mạng), ném lỗi chi tiết

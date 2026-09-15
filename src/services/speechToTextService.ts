@@ -230,6 +230,73 @@ export async function analyzeAudioWaveform(
   }
 }
 
+export interface AudioExtractionResult {
+  audioUrl: string;
+  duration: number;
+  isVideo: boolean;
+  fileName: string;
+}
+
+/**
+ * Tự động quét file: nếu là file MP3/WAV/Audio thì nạp trực tiếp, nếu là video MP4/MOV/WebM/MKV
+ * thì tự động quét và bóc tách âm thanh (extract audio track) sang Audio WAV/MP3 Data URL để nhập vào app.
+ */
+export async function convertAudioOrVideoFileToAudio(
+  file: File
+): Promise<AudioExtractionResult> {
+  const fileName = file.name;
+  const isVideo = file.type.startsWith('video/') || /\.(mp4|mov|webm|mkv|avi|m4v|3gp|flv)$/i.test(fileName);
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const rawDataUrl = event.target?.result as string;
+        if (!rawDataUrl) {
+          throw new Error('Không thể đọc dữ liệu file');
+        }
+
+        if (isVideo) {
+          const extracted = await extractAudioFromVideoData(rawDataUrl);
+          if (extracted && extracted.dataUrl) {
+            resolve({
+              audioUrl: extracted.dataUrl,
+              duration: extracted.duration || 10.0,
+              isVideo: true,
+              fileName
+            });
+            return;
+          }
+        }
+
+        // Nếu là audio thông thường (MP3, WAV, AAC, M4A, OGG, etc.)
+        const audio = new Audio(rawDataUrl);
+        audio.onloadedmetadata = () => {
+          const duration = Number((audio.duration || 10.0).toFixed(2));
+          resolve({
+            audioUrl: rawDataUrl,
+            duration: isFinite(duration) && duration > 0 ? duration : 10.0,
+            isVideo: false,
+            fileName
+          });
+        };
+        audio.onerror = () => {
+          resolve({
+            audioUrl: rawDataUrl,
+            duration: 10.0,
+            isVideo: false,
+            fileName
+          });
+        };
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
+}
+
 // Căn chỉnh nhịp từng từ (Word Alignment) theo độ dài âm thanh và waveform
 export function alignWordsWithWaveform(
   text: string,

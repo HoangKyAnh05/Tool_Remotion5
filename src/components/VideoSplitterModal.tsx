@@ -42,7 +42,20 @@ import {
   VideoMetadata
 } from '../services/videoSplitterService';
 import { GoogleDriveFolderPicker } from './GoogleDriveFolderPicker';
-import { generateWithOpenAI, autoSynthesizeScenesVoice, DEFAULT_OPENAI_KEY } from '../services/aiScriptService';
+import {
+  generateWithOpenAI,
+  autoSynthesizeScenesVoice,
+  suggestTimestampsAndStructureWithAI,
+  parseSplitPointsToRanges,
+  formatSplitRangesToTimestamps,
+  parseCustomTimestampsToRanges,
+  extractDescriptionsFromMultiLineText,
+  extractSplitPointsFromMultiLineText,
+  ParsedTimeRange,
+  SuggestedSceneStructure,
+  DEFAULT_OPENAI_KEY,
+  DEFAULT_GEMINI_KEY
+} from '../services/aiScriptService';
 
 interface VideoSplitterModalProps {
   isOpen: boolean;
@@ -57,6 +70,7 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
   project,
   setProject
 }) => {
+  // Video Splitter State (Bước 2)
   const [loadedVideos, setLoadedVideos] = useState<VideoMetadata[]>([]);
   const [segments, setSegments] = useState<VideoSegment[]>([]);
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
@@ -72,16 +86,163 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
   const [inputSourceTab, setInputSourceTab] = useState<'upload' | 'drive'>('upload');
   const [isDriveAppendOpen, setIsDriveAppendOpen] = useState(false);
 
-  // OpenAI Script & Voice State (Bước 1)
+  // OpenAI / AI Script & Voice State (Bước 1)
   const [openaiKey, setOpenaiKey] = useState<string>(() => {
-    return localStorage.getItem('OPENAI_API_KEY') || DEFAULT_OPENAI_KEY;
+    return (
+      localStorage.getItem('OPENAI_API_KEY') ||
+      localStorage.getItem('GEMINI_API_KEY') ||
+      DEFAULT_GEMINI_KEY
+    );
   });
   const [aiTopic, setAiTopic] = useState<string>(project.topic || '');
+  const [aiAvailableSources, setAiAvailableSources] = useState<string>('');
   const [aiRawScript, setAiRawScript] = useState<string>('');
-  const [aiCustomTimestamps, setAiCustomTimestamps] = useState<string>('0:00 - 0:10: Giới thiệu tổng quan\n0:10 - 0:25: Không gian chi tiết\n0:25 - 0:40: Trải nghiệm & Điểm nổi bật\n0:40 - 0:55: Lời kêu gọi hành động');
+  const [quickSplitInput, setQuickSplitInput] = useState<string>('5.4s, 6.2s, 7.3s, 8.4, 10.5s, 11.6s');
+  const [parsedSplitRanges, setParsedSplitRanges] = useState<ParsedTimeRange[]>(() => {
+    return parseSplitPointsToRanges('5.4s, 6.2s, 7.3s, 8.4, 10.5s, 11.6s', { topic: project.topic || '' });
+  });
+  const [aiSceneCount, setAiSceneCount] = useState<number>(7);
+
+  const handleQuickSplitChange = (val: string) => {
+    setQuickSplitInput(val);
+    if (!val || !val.trim()) {
+      setParsedSplitRanges([]);
+      return;
+    }
+    // Lấy mô tả hiện có từ aiAvailableSources hoặc từ aiCustomTimestamps hiện tại
+    const existingDesc = extractDescriptionsFromMultiLineText(aiCustomTimestamps);
+    const sourceDesc = aiAvailableSources
+      .split('\n')
+      .map(s => s.replace(/^\d+[\.\:\-\)]\s*/, '').trim())
+      .filter(Boolean);
+    const descriptionsToUse = sourceDesc.length > 0 ? sourceDesc : existingDesc;
+
+    const ranges = parseSplitPointsToRanges(val, {
+      topic: aiTopic || project.topic || '',
+      customSources: descriptionsToUse
+    });
+
+    if (ranges.length > 0) {
+      setParsedSplitRanges(ranges);
+      setAiSceneCount(ranges.length);
+      const formatted = formatSplitRangesToTimestamps(ranges, aiTopic || project.topic || '');
+      setAiCustomTimestamps(formatted);
+    } else {
+      setParsedSplitRanges([]);
+    }
+  };
+
+  const handleCustomTimestampsChange = (val: string) => {
+    setAiCustomTimestamps(val);
+    if (!val || !val.trim()) {
+      setQuickSplitInput('');
+      setParsedSplitRanges([]);
+      return;
+    }
+    const { quickString } = extractSplitPointsFromMultiLineText(val);
+    if (quickString) {
+      setQuickSplitInput(quickString);
+    }
+    const ranges = parseCustomTimestampsToRanges(val, aiTopic || project.topic || '');
+    if (ranges.length > 0) {
+      setParsedSplitRanges(ranges);
+      setAiSceneCount(ranges.length);
+    }
+  };
+
+  const [aiCustomTimestamps, setAiCustomTimestamps] = useState<string>(() => {
+    const initialRanges = parseSplitPointsToRanges('5.4s, 6.2s, 7.3s, 8.4, 10.5s, 11.6s', { topic: project.topic || '' });
+    return formatSplitRangesToTimestamps(initialRanges, project.topic || '');
+  });
   const [selectedVoice, setSelectedVoice] = useState<string>(project.voice?.name || 'vi-VN-HoaiMyNeural');
   const [isGeneratingAi, setIsGeneratingAi] = useState<boolean>(false);
+  const [isSuggestingTimestamps, setIsSuggestingTimestamps] = useState<boolean>(false);
+  const [suggestedStructure, setSuggestedStructure] = useState<SuggestedSceneStructure[]>([]);
   const [isAiSectionOpen, setIsAiSectionOpen] = useState<boolean>(true);
+
+  // AI tự động phân tích chủ đề và gợi ý chính xác các mốc thời gian, phân cảnh, góc máy & lời dẫn
+  const handleAiSuggestTimestamps = async (targetCount?: number) => {
+    if (!aiTopic || !aiTopic.trim()) {
+      showNotification('⚠️ Vui lòng nhập Chủ đề / Tên video trước để AI phân tích và gợi ý!');
+      return;
+    }
+
+    try {
+      setIsSuggestingTimestamps(true);
+      showNotification(`🤖 AI đang phân tích "${aiTopic}" để gợi ý các mốc thời gian & phân cảnh chi tiết...`);
+
+      const effectiveCount = targetCount || aiSceneCount || 6;
+      const res = await suggestTimestampsAndStructureWithAI({
+        topic: aiTopic.trim(),
+        sceneCount: effectiveCount,
+        availableSources: aiAvailableSources,
+        apiKey: openaiKey.trim()
+      });
+
+      if (res && res.formattedTimestamps) {
+        setAiCustomTimestamps(res.formattedTimestamps);
+        const { quickString } = extractSplitPointsFromMultiLineText(res.formattedTimestamps);
+        if (quickString) {
+          setQuickSplitInput(quickString);
+        }
+        const ranges = parseCustomTimestampsToRanges(res.formattedTimestamps, aiTopic || project.topic || '');
+        if (ranges.length > 0) {
+          setParsedSplitRanges(ranges);
+        }
+      }
+      if (res && res.scenes && res.scenes.length > 0) {
+        setSuggestedStructure(res.scenes);
+        setAiSceneCount(res.scenes.length);
+      }
+
+      showNotification(`✨ AI đã gợi ý thành công ${res.scenes.length} mốc thời gian & phân cảnh chuẩn cho "${aiTopic}"!`);
+    } catch (err: any) {
+      console.error('Lỗi khi AI gợi ý mốc thời gian:', err);
+      showNotification(`⚠️ Lưu ý: ${err.message || 'Lỗi khi gợi ý mốc thời gian'}`);
+    } finally {
+      setIsSuggestingTimestamps(false);
+    }
+  };
+
+  // Tự động phân bổ mốc thời gian chuẩn từ số phân cảnh hoặc danh sách Source
+  const handleAutoGenerateTimestamps = (targetCount?: number, customSourcesText?: string) => {
+    const rawSources = (typeof customSourcesText === 'string' ? customSourcesText : aiAvailableSources)
+      .split('\n')
+      .map(s => s.replace(/^\d+[\.\:\-\)]\s*/, '').trim())
+      .filter(Boolean);
+
+    const effectiveCount = targetCount || (rawSources.length > 0 ? rawSources.length : aiSceneCount) || 4;
+    let currentStart = 0;
+    const lines: string[] = [];
+
+    for (let i = 0; i < effectiveCount; i++) {
+      const dur = i === 0 ? 10 : 15;
+      const startStr = formatTimeDisplay(currentStart);
+      const endStr = formatTimeDisplay(currentStart + dur);
+      const sourceDesc = rawSources[i] || (
+        i === 0 ? 'Giới thiệu tổng quan & Mở đầu' :
+        i === 1 ? 'Không gian chi tiết & Góc quay đặc sắc' :
+        i === effectiveCount - 1 ? 'Tổng kết & Kêu gọi hành động' :
+        `Trải nghiệm & Điểm nhấn phân cảnh ${i + 1}`
+      );
+      lines.push(`${startStr} - ${endStr}: ${sourceDesc}`);
+      currentStart += dur;
+    }
+
+    const result = lines.join('\n');
+    setAiCustomTimestamps(result);
+    setAiSceneCount(effectiveCount);
+    const { quickString } = extractSplitPointsFromMultiLineText(result);
+    if (quickString) {
+      setQuickSplitInput(quickString);
+    }
+    const ranges = parseCustomTimestampsToRanges(result, aiTopic || project.topic || '');
+    if (ranges.length > 0) {
+      setParsedSplitRanges(ranges);
+    }
+    showNotification(`⚡ Đã tự động tạo ${effectiveCount} mốc thời gian phân cảnh chuẩn!`);
+    return result;
+  };
 
   // Tham chiếu DOM Master Player duy nhất
   const masterVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -201,31 +362,31 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
     e.target.value = '';
   };
 
-  // 2. Tự động sinh Kịch bản & Giọng đọc AI với OpenAI (Bước 1)
+  // 2. Tự động sinh Kịch bản & Giọng đọc AI (Bước 1)
   const handleGenerateOpenAiScript = async () => {
-    if (!openaiKey.trim()) {
-      alert('Vui lòng nhập OpenAI API Key để tiếp tục.');
-      return;
-    }
-
     try {
       setIsGeneratingAi(true);
-      localStorage.setItem('OPENAI_API_KEY', openaiKey.trim());
+      if (openaiKey.trim()) {
+        localStorage.setItem('OPENAI_API_KEY', openaiKey.trim());
+      }
 
-      showNotification('🤖 OpenAI đang phân tích và tạo kịch bản theo các mốc giây...');
+      const effectiveCount = (parsedSplitRanges && parsedSplitRanges.length > 0)
+        ? parsedSplitRanges.length
+        : (aiSceneCount || (loadedVideos.length > 0 ? segments.length : 6));
+      showNotification(`🤖 Đang phân tích và tạo kịch bản cho đúng ${effectiveCount} phân cảnh...`);
 
       const generatedScenes = await generateWithOpenAI({
         topic: aiTopic || 'Video clip tổng hợp',
         rawScriptInput: aiRawScript,
         customTimestamps: aiCustomTimestamps,
-        sceneCount: segments.length > 0 ? segments.length : 4,
+        sceneCount: effectiveCount,
         apiKey: openaiKey.trim()
       });
 
       showNotification('🎙️ Đang tự động sinh giọng lồng tiếng AI chất lượng cao...');
 
       // Map generated scenes into temporary Scene objects
-      const fullScenes: Scene[] = generatedScenes.map((s, idx) => ({
+      const fullScenes: Scene[] = generatedScenes.map((s) => ({
         ...s,
         audioDuration: 4.0,
         words: []
@@ -241,31 +402,25 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
         }
       );
 
-      // Cập nhật vào danh sách segments hiện tại hoặc tạo segments mới
-      if (segments.length > 0) {
-        const updatedSegments = segments.map((seg, idx) => {
-          const matchedScene = synthesizedScenes[idx] || synthesizedScenes[idx % synthesizedScenes.length];
-          return {
-            ...seg,
-            narration: matchedScene?.narration || seg.narration,
-            title: matchedScene?.cutAction ? `Clip #${idx + 1}: ${matchedScene.cutAction}` : seg.title
-          };
-        });
-        setSegments(updatedSegments);
-      } else {
-        // Tạo segments giả định từ scenes nếu chưa nạp video
-        const dummySegments: VideoSegment[] = synthesizedScenes.map((sc, idx) => ({
-          id: `seg-ai-${Date.now()}-${idx + 1}`,
+      // Cập nhật vào danh sách segments với ĐÚNG số lượng phân cảnh đã sinh (synthesizedScenes)
+      const primaryVideoUrl = loadedVideos[0]?.url || '';
+      const updatedSegments: VideoSegment[] = synthesizedScenes.map((sc, idx) => {
+        const sOff = typeof sc.videoStartOffset === 'number' ? sc.videoStartOffset : idx * 10;
+        const eOff = typeof sc.videoEndOffset === 'number' ? sc.videoEndOffset : (idx + 1) * 10;
+        const dur = Number(Math.max(0.1, eOff - sOff).toFixed(2));
+        const existingSeg = segments[idx];
+        return {
+          id: existingSeg?.id || `seg-ai-${Date.now()}-${idx + 1}`,
           order: idx + 1,
-          title: `Phân cảnh #${idx + 1}: ${sc.cutAction || sc.searchKeyword || 'Clip'}`,
-          sourceUrl: '',
-          startOffset: sc.videoStartOffset || idx * 10,
-          endOffset: sc.videoEndOffset || (idx + 1) * 10,
-          duration: sc.audioDuration || 10,
+          title: sc.cutAction?.startsWith('Clip #') ? sc.cutAction : `Clip #${idx + 1}: ${sc.cutAction || `Phân cảnh ${idx + 1}`}`,
+          sourceUrl: existingSeg?.sourceUrl || primaryVideoUrl,
+          startOffset: sOff,
+          endOffset: eOff,
+          duration: dur,
           narration: sc.narration
-        }));
-        setSegments(dummySegments);
-      }
+        };
+      });
+      setSegments(updatedSegments);
 
       // Cập nhật project scenes
       setProject((prev) => ({
@@ -278,10 +433,10 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
         }
       }));
 
-      showNotification(`🎉 Thành công! Đã tạo kịch bản & giọng đọc cho ${synthesizedScenes.length} phân cảnh!`);
+      showNotification(`🎉 Thành công! Đã tạo kịch bản & giọng đọc cho đúng ${synthesizedScenes.length} phân cảnh!`);
     } catch (err: any) {
-      console.error('OpenAI generation error:', err);
-      alert(err.message || 'Lỗi khi gọi OpenAI API. Vui lòng kiểm tra lại API Key.');
+      console.error('AI generation error:', err);
+      showNotification(`⚠️ Lưu ý: ${err.message || 'Lỗi khi tạo kịch bản'}`);
     } finally {
       setIsGeneratingAi(false);
     }
@@ -679,16 +834,25 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
             {isAiSectionOpen && (
               <div className="space-y-3 pt-2 border-t border-slate-800/80">
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                  {/* Ô nhập API Key OpenAI */}
+                  {/* Ô nhập API Key Groq / Gemini / OpenAI */}
                   <div className="md:col-span-6 space-y-1">
-                    <label className="text-[11px] font-bold text-slate-300 flex items-center gap-1">
-                      <Key className="w-3 h-3 text-yellow-400" /> OpenAI API Key:
+                    <label className="text-[11px] font-bold text-slate-300 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <Key className="w-3 h-3 text-yellow-400" /> API Key (Groq / Gemini / OpenAI):
+                      </span>
+                      <span className="text-[10px] text-emerald-400 font-medium">✨ Đã tích hợp sẵn & tự động lưu</span>
                     </label>
                     <input
-                      type="password"
+                      type="text"
                       value={openaiKey}
-                      onChange={(e) => setOpenaiKey(e.target.value)}
-                      placeholder="sk-proj-..."
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setOpenaiKey(val);
+                        localStorage.setItem('GROQ_API_KEY', val.trim());
+                        localStorage.setItem('OPENAI_API_KEY', val.trim());
+                        localStorage.setItem('GEMINI_API_KEY', val.trim());
+                      }}
+                      placeholder="gsk_... (Groq) hoặc AIzaSy... (Gemini) hoặc sk-... (OpenAI)"
                       className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 font-mono focus:outline-none focus:border-rose-500"
                     />
                   </div>
@@ -710,31 +874,263 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                     </select>
                   </div>
 
-                  {/* Chủ đề video */}
-                  <div className="md:col-span-12 space-y-1">
-                    <label className="text-[11px] font-bold text-slate-300">
-                      🎯 Chủ đề / Tên Video:
-                    </label>
+                  {/* Chủ đề video & Số lượng phân cảnh */}
+                  <div className="md:col-span-8 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-slate-200 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-pink-400" />
+                        <span>🎯 Chủ đề / Tên Video:</span>
+                        <span className="text-[10px] text-pink-400 font-normal">(Nhập bất kỳ chủ đề thể thao, review, vlog, du lịch...)</span>
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950/80 px-2 py-0.5 rounded-lg border border-emerald-500/30 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                          Groq AI Llama 3.3
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleAiSuggestTimestamps(aiSceneCount)}
+                          disabled={isSuggestingTimestamps || !aiTopic.trim()}
+                          className="text-[11px] font-bold text-white bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 hover:from-pink-500 hover:to-indigo-500 px-3 py-1 rounded-lg border border-pink-400/40 shadow-md shadow-pink-600/30 flex items-center gap-1.5 transition-all disabled:opacity-50"
+                        >
+                          {isSuggestingTimestamps ? (
+                            <>
+                              <RefreshCw className="w-3 h-3 animate-spin text-white" />
+                              <span>AI Đang Phân Tích...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-3 h-3 text-yellow-300 animate-pulse" />
+                              <span>AI Gợi Ý Mốc & Phân Cảnh Chuẩn</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
                     <input
                       type="text"
                       value={aiTopic}
                       onChange={(e) => setAiTopic(e.target.value)}
-                      placeholder="Ví dụ: Homestay Đà Lạt săn mây view thung lũng cực chill..."
-                      className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
+                      placeholder="Ví dụ: Đánh giao lưu đơn và đôi tại sân trường sĩ quan chính trị..."
+                      className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 font-medium"
                     />
                   </div>
 
-                  {/* Ô nhập mốc giây tách phân đoạn */}
-                  <div className="md:col-span-12 space-y-1">
+                  {/* Số lượng phân cảnh muốn tạo */}
+                  <div className="md:col-span-4 space-y-1">
                     <label className="text-[11px] font-bold text-slate-300 flex items-center justify-between">
-                      <span>⏱️ Các Mốc Thời Gian / Giây Cần Tách Thành Phân Đoạn Mới:</span>
-                      <span className="text-[10px] text-slate-400 font-normal">Định dạng: 0:00 - 0:15: Nội dung</span>
+                      <span>🔢 Số Phân Cảnh (Clips):</span>
+                      <span className="text-[10px] text-cyan-400 font-semibold">{aiSceneCount} cảnh</span>
                     </label>
+                    <select
+                      value={aiSceneCount}
+                      onChange={(e) => setAiSceneCount(Number(e.target.value))}
+                      className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-rose-500 font-semibold"
+                    >
+                      <option value={2}>2 Phân cảnh (~25s)</option>
+                      <option value={3}>3 Phân cảnh (~40s)</option>
+                      <option value={4}>4 Phân cảnh (~55s)</option>
+                      <option value={5}>5 Phân cảnh (~70s)</option>
+                      <option value={6}>6 Phân cảnh (~85s)</option>
+                      <option value={8}>8 Phân cảnh (~115s)</option>
+                      <option value={10}>10 Phân cảnh (~145s)</option>
+                    </select>
+                  </div>
+
+                  {/* BẢNG GỢI Ý MỐC THỜI GIAN VÀ PHÂN CẢNH TỪ AI (NẾU CÓ) */}
+                  {suggestedStructure.length > 0 && (
+                    <div className="md:col-span-12 space-y-2 bg-gradient-to-br from-indigo-950/60 via-purple-950/40 to-slate-950 border border-indigo-500/40 rounded-xl p-3.5 animate-in fade-in-50">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-indigo-500/20 pb-2">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-yellow-300" />
+                          <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                            Bảng Gợi Ý Mốc Thời Gian & Kịch Bản AI Cho: <span className="text-pink-300 font-semibold">"{aiTopic}"</span>
+                          </h4>
+                        </div>
+                        <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-500/30">
+                          {suggestedStructure.length} Phân Cảnh Chuẩn
+                        </span>
+                      </div>
+
+                      <div className="overflow-x-auto max-h-56 overflow-y-auto pr-1">
+                        <table className="w-full text-left text-[11px] border-collapse">
+                          <thead>
+                            <tr className="border-b border-indigo-500/30 text-indigo-300 bg-indigo-950/40">
+                              <th className="py-1.5 px-2 font-bold w-28">⏱️ Thời gian</th>
+                              <th className="py-1.5 px-2 font-bold w-40">🎬 Phân cảnh</th>
+                              <th className="py-1.5 px-2 font-bold">📹 Nội dung hình ảnh & Góc máy</th>
+                              <th className="py-1.5 px-2 font-bold">🗣️ Lời bình / Âm thanh gợi ý</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/80 text-slate-200">
+                            {suggestedStructure.map((row) => (
+                              <tr key={row.order} className="hover:bg-indigo-950/30 transition-colors">
+                                <td className="py-2 px-2 font-mono font-bold text-pink-400 whitespace-nowrap">
+                                  {row.timeRange}
+                                </td>
+                                <td className="py-2 px-2 font-bold text-indigo-200">
+                                  {row.title}
+                                </td>
+                                <td className="py-2 px-2 text-slate-300 leading-relaxed">
+                                  {row.visualDescription}
+                                </td>
+                                <td className="py-2 px-2 text-slate-200 leading-relaxed italic">
+                                  "{row.narration}"
+                                  {row.audioNote && (
+                                    <div className="text-[10px] text-cyan-400 font-sans not-italic mt-0.5">
+                                      🎵 {row.audioNote}
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Ô ĐIỀN CÁC SOURCE VIDEO ĐANG CÓ */}
+                  <div className="md:col-span-12 space-y-1 bg-slate-950/60 border border-slate-800/80 rounded-xl p-3">
+                    <label className="text-[11px] font-bold text-slate-200 flex items-center gap-1.5">
+                      <Film className="w-3.5 h-3.5 text-pink-400" />
+                      <span>📹 Danh Sách Các Source Video / Cảnh Quay Bạn Đang Có (Tùy chọn):</span>
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={aiAvailableSources}
+                      onChange={(e) => setAiAvailableSources(e.target.value)}
+                      placeholder="Điền các source / cảnh quay bạn đang có (mỗi dòng 1 cảnh), ví dụ:&#10;1. Cổng Trường Sĩ quan Chính trị, toàn cảnh sân thể thao&#10;2. Cận cảnh cơ sở vật chất sân bãi, khởi động thử vợt&#10;3. Trận đơn: các pha điều cầu smash dọc dây&#10;4. Trận đôi: đập thủ liên tục, phản xạ lưới&#10;5. Điểm quyết định & slow-motion pha kết thúc&#10;6. Bắt tay giao lưu hữu nghị và chụp ảnh"
+                      className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 font-sans leading-relaxed"
+                    />
+                  </div>
+
+                  {/* Ô nhập nhanh các mốc giây bắt đầu phân cảnh mới */}
+                  <div className="md:col-span-12 p-3 bg-gradient-to-r from-purple-950/40 via-slate-900/90 to-cyan-950/30 border border-purple-500/40 rounded-xl space-y-2.5 shadow-inner">
+                    <div className="flex flex-wrap items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-purple-500/20 text-purple-400 text-xs font-bold">⚡</span>
+                        <label className="text-[11px] font-bold text-purple-200 flex items-center gap-1">
+                          Nhập Nhanh Danh Sách Giây Bắt Đầu Phân Cảnh Mới (Cắt Chuẩn Từng Giây):
+                        </label>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                        <span className="text-slate-400 font-medium">Thử mẫu:</span>
+                        <button
+                          type="button"
+                          onClick={() => handleQuickSplitChange('5.4s, 6.2s, 7.3s, 8.4, 10.5s, 11.6s')}
+                          className="px-2 py-0.5 rounded bg-purple-900/50 hover:bg-purple-800/80 border border-purple-500/40 text-purple-200 transition-all font-mono font-semibold"
+                        >
+                          5.4s, 6.2s, 7.3s, 8.4, 10.5s, 11.6s
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleQuickSplitChange('3.5s, 7.0s, 10.5s, 14.0s, 18.0s')}
+                          className="px-2 py-0.5 rounded bg-cyan-900/50 hover:bg-cyan-800/80 border border-cyan-500/40 text-cyan-200 transition-all font-mono font-semibold"
+                        >
+                          3.5s, 7s, 10.5s, 14s, 18s
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleQuickSplitChange('')}
+                          className="text-slate-400 hover:text-rose-400 px-1"
+                        >
+                          Xóa
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={quickSplitInput}
+                        onChange={(e) => handleQuickSplitChange(e.target.value)}
+                        placeholder="VD: 5.4s, 6.2s, 7.3s, 8.4, 10.5s, 11.6s (Cảnh 2 bắt đầu tại 5.4s, Cảnh 3 tại 6.2s...)"
+                        className="w-full px-3 py-2 text-xs bg-slate-950/90 border border-purple-500/50 rounded-lg text-yellow-300 font-mono placeholder-slate-500 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 shadow-sm"
+                      />
+                    </div>
+
+                    {/* Danh sách chip preview trực quan các phân cảnh được chia từ mốc giây */}
+                    {parsedSplitRanges.length > 0 && (
+                      <div className="space-y-1.5 pt-0.5">
+                        <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium">
+                          <span className="text-purple-300 flex items-center gap-1.5">
+                            <Sparkles className="w-3 h-3 text-yellow-300" />
+                            <span>AI Tự Động Chia Thành:</span>
+                            <b className="text-white bg-purple-600/50 border border-purple-400/40 px-2 py-0.5 rounded text-[11px] font-bold">
+                              {parsedSplitRanges.length} Phân Cảnh Chuẩn
+                            </b>
+                          </span>
+                          <span>
+                            Tổng thời lượng video: <b className="text-cyan-300 font-mono font-bold text-[11px]">{parsedSplitRanges[parsedSplitRanges.length - 1]?.end}s</b>
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
+                          {parsedSplitRanges.map((r, i) => (
+                            <div
+                              key={i}
+                              className={`flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-lg border font-mono shadow-sm transition-all hover:scale-105 ${
+                                i === 0
+                                  ? 'bg-rose-950/50 border-rose-500/50 text-rose-200'
+                                  : i === parsedSplitRanges.length - 1
+                                  ? 'bg-amber-950/50 border-amber-500/50 text-amber-200'
+                                  : 'bg-slate-950/80 border-slate-700/80 text-slate-200'
+                              }`}
+                            >
+                              <span className="font-bold text-white">🎬 Cảnh {r.order}:</span>
+                              <span className="text-cyan-300 font-bold">{r.start}s</span>
+                              <span className="text-slate-400">➔</span>
+                              <span className="text-emerald-300 font-bold">{r.end}s</span>
+                              <span className="text-slate-400 text-[9px] font-sans">({r.duration}s)</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Ô chi tiết mốc thời gian kèm mô tả phân cảnh */}
+                  <div className="md:col-span-12 space-y-1">
+                    <div className="flex flex-wrap items-center justify-between gap-1">
+                      <label className="text-[11px] font-bold text-slate-300 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-cyan-400" />
+                        ⏱️ Chi Tiết Mốc Thời Gian & Tên Từng Phân Đoạn (Tự đồng bộ):
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleAiSuggestTimestamps(aiSceneCount)}
+                          disabled={isSuggestingTimestamps}
+                          className="text-[10px] text-pink-400 hover:text-pink-300 font-bold flex items-center gap-1"
+                        >
+                          <Sparkles className="w-3 h-3 text-yellow-300" />
+                          AI Gợi Ý Lại Mốc
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAutoGenerateTimestamps(aiSceneCount)}
+                          className="text-[10px] text-cyan-400 hover:underline font-medium"
+                        >
+                          ⚡ Reset mốc đều ({aiSceneCount} cảnh)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAiCustomTimestamps('');
+                            setQuickSplitInput('');
+                            setParsedSplitRanges([]);
+                          }}
+                          className="text-[10px] text-slate-400 hover:text-rose-400"
+                        >
+                          Xóa trắng
+                        </button>
+                      </div>
+                    </div>
                     <textarea
                       rows={3}
                       value={aiCustomTimestamps}
-                      onChange={(e) => setAiCustomTimestamps(e.target.value)}
-                      placeholder="0:00 - 0:12: Toàn cảnh phòng khách&#10;0:12 - 0:25: Bếp ăn và ban công&#10;0:25 - 0:40: Phòng ngủ ấm cúng..."
+                      onChange={(e) => handleCustomTimestampsChange(e.target.value)}
+                      placeholder="0:00 - 0:10: Check-in & Khí thế mở đầu&#10;0:10 - 0:25: Không gian sân & Khởi động tác phong&#10;0:25 - 0:40: Trận đơn: Tốc độ & Kỹ thuật&#10;0:40 - 0:55: Trận đôi: Phối hợp & Bọc lót..."
                       className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 font-mono leading-relaxed"
                     />
                   </div>
@@ -755,10 +1151,46 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                     ) : (
                       <>
                         <Sparkles className="w-4 h-4 text-yellow-300" />
-                        ✨ OpenAI Tự Động Gen Kịch Bản & Giọng Đọc AI
+                        ✨ Tự Động Gen Kịch Bản & Giọng Đọc AI ({aiSceneCount} Phân Cảnh)
                       </>
                     )}
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* Danh sách phân cảnh AI đã sinh kịch bản & giọng đọc ngay sau Bước 1 */}
+            {segments.length > 0 && (
+              <div className="bg-slate-950/90 border border-emerald-500/30 rounded-2xl p-4 space-y-3 animate-in fade-in-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-emerald-400" />
+                    <h4 className="text-xs sm:text-sm font-bold text-white">
+                      🎉 Kịch Bản & Giọng Đọc Đã Tạo ({segments.length} phân cảnh)
+                    </h4>
+                  </div>
+                  <span className="text-xs text-emerald-400 font-semibold bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 font-mono">
+                    ⏱️ Tổng thời lượng: {formatTimeDisplay(totalDurationSeconds)}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  {segments.map((seg) => (
+                    <div
+                      key={seg.id}
+                      className="p-3 bg-slate-900/90 border border-slate-800 rounded-xl space-y-1.5 hover:border-slate-700 transition-colors"
+                    >
+                      <div className="flex items-center justify-between text-[11px] font-bold">
+                        <span className="text-pink-400 font-semibold">{seg.title}</span>
+                        <span className="text-cyan-400 font-mono">
+                          {formatTimeDisplay(seg.startOffset)} - {formatTimeDisplay(seg.endOffset)} ({seg.duration}s)
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-200 line-clamp-3 leading-relaxed">
+                        {seg.narration || 'Chưa có lời dẫn'}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

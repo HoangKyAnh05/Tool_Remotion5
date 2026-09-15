@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import { Player } from '@remotion/player';
 import { MainComposition } from '../remotion/Composition';
 import { VideoProject, SubtitleStyle, WatermarkConfig, SoundFxConfig, ElementPosition } from '../types/video';
 import { InteractiveCanvasOverlay } from './InteractiveCanvasOverlay';
+import { convertAudioOrVideoFileToAudio, extractAudioFromVideoData } from '../services/speechToTextService';
 import {
   Type,
   Palette,
@@ -18,7 +19,8 @@ import {
   FolderOpen,
   Move,
   Layers,
-  Play
+  Play,
+  RefreshCw
 } from 'lucide-react';
 
 interface PlayerStudioProps {
@@ -142,30 +144,109 @@ export const PlayerStudio: React.FC<PlayerStudioProps> = ({ project, setProject 
     }));
   };
 
+  const bgmFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isExtractingBgm, setIsExtractingBgm] = useState<boolean>(false);
+  const [bgmNoticeText, setBgmNoticeText] = useState<string | null>(null);
+
+  const handleBrowserBgmUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsExtractingBgm(true);
+    setBgmNoticeText('Đang quét và tự động trích xuất âm thanh MP3/WAV...');
+
+    try {
+      const result = await convertAudioOrVideoFileToAudio(file);
+      setProject((prev) => ({
+        ...prev,
+        bgm: {
+          ...prev.bgm,
+          url: result.audioUrl,
+          localPath: result.fileName
+        }
+      }));
+
+      if (result.isVideo) {
+        setBgmNoticeText(`✨ Đã tự động tách nhạc từ video "${result.fileName}" sang MP3/WAV thành công!`);
+      } else {
+        setBgmNoticeText(`✅ Đã nạp file nhạc "${result.fileName}" thành công!`);
+      }
+
+      setTimeout(() => {
+        setBgmNoticeText(null);
+      }, 4000);
+    } catch (err) {
+      console.error('BGM upload error:', err);
+      setBgmNoticeText('⚠️ Không thể trích xuất âm thanh từ file này, vui lòng thử lại.');
+      setTimeout(() => setBgmNoticeText(null), 4000);
+    } finally {
+      setIsExtractingBgm(false);
+      if (bgmFileInputRef.current) {
+        bgmFileInputRef.current.value = '';
+      }
+    }
+  };
+
   const handleSelectCustomBgmFile = async () => {
     if (window.electronAPI?.selectFile) {
       try {
         const files = await window.electronAPI.selectFile({
-          title: 'Chọn file nhạc MP3/WAV từ máy tính làm nhạc nền',
+          title: 'Chọn file nhạc MP3 hoặc video MP4 từ máy tính làm nhạc nền',
           filters: [
-            { name: 'Audio Files', extensions: ['mp3', 'wav', 'aac', 'm4a', 'ogg'] }
+            { name: 'Audio & Video Files', extensions: ['mp3', 'wav', 'aac', 'm4a', 'ogg', 'mp4', 'mov', 'webm', 'mkv'] },
+            { name: 'Audio Files', extensions: ['mp3', 'wav', 'aac', 'm4a', 'ogg'] },
+            { name: 'Video Files', extensions: ['mp4', 'mov', 'webm', 'mkv'] }
           ]
         });
         if (files && files.length > 0) {
           const filePath = files[0];
+          const fileName = filePath.split(/[\\/]/).pop() || 'Nhạc nền';
+          const isVideo = /\.(mp4|mov|webm|mkv|avi|m4v)$/i.test(filePath);
+
+          if (isVideo) {
+            setIsExtractingBgm(true);
+            setBgmNoticeText(`Đang quét video "${fileName}" và tự động tách lấy âm thanh...`);
+            let base64Info = null;
+            if (window.electronAPI?.readAudioBase64) {
+              base64Info = await window.electronAPI.readAudioBase64(filePath);
+            }
+            if (base64Info?.dataUrl) {
+              const extracted = await extractAudioFromVideoData(base64Info.dataUrl);
+              if (extracted) {
+                setProject((prev) => ({
+                  ...prev,
+                  bgm: {
+                    ...prev.bgm,
+                    url: extracted.dataUrl,
+                    localPath: fileName
+                  }
+                }));
+                setBgmNoticeText(`✨ Đã tự động tách nhạc từ video "${fileName}" thành công!`);
+                setTimeout(() => setBgmNoticeText(null), 4000);
+                setIsExtractingBgm(false);
+                return;
+              }
+            }
+            setIsExtractingBgm(false);
+          }
+
           const audioUrl = `file://${filePath.replace(/\\/g, '/')}`;
           setProject((prev) => ({
             ...prev,
             bgm: {
               ...prev.bgm,
               url: audioUrl,
-              localPath: filePath
+              localPath: fileName
             }
           }));
+          setBgmNoticeText(`✅ Đã nạp nhạc "${fileName}" thành công!`);
+          setTimeout(() => setBgmNoticeText(null), 4000);
         }
       } catch (err) {
         console.error('BGM select error:', err);
       }
+    } else {
+      bgmFileInputRef.current?.click();
     }
   };
 
@@ -541,13 +622,33 @@ export const PlayerStudio: React.FC<PlayerStudioProps> = ({ project, setProject 
             </label>
             <button
               onClick={handleSelectCustomBgmFile}
-              className="flex items-center gap-1 text-[10px] text-indigo-400 hover:text-indigo-300 py-0.5 px-2 rounded-md bg-indigo-950/50 border border-indigo-500/30"
-              title="Chọn file MP3 từ máy tính"
+              disabled={isExtractingBgm}
+              className="flex items-center gap-1 text-[10px] text-indigo-400 hover:text-indigo-300 py-0.5 px-2 rounded-md bg-indigo-950/50 border border-indigo-500/30 cursor-pointer active:scale-95 disabled:opacity-50"
+              title="Chọn file MP3 hoặc video MP4 từ máy tính"
             >
-              <FolderOpen className="w-3 h-3" />
-              <span>Tải file MP3 riêng</span>
+              {isExtractingBgm ? (
+                <RefreshCw className="w-3 h-3 animate-spin text-indigo-400" />
+              ) : (
+                <FolderOpen className="w-3 h-3" />
+              )}
+              <span>{isExtractingBgm ? 'Đang tách nhạc...' : 'Tải file riêng'}</span>
             </button>
           </div>
+
+          {/* Hidden input for browser BGM upload */}
+          <input
+            type="file"
+            ref={bgmFileInputRef}
+            onChange={handleBrowserBgmUpload}
+            accept="audio/*,video/*,.mp3,.wav,.m4a,.aac,.ogg,.mp4,.mov,.webm,.mkv"
+            className="hidden"
+          />
+
+          {bgmNoticeText && (
+            <div className="px-2 py-1 rounded bg-indigo-950/60 border border-indigo-500/40 text-[10px] text-indigo-300">
+              {bgmNoticeText}
+            </div>
+          )}
 
           <select
             value={project.bgm?.url || ''}
@@ -561,7 +662,7 @@ export const PlayerStudio: React.FC<PlayerStudioProps> = ({ project, setProject 
             ))}
             {project.bgm?.localPath && (
               <option value={project.bgm.url}>
-                📂 {project.bgm.localPath.split('\\').pop() || 'Nhạc từ máy tính'}
+                📂 {project.bgm.localPath.split(/[\\/]/).pop() || 'Nhạc từ máy tính'}
               </option>
             )}
           </select>

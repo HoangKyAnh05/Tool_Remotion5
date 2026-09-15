@@ -272,33 +272,178 @@ export interface VoiceOption {
 }
 
 export const VIETNAMESE_VOICES: VoiceOption[] = [
+  // --- 👑 GIỌNG ADAM & HOT TIKTOK VIRAL (100% Miễn Phí GitHub Edge-TTS) ---
   {
-    id: 'vi-VN-HoaiMyNeural',
-    name: 'Hoài My (Nữ - Truyền cảm, chuẩn giọng Bắc)',
+    id: 'vi-VN-NamMinhNeural:adam',
+    name: '👑 Adam AI TikTok Studio (Nam Trầm Quyền Lực, Viral Triệu View - 100% Miễn Phí)',
+    locale: 'vi-VN',
+    gender: 'Male',
+    description: 'Giọng đọc Adam AI hot TikTok quốc dân, âm điệu trầm cuốn hút, dứt khoát, bắt tai người xem. Chạy trực tiếp qua thư viện GitHub mã nguồn mở, không tốn phí, không giới hạn token.'
+  },
+  {
+    id: 'elevenlabs:pNInz6obpgDQGcFmaJgB',
+    name: '👑 Adam AI (ElevenLabs - Nam Trầm Quyền Lực, Chuẩn Giọng Adam Quốc Tế)',
+    locale: 'vi-VN',
+    gender: 'Male',
+    description: 'Giọng đọc Adam nguyên bản nổi tiếng thế giới (yêu cầu ElevenLabs API key hoặc tự động fallback sang Adam Studio miễn phí).'
+  },
+
+  // --- 🇻🇳 GIỌNG TIẾNG VIỆT HOT TIKTOK (100% Miễn phí, Chuẩn Studio Neural) ---
+  {
+    id: 'vi-VN-NamMinhNeural:fast',
+    name: '⚡ Nam Minh Viral TikTok (Reviewer Triệu View, Nhanh Cuốn Hút, Bán Hàng)',
+    locale: 'vi-VN',
+    gender: 'Male',
+    description: 'Giọng nam đọc tốc độ nhanh (+18%), cuốn hút, giật tít, hoàn hảo cho video ngắn TikTok/Reels triệu view.'
+  },
+  {
+    id: 'vi-VN-NamMinhNeural:recap',
+    name: '🔥 Nam Minh Tóm Tắt Phim (Fast Recap TikTok, Review Phim & Truyện Siêu Tốc)',
+    locale: 'vi-VN',
+    gender: 'Male',
+    description: 'Phong cách tóm tắt phim 1 phút, review anime truyện tranh, nhịp điệu dồn dập kịch tính (+24%).'
+  },
+  {
+    id: 'vi-VN-HoaiMyNeural:live',
+    name: '🛍️ Hoài My Livestream Bán Hàng (Viral TikTok, Chốt Đơn Affiliate)',
     locale: 'vi-VN',
     gender: 'Female',
-    description: 'Giọng nữ chuẩn Hà Nội, mượt mà, phù hợp tin tức, recap, truyện.'
+    description: 'Giọng nữ năng động, tươi tắn, kích thích tương tác và mua hàng trên TikTok Shop, Reels.'
+  },
+  {
+    id: 'vi-VN-HoaiMyNeural:sweet',
+    name: '🌸 Hoài My Review Food & Travel (Homestay, Ẩm Thực, Lifestyle Hot)',
+    locale: 'vi-VN',
+    gender: 'Female',
+    description: 'Giọng nữ ngọt ngào, đáng yêu, chuẩn tone reviewer đồ ăn, quán cafe, du lịch trải nghiệm.'
+  },
+  {
+    id: 'vi-VN-HoaiMyNeural:genz',
+    name: '✨ Hoài My Gen Z Cute (Hài Hước, Nhí Nhảnh, Bắt Trend Biến Hình)',
+    locale: 'vi-VN',
+    gender: 'Female',
+    description: 'Giọng nữ trẻ trung Gen Z, bắt trend TikTok vui nhộn, meme, câu chuyện đời sống viral.'
   },
   {
     id: 'vi-VN-NamMinhNeural',
-    name: 'Nam Minh (Nam - Trầm ấm, cuốn hút)',
+    name: '🎙️ Nam Minh Trầm Ấm (Quyền Lực, B2B, Công Nghệ & Tài Chính)',
     locale: 'vi-VN',
     gender: 'Male',
-    description: 'Giọng nam ấm, uy lực, phù hợp video kiến thức, tài chính, top bí ẩn.'
+    description: 'Giọng nam ấm áp, đĩnh đạc, uy lực, rất chuẩn cho video phân tích, công nghệ, tài chính, phóng sự.'
+  },
+  {
+    id: 'vi-VN-HoaiMyNeural',
+    name: '🇻🇳 Hoài My Phát Thanh Viên (Nữ Truyền Cảm, Nhẹ Nhàng, Tin Tức Recap)',
+    locale: 'vi-VN',
+    gender: 'Female',
+    description: 'Giọng nữ chuẩn Hà Nội, mượt mà, sâu lắng, phù hợp tin tức chính thống, review homestay, recap.'
+  },
+  {
+    id: 'vi-VN-HoaiMyNeural:story',
+    name: '📖 Hoài My Kể Chuyện Đêm (Tâm Sự Sâu Lắng, Sách Nói & Podcast Chữa Lành)',
+    locale: 'vi-VN',
+    gender: 'Female',
+    description: 'Giọng nữ điềm tĩnh, ấm áp, âm điệu kể chuyện tâm sự đêm muộn, sách nói, podcast du lịch.'
+  },
+  {
+    id: 'vi-VN-NamMinhNeural:deep',
+    name: '🎬 Nam Minh Điện Ảnh (Deep Voice, Trailer Phim & Phim Tài Liệu Bom Tấn)',
+    locale: 'vi-VN',
+    gender: 'Male',
+    description: 'Giọng nam trầm sâu (-8Hz), phong cách điện ảnh Hollywood, trailer phim, bí ẩn, triết lý.'
+  },
+  {
+    id: 'vi-VN-HoaiMyNeural:asmr',
+    name: '💅 Hoài My ASMR & Làm Đẹp (Thì Thầm, Dịu Dàng, Skincare Thư Giãn)',
+    locale: 'vi-VN',
+    gender: 'Female',
+    description: 'Giọng thì thầm êm dịu, mượt mà, phù hợp video mỹ phẩm skincare, ASMR thư giãn ngủ ngon.'
+  },
+  {
+    id: 'vi-VN-NamMinhNeural:meme',
+    name: '🤖 Nam Minh AI Robot / Meme (Độc Lạ, Hài Hước, Mẹo Công Nghệ TikTok)',
+    locale: 'vi-VN',
+    gender: 'Male',
+    description: 'Giọng trầm vang kiểu AI robot thông minh, độc lạ, hợp video thủ thuật mẹo vặt và meme hài.'
+  },
+
+  // --- 🇺🇸 🇬🇧 🇦🇺 GIỌNG TIẾNG ANH QUỐC TẾ (English Native Neural - 100% Free) ---
+  {
+    id: 'en-US-GuyNeural',
+    name: '🔥 Guy (US Nam - Năng Động, Tự Tin, Viral Shorts / TikTok)',
+    locale: 'en-US',
+    gender: 'Male',
+    description: 'Energetic American male voice, popular for viral TikTok, tech, and sports.'
   },
   {
     id: 'en-US-JennyNeural',
-    name: 'Jenny (English US - Natural Female)',
+    name: '✨ Jenny (US Nữ - Sống Động, Lifestyle & Storytelling)',
     locale: 'en-US',
     gender: 'Female',
-    description: 'Natural American female voice for global content.'
+    description: 'Natural, lively American female voice for global vlogs, travel, and storytelling.'
   },
   {
-    id: 'en-US-GuyNeural',
-    name: 'Guy (English US - Dynamic Male)',
+    id: 'en-US-AriaNeural',
+    name: '💎 Aria (US Nữ - Tự Nhiên, Truyền Cảm Hứng, B2B & Ads)',
+    locale: 'en-US',
+    gender: 'Female',
+    description: 'Expressive and highly professional American female voice for luxury & marketing.'
+  },
+  {
+    id: 'en-US-DavisNeural',
+    name: '🎥 Davis (US Nam - Trầm Vang, Điện Ảnh & Trailer Phim)',
     locale: 'en-US',
     gender: 'Male',
-    description: 'Energetic American male voice.'
+    description: 'Deep, cinematic American male voice for movie trailers, documentaries, and drama.'
+  },
+  {
+    id: 'en-US-ChristopherNeural',
+    name: '📚 Christopher (US Nam - Điềm Đạm, Sách Nói & Chuyên Gia)',
+    locale: 'en-US',
+    gender: 'Male',
+    description: 'Calm, authoritative American male voice for audiobooks, education, and finance.'
+  },
+  {
+    id: 'en-US-EricNeural',
+    name: '🚀 Eric (US Nam - Sôi Nổi, Gaming & Hào Hứng)',
+    locale: 'en-US',
+    gender: 'Male',
+    description: 'Fast-paced, upbeat American male voice for gaming, tech reviews, and action shorts.'
+  },
+  {
+    id: 'en-US-MichelleNeural',
+    name: '🌿 Michelle (US Nữ - Dịu Dàng, ASMR & Thư Giãn)',
+    locale: 'en-US',
+    gender: 'Female',
+    description: 'Soft, soothing American female voice for wellness, meditation, and beauty.'
+  },
+  {
+    id: 'en-GB-RyanNeural',
+    name: '👑 Ryan (British Nam - Quý Ông Nước Anh, Sang Trọng, Sách Nói)',
+    locale: 'en-US',
+    gender: 'Male',
+    description: 'Warm British gentleman voice for luxury brands, audiobooks, and historical docs.'
+  },
+  {
+    id: 'en-GB-SoniaNeural',
+    name: '🏰 Sonia (British Nữ - Chuẩn Giọng Hoàng Gia Anh, Quý Phái)',
+    locale: 'en-US',
+    gender: 'Female',
+    description: 'Prestigious British female voice for fashion, luxury hotels, and elegance.'
+  },
+  {
+    id: 'en-AU-WilliamNeural',
+    name: '🏄 William (Australian Nam - Úc Phóng Khoáng, Du Lịch & Trải Nghiệm)',
+    locale: 'en-US',
+    gender: 'Male',
+    description: 'Friendly, casual Australian male voice for outdoor adventures and food tours.'
+  },
+  {
+    id: 'en-AU-NatashaNeural',
+    name: '🐨 Natasha (Australian Nữ - Úc Tươi Vui, Khám Phá Cuộc Sống)',
+    locale: 'en-US',
+    gender: 'Female',
+    description: 'Bright Australian female voice for lifestyle, travel tips, and youth content.'
   }
 ];
 

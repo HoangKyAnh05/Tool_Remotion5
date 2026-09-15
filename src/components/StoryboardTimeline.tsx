@@ -1,12 +1,14 @@
 import React, { useState, useRef } from 'react';
-import { VideoProject, Scene, TransitionType, KenBurnsEffect } from '../types/video';
+import { VideoProject, Scene, TransitionType, KenBurnsEffect, VIETNAMESE_VOICES } from '../types/video';
 import { synthesizeEdgeTTS } from '../services/edgeTtsService';
+import { getSavedElevenLabsApiKey, getEquivalentFallbackVoice } from '../services/elevenLabsService';
 import { searchPexelsMedia, searchWebMedia, generateAiImageUrl, searchStockVideos, MediaAsset } from '../services/mediaService';
 import { transcribeCustomAudio, transcribeAndSplitFullAudio, syncWordsFromNarration, extractAudioBase64, extractAudioFromVideoData } from '../services/speechToTextService';
 import { BatchVocabularyModal } from './BatchVocabularyModal';
 import { CreateCustomVisualModal } from './CreateCustomVisualModal';
 import { MotionTypographyModal } from './MotionTypographyModal';
 import { TikTokStudioModal } from './TikTokStudioModal';
+import { SceneVideoTrimmerModal } from './SceneVideoTrimmerModal';
 import { visualStylesService, CustomVisualItem } from '../services/visualStylesService';
 import { SOUND_EFFECTS_LIST, playSoundEffectById } from '../services/soundEffectsService';
 import { TIKTOK_VIDEO_EFFECTS } from '../remotion/tiktok/tiktokEffects';
@@ -52,6 +54,7 @@ interface StoryboardTimelineProps {
   apiKeyPexels?: string;
   onOpenBatchVocab?: () => void;
   onOpenVideoSplitter?: () => void;
+  onOpenSettings?: () => void;
   workflowMode?: WorkflowMode;
 }
 
@@ -120,6 +123,7 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
   apiKeyPexels,
   onOpenBatchVocab,
   onOpenVideoSplitter,
+  onOpenSettings,
   workflowMode = 'fast'
 }) => {
   const [activeMediaModalSceneId, setActiveMediaModalSceneId] = useState<string | null>(null);
@@ -144,6 +148,8 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
   const [isCreateVisualModalOpen, setIsCreateVisualModalOpen] = useState(false);
   const [activeMotionTypographyScene, setActiveMotionTypographyScene] = useState<Scene | null>(null);
   const [activeTikTokStudioScene, setActiveTikTokStudioScene] = useState<Scene | null>(null);
+  const [trimmerScene, setTrimmerScene] = useState<Scene | null>(null);
+  const [isTrimmerOpen, setIsTrimmerOpen] = useState<boolean>(false);
   const [expandedFxSceneId, setExpandedFxSceneId] = useState<string | null>(null);
   const [expandedKaraokeSceneId, setExpandedKaraokeSceneId] = useState<string | null>(null);
   const [ttsToastError, setTtsToastError] = useState<string | null>(null);
@@ -379,20 +385,32 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
   // 1-Click Generate Voice for a Single Scene
   const handleGenerateSceneTTS = async (scene: Scene) => {
     if (!scene.narration.trim()) return;
+
+    // Tạm dừng nghe thử nếu đang phát âm thanh cũ của cảnh này
+    if (playingAudioSceneId === scene.id) {
+      audioElement?.pause();
+      setPlayingAudioSceneId(null);
+    }
+
     setIsSynthesizingSceneId(scene.id);
     try {
+      const targetVoice = project.voice?.name || 'vi-VN-HoaiMyNeural';
       const res = await synthesizeEdgeTTS(
         scene.narration,
-        project.voice.name || 'vi-VN-HoaiMyNeural',
-        project.voice.rate,
-        project.voice.pitch
+        targetVoice,
+        project.voice?.rate,
+        project.voice?.pitch
       );
 
       if (res.audioUrl) {
+        const isVideo = scene.mediaType === 'video';
+        const startOff = scene.videoStartOffset || 0;
         updateScene(scene.id, {
           audioUrl: res.audioUrl,
           audioDuration: res.duration,
-          words: res.words
+          words: res.words,
+          videoMuted: isVideo ? true : scene.videoMuted,
+          videoEndOffset: isVideo ? startOff + res.duration : scene.videoEndOffset
         });
       }
     } catch (e) {
@@ -407,53 +425,93 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
   // 1-Click Batch Synthesize All Scenes
   const handleBatchSynthesizeAll = async () => {
     if (project.scenes.length === 0 || isBatchSynthesizing) return;
+
+    // Dừng âm thanh đang nghe thử để không bị phát tiếng cũ
+    if (audioElement) {
+      audioElement.pause();
+      setPlayingAudioSceneId(null);
+    }
+
     setIsBatchSynthesizing(true);
-    setBatchProgressText('Bắt đầu tạo giọng đọc cho tất cả các cảnh...');
+    const targetVoiceId = project.voice?.name || 'vi-VN-HoaiMyNeural';
+    const voiceObj = VIETNAMESE_VOICES.find((v) => v.id === targetVoiceId);
+    const voiceDisplayName = voiceObj?.name ? voiceObj.name.replace(/^[⚡🎙️🌸🔥📖🎬🍰🛍️💅✨🤖👑💎🚀🌿🏄🏰\s]+/, '') : targetVoiceId;
+
+    const elevenKey = getSavedElevenLabsApiKey().trim();
+    const isElevenVoice = targetVoiceId.startsWith('elevenlabs:');
+    let hasFallbackUsed = false;
+
+    setBatchProgressText(`Bắt đầu ghép giọng: ${voiceDisplayName}...`);
 
     const updatedScenes = [...project.scenes];
     let totalDuration = 0;
 
     for (let i = 0; i < updatedScenes.length; i++) {
       const scene = updatedScenes[i];
-      setBatchProgressText(`Đang tạo giọng AI cảnh ${i + 1}/${updatedScenes.length}...`);
+      setBatchProgressText(`Đang ghép giọng [${voiceDisplayName}] cảnh ${i + 1}/${updatedScenes.length}...`);
 
-      if (scene.narration.trim()) {
+      if (scene.narration && scene.narration.trim()) {
         try {
           const res = await synthesizeEdgeTTS(
             scene.narration,
-            project.voice.name || 'vi-VN-HoaiMyNeural',
-            project.voice.rate,
-            project.voice.pitch
+            targetVoiceId,
+            project.voice?.rate,
+            project.voice?.pitch
           );
 
           if (res.audioUrl) {
-            updatedScenes[i] = {
+            if (res.isFallback) {
+              hasFallbackUsed = true;
+            }
+            const isVideo = scene.mediaType === 'video';
+            const startOff = scene.videoStartOffset || 0;
+            const sceneAudioUpdated = {
               ...scene,
               audioUrl: res.audioUrl,
               audioDuration: res.duration,
-              words: res.words
+              words: res.words,
+              // Tự động tắt tiếng video gốc khi ghép giọng AI để giọng đọc rõ ràng không bị đè tiếng ồn
+              videoMuted: isVideo ? true : scene.videoMuted,
+              videoEndOffset: isVideo ? startOff + res.duration : scene.videoEndOffset
             };
+            updatedScenes[i] = sceneAudioUpdated;
             totalDuration += res.duration;
+
+            // Cập nhật ngay tức thì từng phân cảnh vào project state
+            setProject((prev) => {
+              const nextScenes = [...prev.scenes];
+              nextScenes[i] = sceneAudioUpdated;
+              return {
+                ...prev,
+                scenes: nextScenes
+              };
+            });
+          } else {
+            totalDuration += (scene.audioDuration || 4.0);
           }
         } catch (err) {
           console.warn('Batch TTS error on scene', i, err);
+          totalDuration += (scene.audioDuration || 4.0);
           setTtsToastError('Không thể kết nối máy chủ giọng đọc, vui lòng thử lại');
           setTimeout(() => setTtsToastError(null), 5000);
         }
+      } else {
+        totalDuration += (scene.audioDuration || 4.0);
       }
     }
 
     setProject((prev) => ({
       ...prev,
       scenes: updatedScenes,
-      totalDuration
+      totalDuration: totalDuration > 0 ? Number(totalDuration.toFixed(2)) : prev.totalDuration
     }));
 
-    setBatchProgressText('Đã tạo xong toàn bộ giọng đọc!');
+    setBatchProgressText(`✅ Đã ghép xong toàn bộ ${updatedScenes.length} cảnh bằng giọng: ${voiceDisplayName}!`);
+
     setTimeout(() => {
       setIsBatchSynthesizing(false);
       setBatchProgressText('');
-    }, 2500);
+    }, 3500);
   };
 
   // Play / Pause scene audio preview
@@ -472,16 +530,20 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
       try {
         const res = await synthesizeEdgeTTS(
           scene.narration,
-          project.voice.name || 'vi-VN-HoaiMyNeural',
-          project.voice.rate,
-          project.voice.pitch
+          project.voice?.name || 'vi-VN-HoaiMyNeural',
+          project.voice?.rate,
+          project.voice?.pitch
         );
         if (res.audioUrl) {
           targetAudioUrl = res.audioUrl;
+          const isVideo = scene.mediaType === 'video';
+          const startOff = scene.videoStartOffset || 0;
           updateScene(scene.id, {
             audioUrl: res.audioUrl,
             audioDuration: res.duration,
-            words: res.words
+            words: res.words,
+            videoMuted: isVideo ? true : scene.videoMuted,
+            videoEndOffset: isVideo ? startOff + res.duration : scene.videoEndOffset
           });
         }
       } catch (e) {
@@ -1097,11 +1159,15 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
 
   const selectMediaForScene = (asset: MediaAsset) => {
     if (!activeMediaModalSceneId) return;
+    const targetSc = project.scenes.find((s) => s.id === activeMediaModalSceneId);
+    const dur = targetSc?.audioDuration || 4.0;
     updateScene(activeMediaModalSceneId, {
       mediaUrl: asset.url,
       localMediaPath: undefined,
       mediaType: asset.type,
-      searchKeyword: searchQuery
+      searchKeyword: searchQuery,
+      videoStartOffset: asset.type === 'video' ? 0 : undefined,
+      videoEndOffset: asset.type === 'video' ? dur : undefined
     });
     setActiveMediaModalSceneId(null);
   };
@@ -1480,10 +1546,16 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
         if (files && files.length > 0) {
           const filePath = files[0];
           const isVideo = filePath.endsWith('.mp4') || filePath.endsWith('.mov');
+          const targetSc = project.scenes.find((s) => s.id === sceneId);
+          const dur = targetSc?.audioDuration || 4.0;
+          const fullPath = `file://${filePath.replace(/\\/g, '/')}`;
+
           updateScene(sceneId, {
-            localMediaPath: `file://${filePath.replace(/\\/g, '/')}`,
-            mediaUrl: `file://${filePath.replace(/\\/g, '/')}`,
+            localMediaPath: fullPath,
+            mediaUrl: fullPath,
             mediaType: isVideo ? 'video' : 'image',
+            videoStartOffset: isVideo ? 0 : undefined,
+            videoEndOffset: isVideo ? dur : undefined,
             beautyRetouch: {
               brightenSkin: 15,
               sharpness: 20,
@@ -1494,6 +1566,18 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
               eyeEnlarge: 0,
             }
           });
+
+          if (isVideo && targetSc) {
+            setTrimmerScene({
+              ...targetSc,
+              mediaUrl: fullPath,
+              localMediaPath: fullPath,
+              mediaType: 'video',
+              videoStartOffset: 0,
+              videoEndOffset: dur
+            });
+            setIsTrimmerOpen(true);
+          }
           return;
         }
       } catch (err) {
@@ -1515,11 +1599,15 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
 
     const isVideo = file.type.startsWith('video/') || /\.(mp4|mov|webm|mkv)$/i.test(file.name);
     const objectUrl = URL.createObjectURL(file);
+    const targetSc = project.scenes.find((s) => s.id === targetLocalMediaSceneId);
+    const dur = targetSc?.audioDuration || 4.0;
 
     updateScene(targetLocalMediaSceneId, {
       mediaUrl: objectUrl,
       localMediaPath: objectUrl,
       mediaType: isVideo ? 'video' : 'image',
+      videoStartOffset: isVideo ? 0 : undefined,
+      videoEndOffset: isVideo ? dur : undefined,
       beautyRetouch: {
         brightenSkin: 15,
         sharpness: 20,
@@ -1530,6 +1618,18 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
         eyeEnlarge: 0,
       }
     });
+
+    if (isVideo && targetSc) {
+      setTrimmerScene({
+        ...targetSc,
+        mediaUrl: objectUrl,
+        localMediaPath: objectUrl,
+        mediaType: 'video',
+        videoStartOffset: 0,
+        videoEndOffset: dur
+      });
+      setIsTrimmerOpen(true);
+    }
 
     setTargetLocalMediaSceneId(null);
     e.target.value = '';
@@ -1581,26 +1681,75 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
             <span>{ttsToastError}</span>
           </div>
         )}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <Film className="w-4 h-4" />
-            </div>
-            <div>
+        <div className="bg-slate-50/90 p-3 rounded-xl border border-slate-200 space-y-2.5">
+          {/* Header row: Title & Scene Count */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300/80 shadow-xs">
+                <Film className="w-4 h-4" />
+              </div>
               <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                 Danh Sách Phân Cảnh ({project.scenes.length} Scenes)
               </h3>
-              <p className="text-[11px] text-slate-500">
-                Giọng đọc: <span className="text-emerald-700 font-semibold">{project.voice.name || 'Hoài My'}</span>
-              </p>
             </div>
+            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+              {project.scenes.length} cảnh
+            </span>
           </div>
 
-          {/* 1-Click Batch Voiceover Action */}
+          {/* Voice selector row */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] font-semibold text-slate-600 shrink-0 flex items-center gap-1">
+                <span>Giọng đọc:</span>
+              </label>
+              <select
+                value={project.voice?.name || 'vi-VN-HoaiMyNeural'}
+                onChange={(e) => {
+                  const newVoice = e.target.value;
+                  setProject((prev) => ({
+                    ...prev,
+                    voice: {
+                      ...prev.voice,
+                      name: newVoice
+                    }
+                  }));
+                }}
+                className="w-full bg-white hover:bg-emerald-50/40 border border-slate-300 hover:border-emerald-500 text-slate-800 rounded-lg px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer transition-colors shadow-2xs truncate"
+                title="Chọn giọng đọc AI cho toàn bộ video"
+              >
+                {VIETNAMESE_VOICES.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Chú ý khi chọn giọng ElevenLabs mà chưa có API Key */}
+            {project.voice?.name?.startsWith('elevenlabs:') && !getSavedElevenLabsApiKey() && (
+              <div className="flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-[10px] text-amber-800 animate-in fade-in">
+                <span className="truncate">
+                  ⚡ <strong>Chưa có ElevenLabs Key:</strong> Sẽ tạm dùng giọng {getEquivalentFallbackVoice(project.voice.name).voiceName}
+                </span>
+                {onOpenSettings && (
+                  <button
+                    type="button"
+                    onClick={onOpenSettings}
+                    className="shrink-0 px-2 py-0.5 rounded bg-amber-600 hover:bg-amber-700 text-white font-bold text-[9px] shadow-xs cursor-pointer transition-all active:scale-95"
+                  >
+                    Nhập Key
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* 1-Click Batch Voiceover Action Button - Cực kỳ nổi bật, rộng rãi, không bao giờ bị đè */}
           <button
             onClick={handleBatchSynthesizeAll}
             disabled={isBatchSynthesizing}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold shadow-sm disabled:opacity-50 transition-all active:scale-95"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white text-xs font-bold shadow-md hover:shadow-lg disabled:opacity-50 transition-all active:scale-[0.98] cursor-pointer"
             title="Tự động lồng tiếng AI cho toàn bộ phân cảnh trong 1 click"
           >
             {(workflowMode === 'quality' || workflowMode === 'script_voice') && (
@@ -1608,13 +1757,13 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
             )}
             {isBatchSynthesizing ? (
               <>
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                <span>{batchProgressText || 'Đang tạo giọng...'}</span>
+                <RefreshCw className="w-4 h-4 animate-spin text-emerald-200" />
+                <span className="font-semibold">{batchProgressText || 'Đang tạo giọng đọc...'}</span>
               </>
             ) : (
               <>
-                <Mic2 className="w-3.5 h-3.5" />
-                <span>Ghép giọng AI toàn bộ</span>
+                <Mic2 className="w-4 h-4 text-emerald-200" />
+                <span>Ghép Giọng AI Toàn Bộ ({project.scenes.length} Cảnh)</span>
               </>
             )}
           </button>
@@ -1750,6 +1899,23 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                       </span>
                     </div>
 
+                    {/* Quick Trim Button Top Right on Video Thumbnail */}
+                    {scene.mediaType === 'video' && scene.mediaUrl && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTrimmerScene(scene);
+                          setIsTrimmerOpen(true);
+                        }}
+                        className="absolute top-2 right-2 z-10 px-2 py-0.5 rounded-md bg-emerald-600/90 hover:bg-emerald-500 text-white backdrop-blur-md text-[10px] font-bold border border-emerald-400/40 shadow-sm flex items-center gap-1 active:scale-90 transition-all cursor-pointer"
+                        title="Kéo cắt chọn đúng đoạn giây cần lấy trong video gốc"
+                      >
+                        <Scissors className="w-3 h-3" />
+                        <span>Cắt đoạn</span>
+                      </button>
+                    )}
+
                     {/* Speaker Icon in Bottom Left Corner (Biểu tượng loa ở góc dưới bên trái) */}
                     {scene.mediaType === 'video' && (
                       <button
@@ -1806,6 +1972,101 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                       <span>Từ PC</span>
                     </button>
                   </div>
+
+                  {/* Video Trimmer Quick Bar (Kéo cắt đoạn video source đúng số giây kịch bản) */}
+                  {scene.mediaType === 'video' && scene.mediaUrl && (
+                    <div className="p-2 rounded-xl bg-slate-900 border border-emerald-500/40 text-white space-y-1.5 shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-300">
+                          <Scissors className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Kéo cắt video source:</span>
+                        </div>
+                        <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 font-mono text-[10px] font-bold border border-emerald-500/30">
+                          {(scene.videoStartOffset || 0).toFixed(1)}s ➔ {((scene.videoStartOffset || 0) + (scene.audioDuration || 4.0)).toFixed(1)}s
+                        </span>
+                      </div>
+
+                      {/* Range Scrubber Slider */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-400 font-mono shrink-0">Bắt đầu:</span>
+                        <input
+                          type="range"
+                          min={0}
+                          max={Math.max(60, (scene.videoStartOffset || 0) + 30)}
+                          step={0.5}
+                          value={scene.videoStartOffset || 0}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            updateScene(scene.id, {
+                              videoStartOffset: val,
+                              videoEndOffset: val + (scene.audioDuration || 4.0)
+                            });
+                          }}
+                          className="w-full accent-emerald-400 h-1.5 bg-slate-800 rounded cursor-pointer"
+                        />
+                        <span className="text-[10px] font-mono text-emerald-400 font-bold shrink-0">
+                          {(scene.videoStartOffset || 0).toFixed(1)}s
+                        </span>
+                      </div>
+
+                      {/* Fast Nudge & Open Full Trimmer Modal */}
+                      <div className="grid grid-cols-4 gap-1 pt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newStart = Math.max(0, (scene.videoStartOffset || 0) - 2);
+                            updateScene(scene.id, {
+                              videoStartOffset: newStart,
+                              videoEndOffset: newStart + (scene.audioDuration || 4.0)
+                            });
+                          }}
+                          className="py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-mono font-medium transition-all text-center cursor-pointer"
+                          title="Lùi 2 giây"
+                        >
+                          -2s
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newStart = (scene.videoStartOffset || 0) + 2;
+                            updateScene(scene.id, {
+                              videoStartOffset: newStart,
+                              videoEndOffset: newStart + (scene.audioDuration || 4.0)
+                            });
+                          }}
+                          className="py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-mono font-medium transition-all text-center cursor-pointer"
+                          title="Tiến 2 giây"
+                        >
+                          +2s
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            updateScene(scene.id, {
+                              videoStartOffset: 0,
+                              videoEndOffset: scene.audioDuration || 4.0
+                            });
+                          }}
+                          className="py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-mono font-medium transition-all text-center cursor-pointer"
+                          title="Về đầu video (0s)"
+                        >
+                          0s
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTrimmerScene(scene);
+                            setIsTrimmerOpen(true);
+                          }}
+                          className="py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold transition-all text-center flex items-center justify-center gap-1 shadow-sm active:scale-95 cursor-pointer"
+                          title="Mở bảng kéo cắt trực quan & xem trước lặp lại"
+                        >
+                          <Scissors className="w-3 h-3" />
+                          <span>Kéo cắt</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Thanh Công Cụ Nâng Cao: Chữ 3D & CapCut FX (Đầy đủ tất cả các tính năng Motion 3D, Layering, 100 Kiểu Chữ & TikTok/CapCut Studio) */}
                   <div className="pt-0.5">
@@ -3036,6 +3297,24 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
               project.scenes.forEach((sc) => {
                 updateScene(sc.id, updates);
               });
+            }}
+          />
+        );
+      })()}
+
+      {/* Modal Kéo Cắt Video Source Trực Quan */}
+      {trimmerScene && (() => {
+        const currentScene = project.scenes.find((s) => s.id === trimmerScene.id) || trimmerScene;
+        return (
+          <SceneVideoTrimmerModal
+            isOpen={isTrimmerOpen}
+            onClose={() => {
+              setIsTrimmerOpen(false);
+              setTrimmerScene(null);
+            }}
+            scene={currentScene}
+            onSave={(sceneId, updates) => {
+              updateScene(sceneId, updates);
             }}
           />
         );
