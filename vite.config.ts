@@ -59,6 +59,42 @@ function parseVoicePreset(voice = 'vi-VN-NamMinhNeural', rate = '+0%', pitch = '
   return { effectiveVoice, effectiveRate, effectivePitch };
 }
 
+import { spawn } from 'child_process';
+
+function synthesizeKokoroVite(text: string, voice: string, rate: string = '+0%'): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const scriptPath = path.resolve(__dirname, 'scripts/kokoro_tts_engine.py');
+    const proc = spawn('python', [scriptPath, '--json'], { windowsHide: true });
+    let stdout = '';
+    let stderr = '';
+
+    proc.stdout.on('data', (d) => (stdout += d.toString('utf-8')));
+    proc.stderr.on('data', (d) => (stderr += d.toString('utf-8')));
+
+    proc.on('close', (code) => {
+      if (code !== 0) {
+        return reject(new Error(`Kokoro process exited with code ${code}: ${stderr}`));
+      }
+      try {
+        const res = JSON.parse(stdout);
+        resolve(res);
+      } catch (e: any) {
+        reject(new Error(`Failed to parse Kokoro JSON: ${e.message}`));
+      }
+    });
+
+    let speed = 1.0;
+    if (rate.includes('%')) {
+      const num = parseInt(rate.replace('%', ''));
+      if (!isNaN(num)) speed = Math.max(0.5, Math.min(2.0, 1.0 + num / 100));
+    }
+
+    const cleanVoice = voice.toLowerCase().replace('kokoro:', '').replace('kokoro-', '').trim() || 'ngoc_huyen';
+    proc.stdin.write(JSON.stringify({ text, voice: cleanVoice, speed }));
+    proc.stdin.end();
+  });
+}
+
 function ttsAndMediaApiPlugin(): Plugin {
   const handleTtsRequest = async (req: any, res: any) => {
     if (req.method === 'POST') {
@@ -73,6 +109,19 @@ function ttsAndMediaApiPlugin(): Plugin {
           if (!cleanText) {
             res.setHeader('Content-Type', 'application/json');
             return res.end(JSON.stringify({ audioUrl: '', duration: 2.0, words: [] }));
+          }
+
+          // 1. If Kokoro voice (Ngoc Huyen, Manh Dung, etc.)
+          if (voice.startsWith('kokoro:') || voice === 'ngoc_huyen' || voice === 'manh_dung') {
+            try {
+              const kokoroResult = await synthesizeKokoroVite(cleanText, voice, rate);
+              if (kokoroResult && kokoroResult.audioUrl) {
+                res.setHeader('Content-Type', 'application/json');
+                return res.end(JSON.stringify(kokoroResult));
+              }
+            } catch (kokoroErr) {
+              console.warn('Vite Kokoro TTS failed, fallback to Edge-TTS:', kokoroErr);
+            }
           }
 
           const { effectiveVoice, effectiveRate, effectivePitch } = parseVoicePreset(voice, rate, pitch);

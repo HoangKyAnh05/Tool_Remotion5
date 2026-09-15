@@ -29,3 +29,10 @@ release
 *.sln
 *.sw?
 Thumbs.db
+
+# Large Model weights & TTS outputs
+models/*.onnx
+models/**/*.onnx
+scratch/*.wav
+scratch/*.mp3
+

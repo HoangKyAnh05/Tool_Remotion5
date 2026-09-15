@@ -47,6 +47,10 @@ export function parseVoicePreset(
   let effectiveRate = normalizeRateToPercent(rate);
   let effectivePitch = '+0Hz';
 
+  if (voice.startsWith('kokoro:') || voice === 'ngoc_huyen' || voice === 'manh_dung') {
+    return { effectiveVoice: voice, effectiveRate, effectivePitch };
+  }
+
   if (voice === 'google-vi-male' || voice === 'vi-male' || voice === 'adam' || voice === 'adam-tiktok' || voice === 'vclip:adam') {
     effectiveVoice = 'vi-VN-NamMinhNeural';
   } else if (voice === 'google-vi' || voice === 'vi-female') {

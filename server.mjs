@@ -4,6 +4,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { Communicate } from 'edge-tts-universal';
+import { synthesizeKokoro } from './scripts/kokoroRunner.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -125,6 +126,19 @@ function parseVoicePreset(voice = 'vi-VN-NamMinhNeural', rate = '+0%', pitch = '
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ audioUrl: '', duration: 2.0, words: [] }));
           return;
+        }
+
+        // 1. If Kokoro voice (Ngoc Huyen, Manh Dung, etc.)
+        if (voice.startsWith('kokoro:') || voice === 'ngoc_huyen' || voice === 'manh_dung') {
+          try {
+            const kokoroResult = await synthesizeKokoro(cleanText, voice, rate);
+            if (kokoroResult && kokoroResult.audioUrl) {
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              return res.end(JSON.stringify(kokoroResult));
+            }
+          } catch (kokoroErr) {
+            console.warn('Server Kokoro TTS failed, fallback to Edge-TTS:', kokoroErr);
+          }
         }
 
         const { effectiveVoice, effectiveRate, effectivePitch } = parseVoicePreset(voice, rate, pitch);

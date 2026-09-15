@@ -272,6 +272,22 @@ export interface VoiceOption {
 }
 
 export const VIETNAMESE_VOICES: VoiceOption[] = [
+  // --- 👑 GIỌNG ĐỌC NGỌC HUYỀN & MẠNH DŨNG (100% Giọng Thật - Kokoro AI Studio GitHub) ---
+  {
+    id: 'kokoro:ngoc_huyen',
+    name: '🌸 Nữ Ngọc Huyền (Nữ Miền Bắc - 100% Giọng Thật, Truyền Cảm, Siêu Hay)',
+    locale: 'vi-VN',
+    gender: 'Female',
+    description: 'Giọng đọc nữ Ngọc Huyền huyền thoại, chuẩn giọng Bắc ngọt ngào, cảm xúc sâu lắng, phát âm chuẩn xác từng âm tiết tiếng Việt.'
+  },
+  {
+    id: 'kokoro:manh_dung',
+    name: '🎙️ Nam Mạnh Dũng (Nam Miền Bắc - 100% Giọng Thật, Trầm Ấm, Uy Lực)',
+    locale: 'vi-VN',
+    gender: 'Male',
+    description: 'Giọng đọc nam Mạnh Dũng đĩnh đạc, âm sắc trầm ấm quyền lực, phong cách phát thanh viên đài truyền hình chuyên nghiệp.'
+  },
+
   // --- 🌸 GIỌNG ĐỌC NỮ TIẾNG VIỆT (100% Miễn Phí, Siêu Tự Nhiên, Ngọt Ngào & Truyền Cảm) ---
   {
     id: 'vi-VN-HoaiMyNeural:sweet',
