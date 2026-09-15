@@ -94,7 +94,7 @@ export const App: React.FC = () => {
           try {
             const res = await synthesizeEdgeTTS(
               scene.narration,
-              project.voice.name || 'vi-VN-HoaiMyNeural',
+              project.voice.name || 'google-vi',
               project.voice.rate,
               project.voice.pitch
             );

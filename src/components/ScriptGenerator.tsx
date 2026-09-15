@@ -40,7 +40,7 @@ export const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
 }) => {
   const [userScript, setUserScript] = useState(DEFAULT_SCRIPT);
   const detectedScenesCount = splitScriptIntoSentences(userScript).length;
-  const currentVoice = project.voice?.name || 'vi-VN-NamMinhNeural';
+  const currentVoice = project.voice?.name || 'google-vi';
 
   const handleVoiceChange = (newVoice: string) => {
     setProject((prev) => ({

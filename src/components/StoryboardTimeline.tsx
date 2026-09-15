@@ -394,7 +394,7 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
 
     setIsSynthesizingSceneId(scene.id);
     try {
-      const targetVoice = project.voice?.name || 'vi-VN-HoaiMyNeural';
+      const targetVoice = project.voice?.name || 'google-vi';
       const res = await synthesizeEdgeTTS(
         scene.narration,
         targetVoice,
@@ -433,7 +433,7 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
     }
 
     setIsBatchSynthesizing(true);
-    const targetVoiceId = project.voice?.name || 'vi-VN-HoaiMyNeural';
+    const targetVoiceId = project.voice?.name || 'google-vi';
     const voiceObj = VIETNAMESE_VOICES.find((v) => v.id === targetVoiceId);
     const voiceDisplayName = voiceObj?.name ? voiceObj.name.replace(/^[⚡🎙️🌸🔥📖🎬🍰🛍️💅✨🤖👑💎🚀🌿🏄🏰\s]+/, '') : targetVoiceId;
 
@@ -530,7 +530,7 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
       try {
         const res = await synthesizeEdgeTTS(
           scene.narration,
-          project.voice?.name || 'vi-VN-HoaiMyNeural',
+          project.voice?.name || 'google-vi',
           project.voice?.rate,
           project.voice?.pitch
         );
@@ -1251,7 +1251,7 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
     try {
       const tts = await synthesizeEdgeTTS(
         narrationText,
-        project.voice.name || 'vi-VN-HoaiMyNeural',
+        project.voice.name || 'google-vi',
         project.voice.rate,
         project.voice.pitch
       );
@@ -1298,7 +1298,7 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
     try {
       const tts = await synthesizeEdgeTTS(
         narrationText,
-        project.voice.name || 'vi-VN-HoaiMyNeural',
+        project.voice.name || 'google-vi',
         project.voice.rate,
         project.voice.pitch
       );
@@ -1341,7 +1341,7 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
     try {
       const tts = await synthesizeEdgeTTS(
         narrationText,
-        project.voice.name || 'vi-VN-HoaiMyNeural',
+        project.voice.name || 'google-vi',
         project.voice.rate,
         project.voice.pitch
       );
@@ -1382,7 +1382,7 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
     try {
       const tts = await synthesizeEdgeTTS(
         narrationText,
-        project.voice.name || 'vi-VN-HoaiMyNeural',
+        project.voice.name || 'google-vi',
         project.voice.rate,
         project.voice.pitch
       );
@@ -1423,7 +1423,7 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
     try {
       const tts = await synthesizeEdgeTTS(
         narrationText,
-        project.voice.name || 'vi-VN-HoaiMyNeural',
+        project.voice.name || 'google-vi',
         project.voice.rate,
         project.voice.pitch
       );
@@ -1464,7 +1464,7 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
     try {
       const tts = await synthesizeEdgeTTS(
         narrationText,
-        project.voice.name || 'vi-VN-HoaiMyNeural',
+        project.voice.name || 'google-vi',
         project.voice.rate,
         project.voice.pitch
       );
@@ -1505,7 +1505,7 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
     try {
       const tts = await synthesizeEdgeTTS(
         narrationText,
-        project.voice.name || 'vi-VN-HoaiMyNeural',
+        project.voice.name || 'google-vi',
         project.voice.rate,
         project.voice.pitch
       );
@@ -1704,7 +1704,7 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                 <span>Giọng đọc:</span>
               </label>
               <select
-                value={project.voice?.name || 'vi-VN-HoaiMyNeural'}
+                value={project.voice?.name || 'google-vi'}
                 onChange={(e) => {
                   const newVoice = e.target.value;
                   setProject((prev) => ({

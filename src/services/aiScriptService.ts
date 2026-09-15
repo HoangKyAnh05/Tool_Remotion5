@@ -940,7 +940,7 @@ TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON VỚI TRƯỜNG "scenes":
  */
 export async function autoSynthesizeScenesVoice(
   scenes: Scene[],
-  voiceName: string = 'vi-VN-HoaiMyNeural',
+  voiceName: string = 'google-vi',
   rate: string = '+0%',
   pitch: string = '+0Hz',
   onProgress?: (index: number, total: number) => void

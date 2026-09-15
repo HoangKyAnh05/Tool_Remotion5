@@ -8,7 +8,7 @@ export const sampleHomestayProject: VideoProject = {
   fps: 30,
   totalDuration: 18.0,
   voice: {
-    name: 'vi-VN-HoaiMyNeural',
+    name: 'google-vi',
     rate: '+0%',
     pitch: '+0Hz'
   },

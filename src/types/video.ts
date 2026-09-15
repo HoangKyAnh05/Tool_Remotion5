@@ -272,106 +272,29 @@ export interface VoiceOption {
 }
 
 export const VIETNAMESE_VOICES: VoiceOption[] = [
-  // --- 👑 GIỌNG ADAM CHUẨN TIKTOK (ElevenLabs Multilingual v2) ---
+  // --- 🇻🇳 GIỌNG ĐỌC TIẾNG VIỆT AI CHUẨN MỚI (100% Miễn Phí, Tự Nhiên, Tròn Vành Rõ Chữ) ---
+  {
+    id: 'google-vi',
+    name: '🇻🇳 Giọng Đọc Tiếng Việt AI (Google Neural - Tự Nhiên, Chuẩn Ngữ Điệu, 100% Free)',
+    locale: 'vi-VN',
+    gender: 'Female',
+    description: 'Giọng đọc tiếng Việt AI thế hệ mới, âm điệu tự nhiên, phát âm tròn vành rõ chữ, truyền cảm, hoàn toàn miễn phí 100% không giới hạn token.'
+  },
+
+  // --- 👑 GIỌNG ADAM CHUẨN TIKTOK (Dành cho tài khoản ElevenLabs / VClip) ---
   {
     id: 'elevenlabs:pNInz6obpgDQGcFmaJgB',
     name: '👑 Adam AI (ElevenLabs - Nam Trầm Khàn Uy Lực Chuẩn TikTok 100%)',
     locale: 'vi-VN',
     gender: 'Male',
-    description: 'Giọng đọc Adam nguyên bản nổi tiếng thế giới của ElevenLabs. Âm sắc trầm khàn, uy lực, rất cuốn hút, chuẩn 100% phong cách review TikTok triệu view (cần nhập API Key ElevenLabs / VClip trong Cài đặt).'
-  },
-  {
-    id: 'tiktok:en_male_narration',
-    name: '🎙️ Adam TikTok Narrator (ByteDance TTS - Giọng Đọc Trầm Viral TikTok)',
-    locale: 'vi-VN',
-    gender: 'Male',
-    description: 'Giọng nam đọc dẫn truyện truyền thống trên TikTok, âm trầm vang phong cách tài liệu ngắn (100% miễn phí).'
+    description: 'Giọng đọc Adam nguyên bản nổi tiếng thế giới của ElevenLabs. Âm sắc trầm khàn, uy lực, rất cuốn hút, chuẩn 100% phong cách review TikTok triệu view (cần nhập API Key ElevenLabs trong Cài đặt).'
   },
   {
     id: 'vclip:adam',
     name: '🎙️ Adam VClip AI (Viral TikTok Studio - vclip.io)',
     locale: 'vi-VN',
     gender: 'Male',
-    description: 'Giọng đọc Adam AI kết nối qua nền tảng VClip.io.'
-  },
-
-  // --- 🇻🇳 GIỌNG TIẾNG VIỆT HOT TIKTOK (100% Miễn phí, Chuẩn Studio Neural) ---
-  {
-    id: 'vi-VN-NamMinhNeural:fast',
-    name: '⚡ Nam Minh Viral TikTok (Reviewer Triệu View, Nhanh Cuốn Hút, Bán Hàng)',
-    locale: 'vi-VN',
-    gender: 'Male',
-    description: 'Giọng nam đọc tốc độ nhanh (+18%), cuốn hút, giật tít, hoàn hảo cho video ngắn TikTok/Reels triệu view.'
-  },
-  {
-    id: 'vi-VN-NamMinhNeural:recap',
-    name: '🔥 Nam Minh Tóm Tắt Phim (Fast Recap TikTok, Review Phim & Truyện Siêu Tốc)',
-    locale: 'vi-VN',
-    gender: 'Male',
-    description: 'Phong cách tóm tắt phim 1 phút, review anime truyện tranh, nhịp điệu dồn dập kịch tính (+24%).'
-  },
-  {
-    id: 'vi-VN-HoaiMyNeural:live',
-    name: '🛍️ Hoài My Livestream Bán Hàng (Viral TikTok, Chốt Đơn Affiliate)',
-    locale: 'vi-VN',
-    gender: 'Female',
-    description: 'Giọng nữ năng động, tươi tắn, kích thích tương tác và mua hàng trên TikTok Shop, Reels.'
-  },
-  {
-    id: 'vi-VN-HoaiMyNeural:sweet',
-    name: '🌸 Hoài My Review Food & Travel (Homestay, Ẩm Thực, Lifestyle Hot)',
-    locale: 'vi-VN',
-    gender: 'Female',
-    description: 'Giọng nữ ngọt ngào, đáng yêu, chuẩn tone reviewer đồ ăn, quán cafe, du lịch trải nghiệm.'
-  },
-  {
-    id: 'vi-VN-HoaiMyNeural:genz',
-    name: '✨ Hoài My Gen Z Cute (Hài Hước, Nhí Nhảnh, Bắt Trend Biến Hình)',
-    locale: 'vi-VN',
-    gender: 'Female',
-    description: 'Giọng nữ trẻ trung Gen Z, bắt trend TikTok vui nhộn, meme, câu chuyện đời sống viral.'
-  },
-  {
-    id: 'vi-VN-NamMinhNeural',
-    name: '🎙️ Nam Minh Trầm Ấm (Quyền Lực, B2B, Công Nghệ & Tài Chính)',
-    locale: 'vi-VN',
-    gender: 'Male',
-    description: 'Giọng nam ấm áp, đĩnh đạc, uy lực, rất chuẩn cho video phân tích, công nghệ, tài chính, phóng sự.'
-  },
-  {
-    id: 'vi-VN-HoaiMyNeural',
-    name: '🇻🇳 Hoài My Phát Thanh Viên (Nữ Truyền Cảm, Nhẹ Nhàng, Tin Tức Recap)',
-    locale: 'vi-VN',
-    gender: 'Female',
-    description: 'Giọng nữ chuẩn Hà Nội, mượt mà, sâu lắng, phù hợp tin tức chính thống, review homestay, recap.'
-  },
-  {
-    id: 'vi-VN-HoaiMyNeural:story',
-    name: '📖 Hoài My Kể Chuyện Đêm (Tâm Sự Sâu Lắng, Sách Nói & Podcast Chữa Lành)',
-    locale: 'vi-VN',
-    gender: 'Female',
-    description: 'Giọng nữ điềm tĩnh, ấm áp, âm điệu kể chuyện tâm sự đêm muộn, sách nói, podcast du lịch.'
-  },
-  {
-    id: 'vi-VN-NamMinhNeural:deep',
-    name: '🎬 Nam Minh Điện Ảnh (Deep Voice, Trailer Phim & Phim Tài Liệu Bom Tấn)',
-    locale: 'vi-VN',
-    gender: 'Male',
-    description: 'Giọng nam trầm sâu (-8Hz), phong cách điện ảnh Hollywood, trailer phim, bí ẩn, triết lý.'
-  },
-  {
-    id: 'vi-VN-HoaiMyNeural:asmr',
-    name: '💅 Hoài My ASMR & Làm Đẹp (Thì Thầm, Dịu Dàng, Skincare Thư Giãn)',
-    locale: 'vi-VN',
-    gender: 'Female',
-    description: 'Giọng thì thầm êm dịu, mượt mà, phù hợp video mỹ phẩm skincare, ASMR thư giãn ngủ ngon.'
-  },
-  {
-    id: 'vi-VN-NamMinhNeural:meme',
-    name: '🤖 Nam Minh AI Robot / Meme (Độc Lạ, Hài Hước, Mẹo Công Nghệ TikTok)',
-    locale: 'vi-VN',
-    gender: 'Male',
-    description: 'Giọng trầm vang kiểu AI robot thông minh, độc lạ, hợp video thủ thuật mẹo vặt và meme hài.'
+    description: 'Giọng đọc Adam AI kết nối qua nền tảng VClip.io (cần nhập API Key VClip trong Cài đặt).'
   },
 
   // --- 🇺🇸 🇬🇧 🇦🇺 GIỌNG TIẾNG ANH QUỐC TẾ (English Native Neural - 100% Free) ---

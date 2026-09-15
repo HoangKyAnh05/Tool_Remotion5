@@ -140,18 +140,11 @@ export function getAllVoiceOptions(): VoiceOption[] {
   // Edge-TTS standard voices
   const standardEdgeVoices: VoiceOption[] = [
     {
-      id: 'vi-VN-HoaiMyNeural',
-      name: 'Hoài My (Edge-TTS - Nữ truyền cảm, giọng Bắc)',
+      id: 'google-vi',
+      name: '🇻🇳 Giọng Đọc Tiếng Việt AI (Google Neural - 100% Free)',
       locale: 'vi-VN',
       gender: 'Female',
-      description: 'Giọng nữ chuẩn Hà Nội, mượt mà, phù hợp tin tức, recap.'
-    },
-    {
-      id: 'vi-VN-NamMinhNeural',
-      name: 'Nam Minh (Edge-TTS - Nam trầm ấm, cuốn hút)',
-      locale: 'vi-VN',
-      gender: 'Male',
-      description: 'Giọng nam ấm, uy lực, phù hợp video kiến thức, tài chính.'
+      description: 'Giọng đọc tiếng Việt tự nhiên, tròn vành rõ chữ, hoàn toàn miễn phí.'
     },
     {
       id: 'en-US-JennyNeural',
@@ -370,12 +363,11 @@ export interface FallbackVoiceResult {
  */
 export function getEquivalentFallbackVoice(voiceIdentifier: string): FallbackVoiceResult {
   if (!voiceIdentifier || !voiceIdentifier.startsWith('elevenlabs:')) {
-    const isMale = (voiceIdentifier || '').includes('NamMinh') || (voiceIdentifier || '').includes('Guy');
-    const isVi = (voiceIdentifier || '').startsWith('vi-');
+    const isVi = (voiceIdentifier || '').startsWith('vi-') || voiceIdentifier === 'google-vi';
     return {
-      fallbackVoiceId: voiceIdentifier || 'vi-VN-HoaiMyNeural',
-      voiceName: isMale ? 'Nam Minh (Edge-TTS)' : 'Hoài My (Edge-TTS)',
-      gender: isMale ? 'Male' : 'Female',
+      fallbackVoiceId: voiceIdentifier || 'google-vi',
+      voiceName: isVi ? 'Giọng Đọc Tiếng Việt AI (Google Neural)' : 'Guy (Edge-TTS)',
+      gender: 'Female',
       locale: isVi ? 'vi-VN' : 'en-US',
       isFallback: false
     };
@@ -386,23 +378,13 @@ export function getEquivalentFallbackVoice(voiceIdentifier: string): FallbackVoi
 
   if (config) {
     if (config.category === 'vietnamese') {
-      if (config.gender === 'Male') {
-        return {
-          fallbackVoiceId: 'vi-VN-NamMinhNeural',
-          voiceName: 'Nam Minh (Edge-TTS - Nam trầm ấm)',
-          gender: 'Male',
-          locale: 'vi-VN',
-          isFallback: true
-        };
-      } else {
-        return {
-          fallbackVoiceId: 'vi-VN-HoaiMyNeural',
-          voiceName: 'Hoài My (Edge-TTS - Nữ truyền cảm)',
-          gender: 'Female',
-          locale: 'vi-VN',
-          isFallback: true
-        };
-      }
+      return {
+        fallbackVoiceId: 'google-vi',
+        voiceName: 'Giọng Đọc Tiếng Việt AI (Google Neural - 100% Free)',
+        gender: 'Female',
+        locale: 'vi-VN',
+        isFallback: true
+      };
     } else {
       if (config.gender === 'Male') {
         return {
@@ -425,9 +407,9 @@ export function getEquivalentFallbackVoice(voiceIdentifier: string): FallbackVoi
   }
 
   return {
-    fallbackVoiceId: 'vi-VN-NamMinhNeural',
-    voiceName: 'Nam Minh (Edge-TTS - Nam trầm ấm)',
-    gender: 'Male',
+    fallbackVoiceId: 'google-vi',
+    voiceName: 'Giọng Đọc Tiếng Việt AI (Google Neural - 100% Free)',
+    gender: 'Female',
     locale: 'vi-VN',
     isFallback: true
   };

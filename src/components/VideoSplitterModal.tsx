@@ -154,7 +154,7 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
     const initialRanges = parseSplitPointsToRanges('5.4s, 6.2s, 7.3s, 8.4, 10.5s, 11.6s', { topic: project.topic || '' });
     return formatSplitRangesToTimestamps(initialRanges, project.topic || '');
   });
-  const [selectedVoice, setSelectedVoice] = useState<string>(project.voice?.name || 'vi-VN-HoaiMyNeural');
+  const [selectedVoice, setSelectedVoice] = useState<string>(project.voice?.name || 'google-vi');
   const [isGeneratingAi, setIsGeneratingAi] = useState<boolean>(false);
   const [isSuggestingTimestamps, setIsSuggestingTimestamps] = useState<boolean>(false);
   const [suggestedStructure, setSuggestedStructure] = useState<SuggestedSceneStructure[]>([]);
@@ -868,13 +868,11 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                       onChange={(e) => setSelectedVoice(e.target.value)}
                       className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-rose-500"
                     >
-                      <option value="vi-VN-NamMinhNeural:adam">👑 Adam AI TikTok Studio (Nam Trầm Quyền Lực - 100% Free)</option>
-                      <option value="vi-VN-NamMinhNeural:fast">⚡ Nam Minh Viral TikTok (Reviewer Nhanh Cuốn Hút)</option>
-                      <option value="vi-VN-HoaiMyNeural:sweet">🌸 Hoài My Review Food & Travel (Ngọt Ngào)</option>
-                      <option value="vi-VN-HoaiMyNeural">Hoài My (Nữ - Truyền cảm, chuẩn Bắc)</option>
-                      <option value="vi-VN-NamMinhNeural">Nam Minh (Nam - Trầm ấm, uy lực)</option>
-                      <option value="en-US-JennyNeural">Jenny (English US - Female)</option>
+                      <option value="google-vi">🇻🇳 Giọng Đọc Tiếng Việt AI (Google Neural - 100% Free)</option>
+                      <option value="elevenlabs:pNInz6obpgDQGcFmaJgB">👑 Adam AI (ElevenLabs - Nam Trầm Chuẩn TikTok)</option>
+                      <option value="vclip:adam">🎙️ Adam VClip AI (vclip.io)</option>
                       <option value="en-US-GuyNeural">Guy (English US - Male)</option>
+                      <option value="en-US-JennyNeural">Jenny (English US - Female)</option>
                     </select>
                   </div>
 

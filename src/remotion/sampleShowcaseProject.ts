@@ -8,7 +8,7 @@ export const maxShowcaseProject: VideoProject = {
   fps: 30,
   totalDuration: 22.0,
   voice: {
-    name: 'vi-VN-NamMinhNeural',
+    name: 'google-vi',
     rate: '+0%',
     pitch: '+0Hz'
   },

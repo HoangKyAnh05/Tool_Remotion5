@@ -11,61 +11,100 @@ export interface SynthesizeResult {
 }
 
 export function parseVoicePreset(
-  voice: string = 'vi-VN-HoaiMyNeural',
+  voice: string = 'google-vi',
   rate: string = '+0%',
   pitch: string = '+0Hz'
 ): { effectiveVoice: string; effectiveRate: string; effectivePitch: string } {
-  let effectiveVoice = voice || 'vi-VN-HoaiMyNeural';
+  let effectiveVoice = voice || 'google-vi';
   let effectiveRate = rate || '+0%';
-  let effectivePitch = '+0Hz'; // Microsoft Edge-TTS neural voices work 100% reliably with +0Hz
-
-  if (voice === 'adam' || voice === 'adam-tiktok' || voice === 'vclip:adam') {
-    return { effectiveVoice: 'vi-VN-NamMinhNeural', effectiveRate: '+18%', effectivePitch: '+0Hz' };
-  }
-
-  if (voice.includes(':') && !voice.startsWith('elevenlabs:')) {
-    const [baseVoice, modifier] = voice.split(':');
-    effectiveVoice = baseVoice;
-    switch (modifier) {
-      case 'adam':
-      case 'fast':
-        effectiveRate = '+18%';
-        break;
-      case 'recap':
-        effectiveRate = '+25%';
-        break;
-      case 'live':
-        effectiveRate = '+18%';
-        break;
-      case 'sweet':
-        effectiveRate = '+8%';
-        break;
-      case 'genz':
-        effectiveRate = '+22%';
-        break;
-      case 'story':
-        effectiveRate = '-8%';
-        break;
-      case 'deep':
-        effectiveRate = '-4%';
-        break;
-      case 'asmr':
-        effectiveRate = '-3%';
-        break;
-      case 'meme':
-        effectiveRate = '+12%';
-        break;
-      default:
-        break;
-    }
-  }
+  let effectivePitch = '+0Hz';
 
   return { effectiveVoice, effectiveRate, effectivePitch };
 }
 
+/**
+ * Universal synthesis for Google Neural Vietnamese TTS
+ */
+async function synthesizeGoogleTTS(text: string): Promise<SynthesizeResult> {
+  const cleanText = text.trim();
+  const rawWords = cleanText.split(/\s+/).filter(Boolean);
+  if (!rawWords.length) {
+    return { audioUrl: '', duration: 2.0, words: [], usedVoice: 'google-vi' };
+  }
+
+  // Split into chunks of max 180 chars to avoid URL limit
+  const chunks: string[] = [];
+  let cur = '';
+  for (const w of rawWords) {
+    if ((cur + ' ' + w).length > 180) {
+      chunks.push(cur.trim());
+      cur = w;
+    } else {
+      cur = cur ? cur + ' ' + w : w;
+    }
+  }
+  if (cur) chunks.push(cur.trim());
+
+  const audioBuffers: ArrayBuffer[] = [];
+  for (const chunk of chunks) {
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=vi&client=tw-ob`;
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+      }
+    });
+    if (!res.ok) {
+      throw new Error(`Google TTS request failed with status: ${res.status}`);
+    }
+    const ab = await res.arrayBuffer();
+    audioBuffers.push(ab);
+  }
+
+  // Combine ArrayBuffers
+  let totalLength = 0;
+  for (const ab of audioBuffers) totalLength += ab.byteLength;
+  const merged = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const ab of audioBuffers) {
+    merged.set(new Uint8Array(ab), offset);
+    offset += ab.byteLength;
+  }
+
+  // Convert to Base64 data URL
+  let binary = '';
+  const len = merged.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(merged[i]);
+  }
+  const base64 = typeof btoa !== 'undefined' ? btoa(binary) : Buffer.from(merged).toString('base64');
+  const audioUrl = `data:audio/mp3;base64,${base64}`;
+
+  // Calculate synchronized word-level timestamps
+  const timePerWord = 0.35;
+  const words: WordTimestamp[] = [];
+  let curTime = 0.12;
+  for (const w of rawWords) {
+    words.push({
+      word: w,
+      start: Number(curTime.toFixed(2)),
+      end: Number((curTime + timePerWord).toFixed(2))
+    });
+    curTime += timePerWord;
+  }
+  const duration = Number((curTime + 0.35).toFixed(2));
+
+  return {
+    audioUrl,
+    duration: Math.max(2.0, duration),
+    words,
+    usedVoice: 'google-vi',
+    isFallback: false
+  };
+}
+
 export async function synthesizeEdgeTTS(
   text: string,
-  voice: string = 'vi-VN-HoaiMyNeural',
+  voice: string = 'google-vi',
   rate: string = '+0%',
   pitch: string = '+0Hz'
 ): Promise<SynthesizeResult> {
@@ -80,45 +119,7 @@ export async function synthesizeEdgeTTS(
   let effectivePitch = preset.effectivePitch;
   let isFallback = false;
 
-  // 0. If voice is a TikTok Narrator voice
-  if (voice.startsWith('tiktok:')) {
-    const tVoice = voice.replace('tiktok:', '') || 'en_male_narration';
-    try {
-      const tRes = await fetch('https://tiktok-tts.weilnet.workers.dev/api/generation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: cleanText, voice: tVoice })
-      });
-      const tData = await tRes.json().catch(() => ({}));
-      if (tData.success && tData.data) {
-        const audioUrl = `data:audio/mp3;base64,${tData.data}`;
-        const rawWords = cleanText.split(/\s+/).filter(Boolean);
-        const estimatedDuration = Math.max(2.5, tData.data.length / 4500);
-        const timePerWord = (estimatedDuration - 0.4) / Math.max(rawWords.length, 1);
-        const words: WordTimestamp[] = [];
-        let cur = 0.15;
-        for (const w of rawWords) {
-          words.push({
-            word: w,
-            start: Number(cur.toFixed(2)),
-            end: Number((cur + timePerWord).toFixed(2))
-          });
-          cur += timePerWord;
-        }
-        return {
-          audioUrl,
-          duration: Number((cur + 0.3).toFixed(2)),
-          words,
-          usedVoice: voice,
-          isFallback: false
-        };
-      }
-    } catch (err: any) {
-      console.warn('TikTok TTS synthesis failed:', err);
-    }
-  }
-
-  // 0.1 If voice is a VClip AI voice (vclip.io)
+  // 1. If voice is a VClip AI voice (vclip.io)
   if (voice.startsWith('vclip:')) {
     const vclipKey = getSavedVClipApiKey().trim();
     try {
@@ -127,14 +128,13 @@ export async function synthesizeEdgeTTS(
         return { ...res, usedVoice: voice, isFallback: false };
       }
     } catch (err: any) {
-      console.warn('VClip synthesis failed, falling back to equivalent Studio voice:', err);
+      console.warn('VClip synthesis failed, falling back to Google Neural voice:', err);
     }
-    // Fallback sang giọng Nam Minh / Adam nếu VClip chưa có voiceId hợp lệ
-    effectiveVoice = 'vi-VN-NamMinhNeural';
+    effectiveVoice = 'google-vi';
     isFallback = true;
   }
 
-  // 0.2 If voice is an ElevenLabs voice
+  // 2. If voice is an ElevenLabs voice
   if (voice.startsWith('elevenlabs:')) {
     const savedKey = getSavedElevenLabsApiKey().trim();
     if (savedKey) {
@@ -142,16 +142,27 @@ export async function synthesizeEdgeTTS(
         const res = await synthesizeElevenLabsTTS(cleanText, voice, savedKey);
         return { ...res, usedVoice: voice, isFallback: false };
       } catch (err: any) {
-        console.warn('ElevenLabs synthesis failed, falling back to equivalent Edge-TTS voice:', err);
+        console.warn('ElevenLabs synthesis failed, falling back to Google Neural voice:', err);
       }
     }
-    // Không có ElevenLabs API key hoặc gọi lỗi -> tự động map sang giọng Edge-TTS tương đương (Nam/Nữ)
     const fallbackInfo = getEquivalentFallbackVoice(voice);
     effectiveVoice = fallbackInfo.fallbackVoiceId;
     isFallback = true;
   }
 
-  // 1. If running inside Electron, use IPC
+  // 3. Primary Google Neural TTS (100% Free Vietnamese Voice)
+  if (effectiveVoice === 'google-vi' || effectiveVoice.startsWith('google') || effectiveVoice.startsWith('vi-')) {
+    try {
+      const gRes = await synthesizeGoogleTTS(cleanText);
+      if (gRes && gRes.audioUrl) {
+        return { ...gRes, usedVoice: 'google-vi', isFallback };
+      }
+    } catch (gErr) {
+      console.warn('Direct Google TTS failed, trying backend /api/tts endpoint:', gErr);
+    }
+  }
+
+  // 4. If running inside Electron, use IPC
   if (window.electronAPI?.synthesizeTTS) {
     try {
       const result = await window.electronAPI.synthesizeTTS({
@@ -172,7 +183,7 @@ export async function synthesizeEdgeTTS(
     }
   }
 
-  // 2. If running in browser (Vite dev or preview server), call /api/tts endpoint
+  // 5. If running in browser (Vite dev or preview server), call /api/tts endpoint
   try {
     const res = await fetch('/api/tts', {
       method: 'POST',
@@ -203,7 +214,7 @@ export async function synthesizeEdgeTTS(
     console.warn('Fetch /api/tts error, fallback to browser synthesis:', err);
   }
 
-  // 3. Fallback: Browser Web Audio tone or calculated timestamps
+  // 6. Fallback: Browser Web Audio tone or calculated timestamps
   const fallbackRes = createBrowserFallbackAudio(cleanText);
   return { ...fallbackRes, usedVoice: effectiveVoice, isFallback: true };
 }

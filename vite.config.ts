@@ -55,6 +55,50 @@ function parseVoicePreset(voice = 'vi-VN-HoaiMyNeural', rate = '+0%', pitch = '+
   return { effectiveVoice, effectiveRate, effectivePitch };
 }
 
+async function synthesizeGoogleTTSNode(cleanText: string) {
+  const words = cleanText.split(/\s+/).filter(Boolean);
+  if (!words.length) return { audioUrl: '', duration: 2.0, words: [] };
+
+  const chunks: string[] = [];
+  let cur = '';
+  for (const w of words) {
+    if ((cur + ' ' + w).length > 180) {
+      chunks.push(cur.trim());
+      cur = w;
+    } else {
+      cur = cur ? cur + ' ' + w : w;
+    }
+  }
+  if (cur) chunks.push(cur.trim());
+
+  const audioBuffers: Buffer[] = [];
+  for (const chunk of chunks) {
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=vi&client=tw-ob`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
+    if (!res.ok) throw new Error(`Google TTS request error: ${res.status}`);
+    const ab = await res.arrayBuffer();
+    audioBuffers.push(Buffer.from(ab));
+  }
+
+  const fullBuffer = Buffer.concat(audioBuffers);
+  const audioUrl = `data:audio/mp3;base64,${fullBuffer.toString('base64')}`;
+
+  const timePerWord = 0.35;
+  const wordTimestamps: Array<{ word: string; start: number; end: number }> = [];
+  let curTime = 0.12;
+  for (const w of words) {
+    wordTimestamps.push({
+      word: w,
+      start: Number(curTime.toFixed(2)),
+      end: Number((curTime + timePerWord).toFixed(2))
+    });
+    curTime += timePerWord;
+  }
+  const duration = Number((curTime + 0.35).toFixed(2));
+
+  return { audioUrl, duration: Math.max(2.0, duration), words: wordTimestamps };
+}
+
 function ttsAndMediaApiPlugin(): Plugin {
   const handleTtsRequest = async (req: any, res: any) => {
     if (req.method === 'POST') {
@@ -64,11 +108,21 @@ function ttsAndMediaApiPlugin(): Plugin {
       });
       req.on('end', async () => {
         try {
-          const { text, voice = 'vi-VN-HoaiMyNeural', rate = '+0%', pitch = '+0Hz' } = JSON.parse(body || '{}');
+          const { text, voice = 'google-vi', rate = '+0%', pitch = '+0Hz' } = JSON.parse(body || '{}');
           const cleanText = (text || '').trim();
           if (!cleanText) {
             res.setHeader('Content-Type', 'application/json');
             return res.end(JSON.stringify({ audioUrl: '', duration: 2.0, words: [] }));
+          }
+
+          if (voice === 'google-vi' || voice.startsWith('google') || voice.startsWith('vi-')) {
+            try {
+              const gResult = await synthesizeGoogleTTSNode(cleanText);
+              res.setHeader('Content-Type', 'application/json');
+              return res.end(JSON.stringify(gResult));
+            } catch (gErr) {
+              console.warn('Google TTS failed in Vite server, falling back to edge-tts:', gErr);
+            }
           }
 
           const { effectiveVoice, effectiveRate, effectivePitch } = parseVoicePreset(voice, rate, pitch);

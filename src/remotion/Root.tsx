@@ -17,7 +17,7 @@ export const defaultProject: VideoProject = {
   fps: 30,
   totalDuration: 12,
   voice: {
-    name: 'vi-VN-HoaiMyNeural',
+    name: 'google-vi',
     rate: '+0%',
     pitch: '+0Hz'
   },

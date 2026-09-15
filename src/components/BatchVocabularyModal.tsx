@@ -224,7 +224,7 @@ Trả về DUY NHẤT một khối mã JSON chuẩn cú pháp (không kèm lời
       try {
         const tts = await synthesizeEdgeTTS(
           narrationText,
-          project.voice.name || 'vi-VN-HoaiMyNeural',
+          project.voice.name || 'google-vi',
           project.voice.rate,
           project.voice.pitch
         );
