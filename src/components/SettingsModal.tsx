@@ -177,35 +177,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
 
           {/* Groq / AI Engine API Key */}
-          <div className="space-y-1.5 bg-indigo-950/30 border border-indigo-500/30 rounded-xl p-3">
+          {/* DeepSeek & AI Script Engine */}
+          <div className="space-y-1.5 bg-gradient-to-r from-blue-950/40 via-indigo-950/30 to-purple-950/30 border border-indigo-500/40 rounded-xl p-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-indigo-200 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
-                <span>AI Script & Video Engine (Groq Llama 3.3 70B)</span>
+                <span>DeepSeek AI Engine (DeepSeek V3 / R1)</span>
               </label>
               <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-500/40 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                Ultra Fast Active
+                DeepSeek R1 / V3
               </span>
             </div>
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              Hệ thống đã tích hợp sẵn <strong>Groq AI Engine siêu tốc độ</strong> (Llama 3.3 70B / DeepSeek R1). Bạn có thể để trống để dùng key mặc định hoặc nhập Groq API Key của bạn (bắt đầu bằng <code>gsk_...</code>):
+              Nhập <strong>DeepSeek API Key</strong> (bắt đầu bằng <code>sk-...</code>) hoặc Groq API Key (<code>gsk_...</code>) để AI tự động viết kịch bản phân cảnh siêu thông minh:
             </p>
             <div className="flex items-center gap-2 pt-1">
               <input
                 type="password"
                 value={apiKeyGemini}
-                onChange={(e) => setApiKeyGemini(e.target.value)}
-                placeholder="Để trống dùng key mặc định (hoặc nhập gsk_... / AIzaSy...)"
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setApiKeyGemini(val);
+                  localStorage.setItem('DEEPSEEK_API_KEY', val.trim());
+                  localStorage.setItem('OPENAI_API_KEY', val.trim());
+                  localStorage.setItem('GROQ_API_KEY', val.trim());
+                  localStorage.setItem('GEMINI_API_KEY', val.trim());
+                }}
+                placeholder="Nhập DeepSeek API Key (sk-...) hoặc Groq Key (gsk_...)"
                 className="w-full bg-gray-950 border border-indigo-500/40 focus:border-indigo-400 rounded-xl px-3.5 py-2 text-xs text-indigo-100 focus:outline-none placeholder:text-slate-500 font-mono"
               />
               <a
-                href="https://console.groq.com/keys"
+                href="https://platform.deepseek.com/api_keys"
                 target="_blank"
                 rel="noreferrer"
-                className="text-[11px] text-indigo-300 hover:text-indigo-100 bg-indigo-900/50 border border-indigo-500/40 px-2.5 py-2 rounded-xl shrink-0 whitespace-nowrap font-medium"
+                className="text-[11px] text-cyan-300 hover:text-cyan-100 bg-cyan-900/40 border border-cyan-500/40 px-2.5 py-2 rounded-xl shrink-0 whitespace-nowrap font-medium"
               >
-                Lấy Groq Key
+                Lấy DeepSeek Key
               </a>
             </div>
           </div>

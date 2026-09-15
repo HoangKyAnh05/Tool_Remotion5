@@ -191,11 +191,53 @@ function ttsAndMediaApiPlugin(): Plugin {
             return res.end(JSON.stringify({ error: 'Prompt is required' }));
           }
 
-          const activeKey = (apiKey || cookie || process.env.GROQ_API_KEY || '').trim();
+          const activeKey = (apiKey || cookie || process.env.DEEPSEEK_API_KEY || process.env.GROQ_API_KEY || '').trim();
 
-          // Try Groq API
+          // 1. Try DeepSeek API
+          if (activeKey.startsWith('sk-') || activeKey.length > 20) {
+            for (const dsModel of ['deepseek-chat', 'deepseek-reasoner']) {
+              try {
+                const dsRes = await fetch('https://api.deepseek.com/chat/completions', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${activeKey}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    model: dsModel,
+                    messages: [
+                      {
+                        role: 'system',
+                        content:
+                          'You are an expert AI video scriptwriter, director, and creative content producer. Always return high quality, clear, and well-structured JSON or text responses.'
+                      },
+                      { role: 'user', content: cleanPrompt }
+                    ],
+                    temperature: 0.7
+                  })
+                });
+
+                if (dsRes.ok) {
+                  const data = await dsRes.json();
+                  const content = data?.choices?.[0]?.message?.content;
+                  if (content && typeof content === 'string') {
+                    const cleaned = content
+                      .replace(/<think>[\s\S]*?<\/think>/gi, '')
+                      .replace(/```(?:python|javascript|text|json)\?code_(?:reference|stdout)&code_event_index=\d+\n[\s\S]*?```\n?/g, '')
+                      .trim();
+                    res.setHeader('Content-Type', 'application/json');
+                    return res.end(JSON.stringify({ text: cleaned, rawLength: content.length }));
+                  }
+                }
+              } catch (dsErr) {
+                console.warn('Vite proxy DeepSeek error for model:', dsModel, dsErr);
+              }
+            }
+          }
+
+          // 2. Try Groq API
           if (activeKey.startsWith('gsk_') || activeKey.length > 20) {
-            for (const model of ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768']) {
+            for (const model of ['deepseek-r1-distill-llama-70b', 'llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768']) {
               try {
                 const gRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                   method: 'POST',
@@ -223,7 +265,7 @@ function ttsAndMediaApiPlugin(): Plugin {
                   if (content && typeof content === 'string') {
                     const cleaned = content
                       .replace(/<think>[\s\S]*?<\/think>/gi, '')
-                      .replace(/```(?:python|javascript|text)\?code_(?:reference|stdout)&code_event_index=\d+\n[\s\S]*?```\n?/g, '')
+                      .replace(/```(?:python|javascript|text|json)\?code_(?:reference|stdout)&code_event_index=\d+\n[\s\S]*?```\n?/g, '')
                       .trim();
                     res.setHeader('Content-Type', 'application/json');
                     return res.end(JSON.stringify({ text: cleaned, rawLength: content.length }));

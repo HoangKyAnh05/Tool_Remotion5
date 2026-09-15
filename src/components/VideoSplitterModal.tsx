@@ -834,13 +834,13 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
             {isAiSectionOpen && (
               <div className="space-y-3 pt-2 border-t border-slate-800/80">
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                  {/* Ô nhập API Key Groq / Gemini / OpenAI */}
+                  {/* Ô nhập API Key DeepSeek / Groq / Gemini / OpenAI */}
                   <div className="md:col-span-6 space-y-1">
                     <label className="text-[11px] font-bold text-slate-300 flex items-center justify-between">
                       <span className="flex items-center gap-1">
-                        <Key className="w-3 h-3 text-yellow-400" /> API Key (Groq / Gemini / OpenAI):
+                        <Key className="w-3 h-3 text-yellow-400" /> API Key (DeepSeek / Groq / OpenAI):
                       </span>
-                      <span className="text-[10px] text-emerald-400 font-medium">✨ Đã tích hợp sẵn & tự động lưu</span>
+                      <span className="text-[10px] text-emerald-400 font-medium">✨ Tự động lưu & Bảo mật</span>
                     </label>
                     <input
                       type="text"
@@ -848,11 +848,12 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                       onChange={(e) => {
                         const val = e.target.value;
                         setOpenaiKey(val);
-                        localStorage.setItem('GROQ_API_KEY', val.trim());
+                        localStorage.setItem('DEEPSEEK_API_KEY', val.trim());
                         localStorage.setItem('OPENAI_API_KEY', val.trim());
+                        localStorage.setItem('GROQ_API_KEY', val.trim());
                         localStorage.setItem('GEMINI_API_KEY', val.trim());
                       }}
-                      placeholder="gsk_... (Groq) hoặc AIzaSy... (Gemini) hoặc sk-... (OpenAI)"
+                      placeholder="sk-... (DeepSeek / OpenAI) hoặc gsk_... (Groq)"
                       className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 font-mono focus:outline-none focus:border-rose-500"
                     />
                   </div>
@@ -867,6 +868,9 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                       onChange={(e) => setSelectedVoice(e.target.value)}
                       className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-rose-500"
                     >
+                      <option value="vi-VN-NamMinhNeural:adam">👑 Adam AI TikTok Studio (Nam Trầm Quyền Lực - 100% Free)</option>
+                      <option value="vi-VN-NamMinhNeural:fast">⚡ Nam Minh Viral TikTok (Reviewer Nhanh Cuốn Hút)</option>
+                      <option value="vi-VN-HoaiMyNeural:sweet">🌸 Hoài My Review Food & Travel (Ngọt Ngào)</option>
                       <option value="vi-VN-HoaiMyNeural">Hoài My (Nữ - Truyền cảm, chuẩn Bắc)</option>
                       <option value="vi-VN-NamMinhNeural">Nam Minh (Nam - Trầm ấm, uy lực)</option>
                       <option value="en-US-JennyNeural">Jenny (English US - Female)</option>
@@ -885,7 +889,7 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950/80 px-2 py-0.5 rounded-lg border border-emerald-500/30 flex items-center gap-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                          Groq AI Llama 3.3
+                          🧠 DeepSeek AI Engine
                         </span>
                         <button
                           type="button"

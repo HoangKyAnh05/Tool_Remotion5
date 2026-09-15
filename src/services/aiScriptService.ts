@@ -518,6 +518,27 @@ function buildContextualNarration(
   }
 
   // =========================================================================
+  // F. NHÓM ẨM THỰC / REVIEW QUÁN ĂN / BÁNH ĐA CUA / MÓN NGON
+  // =========================================================================
+  else if (isFoodCooking) {
+    if (isHook) {
+      narration = `Thèm một tô đồ ăn nóng hổi bùng nổ vị giác? Cùng mình ghé ngay "${cleanTopic}" để thẩm xem chất lượng có đỉnh chóp như lời đồn không nhé!`;
+    } else if (isEnding) {
+      narration = `Tổng kết lại: Món ăn tại "${cleanTopic}" thực sự 10 điểm không có nhưng! Anh em lưu ngay địa chỉ để rủ hội bạn thân cùng ghé thưởng thức nhé!`;
+    } else if (sceneIndex === 1 || /không gian|quán|bàn ghế|menu|phục vụ/i.test(dLower)) {
+      narration = `Không gian quán tấp nập khách ra vào, bàn ghế sạch sẽ tinh tươm cùng quầy nguyên liệu tươi rói nhìn thôi là đã thấy ứa nước miếng rồi!`;
+    } else if (sceneIndex === 2 || /nước dùng|bốc khói|sợi|bánh đa|nồi/i.test(dLower)) {
+      narration = `Điểm nhấn đắt giá nhất chính là nồi nước dùng sôi sục, bốc khói nghi ngút, thơm lừng vị cua đồng béo ngậy ngọt thanh tự nhiên!`;
+    } else if (sceneIndex === 3 || /topping|chả|bề bề|thịt|cua|tôm|bò/i.test(dLower)) {
+      narration = `Tô bưng ra đầy ắp topping ú nụ: Sợi bánh mềm dai, gạch cua béo ngậy kết hợp chả lá lốt thơm lừng và tóp mỡ giòn rụm khó cưỡng!`;
+    } else if (sceneIndex === 4 || /thưởng thức|ăn|chấm|vị giác|cảm nhận/i.test(dLower)) {
+      narration = `Gắp một đũa đầy ắp rồi xì xụp miếng nước dùng: Hương vị chua thanh cay nồng hòa quyện làm bùng nổ mọi giác quan, ăn một lần là nhớ mãi!`;
+    } else {
+      narration = `Trải nghiệm trọn vẹn từng chi tiết tại "${subDesc}" của "${cleanTopic}": Hương vị tinh túy và sự tỉ mỉ làm say lòng mọi thực khách sành ăn!`;
+    }
+  }
+
+  // =========================================================================
   // G. NHÓM 7: DU LỊCH / NGHỈ DƯỠNG / HOMESTAY
   // =========================================================================
   else if (isTravelNature) {
@@ -600,10 +621,14 @@ export function getDomainStageTitle(topic: string, idx: number, total: number): 
     if (idx === 2) return 'Chiến lược đòn bẩy & Nhân bản tài sản';
     return 'Quản trị rủi ro & Tối ưu hóa lợi nhuận';
   }
-  if (/ẩm thực|món ăn|nấu|cơm|phở|bánh|quán ăn/i.test(tLower)) {
-    if (idx === 1) return 'Lựa chọn nguyên liệu tươi ngon chuẩn vị';
-    if (idx === 2) return 'Kỹ thuật chế biến & Bí quyết nêm nếm';
-    return 'Thành phẩm bắt mắt & Thưởng thức';
+  if (/ẩm thực|món ăn|nấu|cơm|phở|bánh|quán ăn|bánh đa|ăn uống|lẩu|nướng/i.test(tLower)) {
+    if (idx === 0) return 'Check-in & Khám phá quán ăn';
+    if (idx === 1) return 'Không gian quán & Quầy nguyên liệu';
+    if (idx === 2) return 'Cận cảnh nồi nước dùng đậm đà';
+    if (idx === 3) return 'Topping đầy ắp & Gạch cua béo ngậy';
+    if (idx === 4) return 'Thưởng thức & Bùng nổ vị giác';
+    if (idx === total - 1) return 'Đánh giá chất lượng & Lời kết';
+    return `Món ngon hấp dẫn phân cảnh ${idx + 1}`;
   }
   if (/sapa|đà lạt|tam đảo|du lịch|travel|homestay/i.test(tLower)) {
     if (idx === 1) return 'Không gian phòng nghỉ & Cảnh sắc thiên nhiên';
@@ -1004,9 +1029,57 @@ Trả về đúng định dạng JSON thuần túy (mảng JSON gồm đúng ${e
   let parsed: any = null;
   let lastError = '';
 
-  // 1. Thử gọi trực tiếp qua Groq API (Ưu tiên số 1 nếu có key gsk_ hoặc gọi qua engine)
-  if (cleanKey.startsWith('gsk_') || cleanKey.length > 20) {
-    for (const model of ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'deepseek-r1-distill-llama-70b', 'mixtral-8x7b-32768']) {
+  // 1. Thử gọi trực tiếp qua DeepSeek API (https://api.deepseek.com/chat/completions)
+  if (cleanKey.startsWith('sk-') || cleanKey.length > 20) {
+    for (const dModel of ['deepseek-chat', 'deepseek-reasoner']) {
+      try {
+        const dsRes = await axios.post(
+          'https://api.deepseek.com/chat/completions',
+          {
+            model: dModel,
+            messages: [
+              {
+                role: 'system',
+                content:
+                  'You are an expert AI video scriptwriter and director. Output ONLY a valid JSON array of scene objects, with no markdown code fences or explanatory text.'
+              },
+              { role: 'user', content: prompt }
+            ],
+            temperature: 0.7,
+            response_format: { type: 'json_object' }
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${cleanKey}`,
+              'Content-Type': 'application/json'
+            },
+            timeout: 25000
+          }
+        );
+
+        const content = dsRes.data?.choices?.[0]?.message?.content;
+        if (content) {
+          const jsonVal = extractJsonFromAiResponse(content);
+          if (Array.isArray(jsonVal)) {
+            parsed = jsonVal;
+          } else if (Array.isArray(jsonVal?.scenes)) {
+            parsed = jsonVal.scenes;
+          } else if (Array.isArray(jsonVal?.segments)) {
+            parsed = jsonVal.segments;
+          }
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            break;
+          }
+        }
+      } catch (err: any) {
+        lastError = err?.response?.data?.error?.message || err?.message || '';
+      }
+    }
+  }
+
+  // 1.1 Thử gọi trực tiếp qua Groq API (Ưu tiên số 1 nếu có key gsk_ hoặc gọi qua engine)
+  if (!parsed && (cleanKey.startsWith('gsk_') || cleanKey.length > 20)) {
+    for (const model of ['deepseek-r1-distill-llama-70b', 'llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768']) {
       try {
         const groqRes = await axios.post(
           'https://api.groq.com/openai/v1/chat/completions',

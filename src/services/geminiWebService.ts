@@ -1,12 +1,13 @@
 /**
- * Groq / AI Engine Service (High-Speed & Zero-Token AI Engine)
- * Powered by Groq Llama 3.3 70B & DeepSeek R1
+ * DeepSeek & Multi-Provider AI Engine Service
+ * Powered by DeepSeek-V3, DeepSeek-R1, Groq & Open AI Models
  */
 
+export const DEFAULT_DEEPSEEK_KEY = '';
 export const DEFAULT_GROQ_KEY = '';
 
 export interface GeminiWebGenerateOptions {
-  model?: 'llama-3.3-70b-versatile' | 'llama-3.1-8b-instant' | 'deepseek-r1-distill-llama-70b' | 'gemma2-9b-it' | 'gemini-3.7-flash' | string;
+  model?: 'deepseek-chat' | 'deepseek-reasoner' | 'deepseek-r1-distill-llama-70b' | 'llama-3.3-70b-versatile' | 'llama-3.1-8b-instant' | string;
   thinkMode?: number;
   timeoutMs?: number;
   cookie?: string;
@@ -14,11 +15,11 @@ export interface GeminiWebGenerateOptions {
   xsrfToken?: string;
 }
 
-export const GEMINI_WEB_MODELS: Record<string, { mode: number; think: number; desc: string }> = {
-  'llama-3.3-70b-versatile': { mode: 1, think: 0, desc: 'Llama 3.3 70B Versatile (Cực thông minh & Nhanh)' },
-  'llama-3.1-8b-instant': { mode: 2, think: 0, desc: 'Llama 3.1 8B Instant (Siêu tốc độ)' },
-  'deepseek-r1-distill-llama-70b': { mode: 3, think: 0, desc: 'DeepSeek R1 70B (Suy luận logic sâu)' },
-  'gemini-3.7-flash': { mode: 1, think: 4, desc: 'Gemini 3.7 Flash Engine' }
+export const DEEPSEEK_MODELS: Record<string, { desc: string }> = {
+  'deepseek-chat': { desc: 'DeepSeek V3 (Thông minh vượt trội, Chuẩn xác tiếng Việt)' },
+  'deepseek-reasoner': { desc: 'DeepSeek R1 (Suy luận chuyên sâu, Kịch bản đỉnh cao)' },
+  'deepseek-r1-distill-llama-70b': { desc: 'DeepSeek R1 Distill 70B (Siêu tốc độ trên Groq)' },
+  'llama-3.3-70b-versatile': { desc: 'Llama 3.3 70B Versatile' }
 };
 
 /**
@@ -32,13 +33,13 @@ export function extractGeminiWebResponseText(rawText: string): string {
 
   // Clean code references or card content markers
   return text
-    .replace(/```(?:python|javascript|text)\?code_(?:reference|stdout)&code_event_index=\d+\n[\s\S]*?```\n?/g, '')
+    .replace(/```(?:python|javascript|text|json)\?code_(?:reference|stdout)&code_event_index=\d+\n[\s\S]*?```\n?/g, '')
     .replace(/http:\/\/googleusercontent\.com\/card_content\/\d+\n?/g, '')
     .trim();
 }
 
 /**
- * Gửi prompt tới API endpoint Groq hoặc fallback
+ * Gửi prompt tới DeepSeek API, Groq hoặc AI Web Engine
  */
 export async function generateTextWithGeminiWeb(
   prompt: string,
@@ -47,17 +48,15 @@ export async function generateTextWithGeminiWeb(
   const customKey =
     options.apiKey ||
     (typeof localStorage !== 'undefined'
-      ? localStorage.getItem('GROQ_API_KEY') ||
+      ? localStorage.getItem('DEEPSEEK_API_KEY') ||
+        localStorage.getItem('OPENAI_API_KEY') ||
+        localStorage.getItem('GROQ_API_KEY') ||
         localStorage.getItem('GEMINI_API_KEY') ||
-        localStorage.getItem('AI_API_KEY') ||
-        localStorage.getItem('OPENAI_API_KEY')
+        localStorage.getItem('AI_API_KEY')
       : undefined);
 
-  const activeKey = (customKey && customKey.trim().length > 10) ? customKey.trim() : DEFAULT_GROQ_KEY;
-  let modelName = options.model || 'llama-3.3-70b-versatile';
-  if (modelName.startsWith('gemini')) {
-    modelName = 'llama-3.3-70b-versatile';
-  }
+  const activeKey = (customKey && customKey.trim().length > 5) ? customKey.trim() : (DEFAULT_DEEPSEEK_KEY || DEFAULT_GROQ_KEY);
+  let modelName = options.model || 'deepseek-chat';
 
   // 0. Thử gọi trực tiếp qua Electron IPC Bridge
   if (typeof window !== 'undefined' && (window as any).electronAPI?.geminiGenerate) {
@@ -72,13 +71,50 @@ export async function generateTextWithGeminiWeb(
         return extractGeminiWebResponseText(electronRes.text);
       }
     } catch (e) {
-      console.warn('Electron IPC geminiGenerate error, falling back to direct API/proxy:', e);
+      console.warn('Electron IPC AI generate error, falling back to direct API/proxy:', e);
     }
   }
 
-  // 1. Thử gọi trực tiếp Groq API (OpenAI Compatible)
+  // 1. Thử gọi DeepSeek API (https://api.deepseek.com/chat/completions)
+  if (activeKey.startsWith('sk-') || activeKey.length > 20) {
+    for (const dModel of ['deepseek-chat', 'deepseek-reasoner']) {
+      try {
+        const dsRes = await fetch('https://api.deepseek.com/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${activeKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: dModel,
+            messages: [
+              {
+                role: 'system',
+                content:
+                  'You are an expert AI video scriptwriter, director, and creative content producer. Always return high quality, clear, and well-structured JSON or text responses.'
+              },
+              { role: 'user', content: prompt }
+            ],
+            temperature: 0.7
+          })
+        });
+
+        if (dsRes.ok) {
+          const resData = await dsRes.json();
+          const content = resData?.choices?.[0]?.message?.content;
+          if (content && typeof content === 'string') {
+            return extractGeminiWebResponseText(content);
+          }
+        }
+      } catch (err) {
+        console.warn(`Direct DeepSeek API fetch error for model ${dModel}:`, err);
+      }
+    }
+  }
+
+  // 2. Thử gọi Groq API (OpenAI Compatible)
   if (activeKey.startsWith('gsk_') || activeKey.length > 20) {
-    const modelsToTry = [modelName, 'llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768'];
+    const modelsToTry = ['deepseek-r1-distill-llama-70b', 'llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768'];
     for (const m of modelsToTry) {
       try {
         const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -114,7 +150,7 @@ export async function generateTextWithGeminiWeb(
     }
   }
 
-  // 2. Thử gọi qua backend proxy cục bộ (/api/gemini/generate)
+  // 3. Thử gọi qua backend proxy cục bộ (/api/gemini/generate)
   const candidateEndpoints = [
     '/api/gemini/generate',
     'http://127.0.0.1:5173/api/gemini/generate',
