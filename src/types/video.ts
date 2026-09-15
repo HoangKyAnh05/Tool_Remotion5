@@ -272,34 +272,55 @@ export interface VoiceOption {
 }
 
 export const VIETNAMESE_VOICES: VoiceOption[] = [
-  // --- 👑 GIỌNG ĐỌC NGỌC HUYỀN & MẠNH DŨNG (100% Giọng Thật, Mượt Mà, Tự Nhiên, Không Bị Đánh Vần) ---
+  // --- 👑 BỘ SƯU TẬP GIỌNG ĐỌC THẬT 100% (Piper VITS Neural Open-Source - Đọc Liền Mạch, Không Đánh Vần) ---
   {
-    id: 'vi-VN-HoaiMyNeural:ngochuyen',
-    name: '🌸 Nữ Ngọc Huyền (Nữ Miền Bắc - Truyền Cảm, Liền Mạch, 100% Giọng Thật - Khuyên Dùng)',
+    id: 'piper:ngochuyen',
+    name: '🌸 Nữ Ngọc Huyền (Nữ Miền Bắc - 100% Giọng Thật Piper VITS, Truyền Cảm, Liền Mạch)',
     locale: 'vi-VN',
     gender: 'Female',
-    description: 'Giọng đọc nữ Ngọc Huyền truyền cảm, đọc liền mạch mượt mà theo từng câu văn, phát âm chuẩn xác, không bị ngắt quãng đánh vần.'
+    description: 'Giọng đọc nữ Ngọc Huyền thật 100% qua mô hình Piper VITS, đọc liền mạch mượt mà theo từng câu văn, phát âm chuẩn xác, không bị ngắt quãng đánh vần.'
   },
   {
-    id: 'vi-VN-NamMinhNeural:manhdung',
-    name: '🎙️ Nam Mạnh Dũng (Nam Miền Bắc - Trầm Ấm, Uy Lực, 100% Giọng Thật - Khuyên Dùng)',
+    id: 'piper:manhdung',
+    name: '🎙️ Nam Mạnh Dũng (Nam Miền Bắc - 100% Giọng Thật Piper VITS, Trầm Ấm, Uy Lực)',
     locale: 'vi-VN',
     gender: 'Male',
-    description: 'Giọng đọc nam Mạnh Dũng trầm ấm đĩnh đạc, ngữ điệu tự nhiên, luyến láy trôi chảy chuẩn phát thanh viên đài truyền hình.'
+    description: 'Giọng đọc nam Mạnh Dũng thật 100% qua mô hình Piper VITS, âm sắc trầm ấm đĩnh đạc, ngữ điệu tự nhiên, luyến láy trôi chảy chuẩn phòng thu.'
   },
   {
-    id: 'kokoro:ngoc_huyen',
-    name: '🌸 Nữ Ngọc Huyền (Bản Mô Hình Thử Nghiệm Kokoro AI)',
+    id: 'piper:adam',
+    name: '👑 Adam AI Studio (Nam Trầm Khàn - 100% Giọng Thật Piper VITS Chuẩn TikTok 100%)',
+    locale: 'vi-VN',
+    gender: 'Male',
+    description: 'Giọng đọc nam Adam AI nguyên bản qua mô hình Piper VITS, tông nam trầm khàn uy lực đặc trưng triệu view.'
+  },
+  {
+    id: 'piper:banmai',
+    name: '✨ Nữ Ban Mai (Nữ Miền Bắc - 100% Giọng Thật Piper VITS, Trong Trẻo Ngọt Ngào)',
     locale: 'vi-VN',
     gender: 'Female',
-    description: 'Mô hình giọng nữ Ngọc Huyền chạy qua engine âm vị học Kokoro AI.'
+    description: 'Giọng đọc nữ Ban Mai trong trẻo, tự nhiên, tươi tắn, chuẩn review ẩm thực du lịch và quảng cáo.'
   },
   {
-    id: 'kokoro:manh_dung',
-    name: '🎙️ Nam Mạnh Dũng (Bản Mô Hình Thử Nghiệm Kokoro AI)',
+    id: 'piper:tranthanh',
+    name: '🌟 Nam Trấn Thành (Nam Miền Nam - 100% Giọng Thật Piper VITS, Sôi Nổi Bắt Trend)',
     locale: 'vi-VN',
     gender: 'Male',
-    description: 'Mô hình giọng nam Mạnh Dũng chạy qua engine âm vị học Kokoro AI.'
+    description: 'Giọng đọc phong cách nghệ sĩ Trấn Thành sôi nổi, cuốn hút, bắt trend TikTok và giải trí.'
+  },
+  {
+    id: 'piper:vietthao',
+    name: '📖 MC Việt Thảo (Nam Miền Nam - 100% Giọng Thật Piper VITS, Kể Chuyện Phóng Sự)',
+    locale: 'vi-VN',
+    gender: 'Male',
+    description: 'Giọng đọc MC Việt Thảo trầm lắng, lôi cuốn, chuyên dụng kể chuyện ma, phóng sự du lịch và trải nghiệm.'
+  },
+  {
+    id: 'piper:ngocngan',
+    name: '📚 Nguyễn Ngọc Ngạn (Nam Miền Bắc - 100% Giọng Thật Piper VITS, Đêm Khuya Sâu Lắng)',
+    locale: 'vi-VN',
+    gender: 'Male',
+    description: 'Giọng đọc phong cách Nguyễn Ngọc Ngạn trầm ấm, điềm đạm, lắng đọng cho podcast và truyện đêm khuya.'
   },
 
   // --- 🌸 GIỌNG ĐỌC NỮ TIẾNG VIỆT (100% Miễn Phí, Siêu Tự Nhiên, Ngọt Ngào & Truyền Cảm) ---

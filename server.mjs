@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { Communicate } from 'edge-tts-universal';
 import { synthesizeKokoro } from './scripts/kokoroRunner.js';
+import { synthesizePiper } from './scripts/piperRunner.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -131,6 +132,19 @@ function parseVoicePreset(voice = 'vi-VN-NamMinhNeural', rate = '+0%', pitch = '
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ audioUrl: '', duration: 2.0, words: [] }));
           return;
+        }
+
+        // 0. If Piper VITS voice (Ngọc Huyền, Mạnh Dũng, Adam, Ban Mai, Trấn Thành, Việt Thảo, Nguyễn Ngọc Ngạn...)
+        if (voice.startsWith('piper:') || voice === 'piper_ngochuyen' || voice === 'piper_manhdung' || voice === 'piper_adam') {
+          try {
+            const piperResult = await synthesizePiper(cleanText, voice, rate);
+            if (piperResult && piperResult.audioUrl) {
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              return res.end(JSON.stringify(piperResult));
+            }
+          } catch (piperErr) {
+            console.warn('Server Piper TTS failed:', piperErr);
+          }
         }
 
         // 1. If Kokoro voice (Ngoc Huyen, Manh Dung, etc.)

@@ -268,8 +268,47 @@ function synthesizeKokoroTTS(
   });
 }
 
+function synthesizePiperTTS(
+  text: string,
+  voice: string,
+  rate: string = '+0%'
+): Promise<{ audioUrl: string; duration: number; words: Array<{ word: string; start: number; end: number }> }> {
+  return new Promise((resolve, reject) => {
+    const scriptPath = path.resolve(__dirname, '../scripts/piper_tts_engine.py');
+    const proc = spawn('python', [scriptPath, '--json'], { windowsHide: true });
+    let stdout = '';
+    let stderr = '';
+
+    proc.stdout.on('data', (d: any) => (stdout += d.toString('utf-8')));
+    proc.stderr.on('data', (d: any) => (stderr += d.toString('utf-8')));
+
+    proc.on('close', (code) => {
+      if (code !== 0) {
+        return reject(new Error(`Piper process exited with code ${code}: ${stderr}`));
+      }
+      try {
+        const res = JSON.parse(stdout);
+        resolve(res);
+      } catch (e: any) {
+        reject(new Error(`Failed to parse Piper JSON: ${e.message}`));
+      }
+    });
+
+    let speed = 1.0;
+    if (rate.includes('%')) {
+      const num = parseInt(rate.replace('%', ''));
+      if (!isNaN(num)) speed = Math.max(0.5, Math.min(2.0, 1.0 + num / 100));
+    }
+
+    const cleanVoice = voice.toLowerCase().replace('piper:', '').trim() || 'ngochuyen';
+    const payload = Buffer.from(JSON.stringify({ text, voice: cleanVoice, speed }), 'utf-8');
+    proc.stdin.write(payload);
+    proc.stdin.end();
+  });
+}
+
 function setupIpcHandlers() {
-  // TTS Handler: Synthesizes high quality natural speech with accurate word timing using Edge-TTS or Kokoro TTS
+  // TTS Handler: Synthesizes high quality natural speech with accurate word timing using Piper VITS, Edge-TTS, or Kokoro TTS
   ipcMain.handle(
     'tts:synthesize',
     async (_, { text, voice = 'vi-VN-NamMinhNeural', rate = '+0%', pitch = '+0Hz' }) => {
@@ -279,7 +318,17 @@ function setupIpcHandlers() {
           return { audioUrl: '', duration: 1.0, words: [] };
         }
 
-        // 1. If Kokoro voice (Ngoc Huyen, Manh Dung, etc.)
+        // 1. If Piper VITS Voice (Ngoc Huyen, Manh Dung, Adam, Ban Mai, Tran Thanh, etc. - 100% real human models)
+        if (voice.startsWith('piper:') || voice === 'piper_ngochuyen' || voice === 'piper_manhdung') {
+          try {
+            const piperRes = await synthesizePiperTTS(cleanText, voice, rate);
+            if (piperRes && piperRes.audioUrl) {
+              return piperRes;
+            }
+          } catch (piperErr) {
+            console.warn('Piper VITS TTS failed, falling back to neural voice:', piperErr);
+          }
+        }
         if (voice.startsWith('kokoro:') || voice === 'ngoc_huyen' || voice === 'manh_dung') {
           try {
             const kokoroResult = await synthesizeKokoroTTS(cleanText, voice, rate);

@@ -1,0 +1,209 @@
+import os
+import sys
+import json
+import io
+import wave
+import time
+import base64
+import re
+import urllib.request
+from piper import PiperVoice
+from piper.config import SynthesisConfig
+
+sys.stdout.reconfigure(encoding='utf-8')
+
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+PIPER_DIR = os.path.join(ROOT_DIR, 'models', 'piper')
+BASE_HF_URL = 'https://huggingface.co/doof-ferb/nghitts-copy/resolve/main/piper-tts'
+
+VOICE_MAP = {
+    'ngochuyen': 'ngochuyen.onnx',
+    'ngoc_huyen': 'ngochuyen.onnx',
+    'piper:ngochuyen': 'ngochuyen.onnx',
+    'piper:ngoc_huyen': 'ngochuyen.onnx',
+    'manhdung': 'manhdung.onnx',
+    'manh_dung': 'manhdung.onnx',
+    'piper:manhdung': 'manhdung.onnx',
+    'piper:manh_dung': 'manhdung.onnx',
+    'adam': 'adam1.onnx',
+    'adam1': 'adam1.onnx',
+    'piper:adam': 'adam1.onnx',
+    'banmai': 'banmai.onnx',
+    'piper:banmai': 'banmai.onnx',
+    'tranthanh': 'tranthanh3870.onnx',
+    'tranthanh3870': 'tranthanh3870.onnx',
+    'piper:tranthanh': 'tranthanh3870.onnx',
+    'vietthao': 'vietthao3886.onnx',
+    'vietthao3886': 'vietthao3886.onnx',
+    'piper:vietthao': 'vietthao3886.onnx',
+    'ngocngan': 'ngocngan3701.onnx',
+    'ngocngan3701': 'ngocngan3701.onnx',
+    'piper:ngocngan': 'ngocngan3701.onnx',
+    'maiphuong': 'maiphuong.onnx',
+    'piper:maiphuong': 'maiphuong.onnx',
+}
+
+_loaded_voices = {}
+
+def ensure_model(model_filename):
+    os.makedirs(PIPER_DIR, exist_ok=True)
+    model_path = os.path.join(PIPER_DIR, model_filename)
+    json_path = os.path.join(PIPER_DIR, f"{model_filename}.json")
+    
+    # Check config
+    if not os.path.exists(json_path) or os.path.getsize(json_path) < 100:
+        global_config = os.path.join(PIPER_DIR, 'config.json')
+        if os.path.exists(global_config) and os.path.getsize(global_config) > 500:
+            with open(global_config, 'rb') as f_in, open(json_path, 'wb') as f_out:
+                f_out.write(f_in.read())
+        else:
+            urllib.request.urlretrieve(f"{BASE_HF_URL}/config.json", json_path)
+            
+    if not os.path.exists(model_path) or os.path.getsize(model_path) < 10000:
+        print(f"[Piper] Downloading model {model_filename} from Hugging Face ...", file=sys.stderr)
+        urllib.request.urlretrieve(f"{BASE_HF_URL}/{model_filename}", model_path)
+        print(f"[Piper] Downloaded {model_filename} successfully.", file=sys.stderr)
+        
+    return model_path, json_path
+
+def get_voice(voice_name):
+    norm_name = voice_name.lower().strip()
+    model_filename = VOICE_MAP.get(norm_name, VOICE_MAP.get(norm_name.replace('piper:', ''), 'ngochuyen.onnx'))
+    
+    if model_filename not in _loaded_voices:
+        model_path, config_path = ensure_model(model_filename)
+        _loaded_voices[model_filename] = PiperVoice.load(model_path, config_path=config_path)
+        
+    return _loaded_voices[model_filename], model_filename
+
+def split_text_to_sentences(text, max_chars=180):
+    text = re.sub(r'\s+', ' ', text.strip())
+    if not text:
+        return []
+    raw = re.split(r'([.!?;:\n]+)', text)
+    sentences = []
+    for i in range(0, len(raw) - 1, 2):
+        s = raw[i].strip() + raw[i+1].strip()
+        if s:
+            sentences.append(s)
+    if len(raw) % 2 == 1 and raw[-1].strip():
+        sentences.append(raw[-1].strip())
+    if not sentences:
+        sentences = [text]
+    return sentences
+
+def synthesize_piper_audio(text, voice_name='ngochuyen', speed=1.0):
+    voice, model_file = get_voice(voice_name)
+    sentences = split_text_to_sentences(text)
+    if not sentences:
+        return b'', 1.0, []
+        
+    speed_float = max(0.5, min(2.0, float(speed)))
+    syn_config = SynthesisConfig(length_scale=1.0 / speed_float)
+    
+    audio_buffers = []
+    all_words = []
+    time_offset = 0.1
+    sample_rate = voice.config.sample_rate or 22050
+    channels = 1
+    sampwidth = 2
+    
+    for sentence in sentences:
+        raw_words = [w.strip() for w in sentence.split() if w.strip()]
+        if not raw_words:
+            continue
+            
+        mem_file = io.BytesIO()
+        with wave.open(mem_file, 'wb') as wf:
+            voice.synthesize_wav(sentence, wf, syn_config=syn_config)
+            
+        wav_data = mem_file.getvalue()
+        if len(wav_data) < 44:
+            continue
+            
+        # Extract raw PCM data (skip 44 bytes WAV header)
+        pcm_data = wav_data[44:]
+        num_frames = len(pcm_data) // (channels * sampwidth)
+        chunk_duration = num_frames / float(sample_rate)
+        
+        # Word timestamps proportional to character length
+        total_chars = sum(len(w) for w in raw_words)
+        cur_word_time = time_offset
+        for w in raw_words:
+            w_fraction = len(w) / max(total_chars, 1)
+            w_dur = chunk_duration * w_fraction
+            all_words.append({
+                'word': w,
+                'start': round(cur_word_time, 2),
+                'end': round(cur_word_time + w_dur, 2)
+            })
+            cur_word_time += w_dur
+            
+        audio_buffers.append(pcm_data)
+        time_offset = cur_word_time + 0.12
+        
+        # Add 120ms silence pause between sentences
+        silence_frames = int(sample_rate * 0.12)
+        audio_buffers.append(b'\x00\x00' * silence_frames)
+        
+    if not audio_buffers:
+        return b'', 1.0, []
+        
+    full_pcm = b''.join(audio_buffers)
+    total_frames = len(full_pcm) // (channels * sampwidth)
+    total_duration = total_frames / float(sample_rate)
+    
+    # Build complete final WAV buffer
+    out_mem = io.BytesIO()
+    with wave.open(out_mem, 'wb') as wf:
+        wf.setnchannels(channels)
+        wf.setsampwidth(sampwidth)
+        wf.setframerate(sample_rate)
+        wf.writeframes(full_pcm)
+        
+    final_wav_bytes = out_mem.getvalue()
+    return final_wav_bytes, total_duration, all_words
+
+def main():
+    if len(sys.argv) > 1 and sys.argv[1] == '--json':
+        try:
+            raw_input = sys.stdin.buffer.read().decode('utf-8')
+            req = json.loads(raw_input)
+            text = req.get('text', '').strip()
+            voice = req.get('voice', 'ngochuyen')
+            speed = float(req.get('speed', 1.0))
+            
+            if not text:
+                out_json = json.dumps({'error': 'Empty text', 'audioUrl': '', 'duration': 0, 'words': []})
+                sys.stdout.buffer.write(out_json.encode('utf-8'))
+                return
+                
+            wav_bytes, duration, words = synthesize_piper_audio(text, voice, speed)
+            b64_str = base64.b64encode(wav_bytes).decode('ascii')
+            
+            res = {
+                'audioUrl': f"data:audio/wav;base64,{b64_str}",
+                'duration': round(duration, 2),
+                'words': words,
+                'voice': voice
+            }
+            out_json = json.dumps(res)
+            sys.stdout.buffer.write(out_json.encode('utf-8'))
+            sys.stdout.buffer.flush()
+        except Exception as e:
+            import traceback
+            err = f"{e}\n{traceback.format_exc()}"
+            err_json = json.dumps({'error': err, 'audioUrl': '', 'duration': 0, 'words': []})
+            sys.stderr.write(err_json + '\n')
+            sys.exit(1)
+    else:
+        test_text = "Xin chào các bạn, tôi là Ngọc Huyền. Đây là giọng đọc thật 100% qua mô hình Piper VITS."
+        print(f"Testing Piper TTS: '{test_text}'")
+        wav_bytes, dur, words = synthesize_piper_audio(test_text, 'ngochuyen', 1.0)
+        out_f = os.path.join(ROOT_DIR, 'scratch', 'test_piper_engine_run.wav')
+        with open(out_f, 'wb') as f:
+            f.write(wav_bytes)
+        print(f"Saved to {out_f} (duration: {dur:.2f}s, words count: {len(words)})")
+
+if __name__ == '__main__':
+    main()

@@ -862,7 +862,7 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
               <div className="space-y-1.5">
                 <label className="text-[11px] font-semibold text-slate-600 block">Chọn giọng đọc AI:</label>
                 <select
-                  value={project.voice?.name || 'vi-VN-HoaiMyNeural:sweet'}
+                  value={project.voice?.name || 'piper:ngochuyen'}
                   onChange={(e) =>
                     setProject((prev) => ({
                       ...prev,
@@ -871,15 +871,22 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                   }
                   className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
                 >
+                  <optgroup label="👑 GIỌNG ĐỌC THẬT PIPER VITS (100% Giọng Thật, Không Đánh Vần)">
+                    {VIETNAMESE_VOICES.filter((v) => v.id.startsWith('piper:')).map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name}
+                      </option>
+                    ))}
+                  </optgroup>
                   <optgroup label="🌸 GIỌNG NỮ TIẾNG VIỆT (100% Free - Ngọt Ngào, Truyền Cảm)">
-                    {VIETNAMESE_VOICES.filter((v) => v.gender === 'Female' && v.locale.startsWith('vi')).map((v) => (
+                    {VIETNAMESE_VOICES.filter((v) => v.gender === 'Female' && v.locale.startsWith('vi') && !v.id.startsWith('piper:')).map((v) => (
                       <option key={v.id} value={v.id}>
                         {v.name}
                       </option>
                     ))}
                   </optgroup>
                   <optgroup label="🎙️ GIỌNG NAM TIẾNG VIỆT (100% Free - Trầm Ấm, Uy Lực)">
-                    {VIETNAMESE_VOICES.filter((v) => v.gender === 'Male' && v.locale.startsWith('vi') && !v.id.startsWith('elevenlabs:') && !v.id.startsWith('vclip:')).map((v) => (
+                    {VIETNAMESE_VOICES.filter((v) => v.gender === 'Male' && v.locale.startsWith('vi') && !v.id.startsWith('piper:') && !v.id.startsWith('elevenlabs:') && !v.id.startsWith('vclip:')).map((v) => (
                       <option key={v.id} value={v.id}>
                         {v.name}
                       </option>

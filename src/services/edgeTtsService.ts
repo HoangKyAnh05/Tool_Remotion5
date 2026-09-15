@@ -47,7 +47,7 @@ export function parseVoicePreset(
   let effectiveRate = normalizeRateToPercent(rate);
   let effectivePitch = '+0Hz';
 
-  if (voice.startsWith('kokoro:') || voice === 'ngoc_huyen' || voice === 'manh_dung') {
+  if (voice.startsWith('piper:') || voice.startsWith('kokoro:') || voice === 'ngoc_huyen' || voice === 'manh_dung') {
     return { effectiveVoice: voice, effectiveRate, effectivePitch };
   }
 

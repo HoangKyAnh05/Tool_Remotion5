@@ -100,6 +100,41 @@ function synthesizeKokoroVite(text: string, voice: string, rate: string = '+0%')
   });
 }
 
+function synthesizePiperVite(text: string, voice: string, rate: string = '+0%'): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const scriptPath = path.resolve(__dirname, 'scripts/piper_tts_engine.py');
+    const proc = spawn('python', [scriptPath, '--json'], { windowsHide: true });
+    let stdout = '';
+    let stderr = '';
+
+    proc.stdout.on('data', (d: any) => (stdout += d.toString('utf-8')));
+    proc.stderr.on('data', (d: any) => (stderr += d.toString('utf-8')));
+
+    proc.on('close', (code) => {
+      if (code !== 0) {
+        return reject(new Error(`Piper process exited with code ${code}: ${stderr}`));
+      }
+      try {
+        const res = JSON.parse(stdout);
+        resolve(res);
+      } catch (e: any) {
+        reject(new Error(`Failed to parse Piper JSON: ${e.message}`));
+      }
+    });
+
+    let speed = 1.0;
+    if (rate.includes('%')) {
+      const num = parseInt(rate.replace('%', ''));
+      if (!isNaN(num)) speed = Math.max(0.5, Math.min(2.0, 1.0 + num / 100));
+    }
+
+    const cleanVoice = voice.toLowerCase().replace('piper:', '').trim() || 'ngochuyen';
+    const payload = Buffer.from(JSON.stringify({ text, voice: cleanVoice, speed }), 'utf-8');
+    proc.stdin.write(payload);
+    proc.stdin.end();
+  });
+}
+
 function ttsAndMediaApiPlugin(): Plugin {
   const handleTtsRequest = async (req: any, res: any) => {
     if (req.method === 'POST') {
@@ -116,7 +151,18 @@ function ttsAndMediaApiPlugin(): Plugin {
             return res.end(JSON.stringify({ audioUrl: '', duration: 2.0, words: [] }));
           }
 
-          // 1. If Kokoro voice (Ngoc Huyen, Manh Dung, etc.)
+          // 1. If Piper VITS voice (Ngoc Huyen, Manh Dung, Adam, Ban Mai, Tran Thanh, etc.)
+          if (voice.startsWith('piper:') || voice === 'piper_ngochuyen' || voice === 'piper_manhdung') {
+            try {
+              const piperResult = await synthesizePiperVite(cleanText, voice, rate);
+              if (piperResult && piperResult.audioUrl) {
+                res.setHeader('Content-Type', 'application/json');
+                return res.end(JSON.stringify(piperResult));
+              }
+            } catch (piperErr) {
+              console.warn('Vite Piper TTS failed, fallback to Edge-TTS:', piperErr);
+            }
+          }
           if (voice.startsWith('kokoro:') || voice === 'ngoc_huyen' || voice === 'manh_dung') {
             try {
               const kokoroResult = await synthesizeKokoroVite(cleanText, voice, rate);
