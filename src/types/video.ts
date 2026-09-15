@@ -322,6 +322,20 @@ export const VIETNAMESE_VOICES: VoiceOption[] = [
     gender: 'Male',
     description: 'Giọng đọc phong cách Nguyễn Ngọc Ngạn trầm ấm, điềm đạm, lắng đọng cho podcast và truyện đêm khuya.'
   },
+  {
+    id: 'piper:maiphuong',
+    name: '🌷 Nữ Mai Phương (Nữ Miền Nam - 100% Giọng Thật Piper VITS, Dịu Dàng Miền Tây)',
+    locale: 'vi-VN',
+    gender: 'Female',
+    description: 'Giọng đọc nữ miền Nam dịu dàng, nhẹ nhàng, ấm áp, thích hợp video phong cách sống và tâm sự.'
+  },
+  {
+    id: 'piper:chieuthanh',
+    name: '🎙️ Nam Chiêu Thanh (Nam Miền Nam - 100% Giọng Thật Piper VITS, Sôi Nổi & Cuốn Hút)',
+    locale: 'vi-VN',
+    gender: 'Male',
+    description: 'Giọng đọc nam miền Nam rõ ràng, ấm áp, truyền cảm hứng và tự nhiên.'
+  },
 
   // --- 🌸 GIỌNG ĐỌC NỮ TIẾNG VIỆT (100% Miễn Phí, Siêu Tự Nhiên, Ngọt Ngào & Truyền Cảm) ---
   {

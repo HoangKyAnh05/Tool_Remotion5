@@ -41,6 +41,8 @@ VOICE_MAP = {
     'piper:ngocngan': 'ngocngan3701.onnx',
     'maiphuong': 'maiphuong.onnx',
     'piper:maiphuong': 'maiphuong.onnx',
+    'chieuthanh': 'chieuthanh.onnx',
+    'piper:chieuthanh': 'chieuthanh.onnx',
 }
 
 _loaded_voices = {}
