@@ -272,7 +272,7 @@ export interface VoiceOption {
 }
 
 export const VIETNAMESE_VOICES: VoiceOption[] = [
-  // --- 👑 BỘ SƯU TẬP GIỌNG ĐỌC THẬT 100% (Piper VITS Neural Open-Source - Đọc Liền Mạch, Không Đánh Vần) ---
+  // --- 👑 BỘ SƯU TẬP GIỌNG ĐỌC THẬT TIẾNG VIỆT (Piper VITS Neural - 100% Giọng Thật, Không Đánh Vần) ---
   {
     id: 'piper:ngochuyen',
     name: '🌸 Nữ Ngọc Huyền (Nữ Miền Bắc - 100% Giọng Thật Piper VITS, Truyền Cảm, Liền Mạch)',
@@ -324,20 +324,57 @@ export const VIETNAMESE_VOICES: VoiceOption[] = [
   },
   {
     id: 'piper:maiphuong',
-    name: '🌷 Nữ Mai Phương (Nữ Miền Nam - 100% Giọng Thật Piper VITS, Dịu Dàng Miền Tây)',
+    name: '🌷 Nữ Mai Phương (Nữ Miền Nam - 100% Giọng Thật Piper VITS, Dịu Dàng Sâu Lắng)',
     locale: 'vi-VN',
     gender: 'Female',
-    description: 'Giọng đọc nữ miền Nam dịu dàng, nhẹ nhàng, ấm áp, thích hợp video phong cách sống và tâm sự.'
+    description: 'Giọng đọc nữ Mai Phương miền Nam ngọt ngào, nhẹ nhàng, truyền cảm cho vlog tâm sự và du lịch trải nghiệm.'
   },
   {
     id: 'piper:chieuthanh',
-    name: '🎙️ Nam Chiêu Thanh (Nam Miền Nam - 100% Giọng Thật Piper VITS, Sôi Nổi & Cuốn Hút)',
+    name: '🎬 Nam Chiêu Thanh (Nam Miền Nam - 100% Giọng Thật Piper VITS, Phim TVB Kiếm Hiệp)',
     locale: 'vi-VN',
     gender: 'Male',
-    description: 'Giọng đọc nam miền Nam rõ ràng, ấm áp, truyền cảm hứng và tự nhiên.'
+    description: 'Giọng đọc lồng tiếng phim kiếm hiệp Hong Kong kinh điển thập niên 90, trầm hùng và kịch tính.'
   },
 
-  // --- 🌸 GIỌNG ĐỌC NỮ TIẾNG VIỆT (100% Miễn Phí, Siêu Tự Nhiên, Ngọt Ngào & Truyền Cảm) ---
+  // --- 🇺🇸🇬🇧 BỘ SƯU TẬP GIỌNG ĐỌC THẬT TIẾNG ANH (Piper VITS US & UK Studio) ---
+  {
+    id: 'piper:en_ryan',
+    name: '🎙️ Ryan (US Male - 100% Piper VITS, YouTuber & Tech Reviewer Năng Động)',
+    locale: 'en-US',
+    gender: 'Male',
+    description: 'Giọng nam Mỹ hiện đại, trẻ trung, tự tin, chuyên dụng video công nghệ, gaming và TikTok triệu view.'
+  },
+  {
+    id: 'piper:en_amy',
+    name: '🌸 Amy (US Female - 100% Piper VITS, Ấm Áp, Lifestyle & Vlogs)',
+    locale: 'en-US',
+    gender: 'Female',
+    description: 'Giọng nữ Mỹ tự nhiên, gần gũi, phát âm chuẩn bản xứ cho video lifestyle, du lịch và hướng dẫn.'
+  },
+  {
+    id: 'piper:en_lessac',
+    name: '📚 Lessac (US Female - 100% Piper VITS, AudioBook Chuẩn Phòng Thu New York)',
+    locale: 'en-US',
+    gender: 'Female',
+    description: 'Giọng đọc sách audio chuẩn mực, sâu lắng, truyền cảm cho podcast tài liệu và tóm tắt sách.'
+  },
+  {
+    id: 'piper:en_alan',
+    name: '👑 Sir Alan (UK British Male - 100% Piper VITS, Quý Tộc Phim Tài Liệu BBC)',
+    locale: 'en-GB',
+    gender: 'Male',
+    description: 'Giọng nam Anh Quốc trầm hùng, thông thái, quý phái chuẩn phong cách phim tài liệu khoa học và lịch sử.'
+  },
+  {
+    id: 'piper:en_joe',
+    name: '⚡ Joe (US Deep Male - 100% Piper VITS, Trầm Ấm, Motivation & Trailer)',
+    locale: 'en-US',
+    gender: 'Male',
+    description: 'Giọng nam Mỹ siêu trầm, cuốn hút và mạnh mẽ, thích hợp video truyền động lực và trailer phim điện ảnh.'
+  },
+
+  // --- 🌸 GIỌNG ĐỌC NỮ TIẾNG VIỆT (Edge-TTS 100% Free, Ngọt Ngào & Truyền Cảm) ---
   {
     id: 'vi-VN-HoaiMyNeural:sweet',
     name: '🌸 Nữ Hoài My - Reviewer Ngọt Ngào (Food, Travel, Cafe, Homestay - 100% Free)',

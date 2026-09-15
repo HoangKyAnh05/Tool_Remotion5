@@ -16,33 +16,71 @@ ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 PIPER_DIR = os.path.join(ROOT_DIR, 'models', 'piper')
 BASE_HF_URL = 'https://huggingface.co/doof-ferb/nghitts-copy/resolve/main/piper-tts'
 
+HF_ENGLISH_MAP = {
+    'en_amy': 'https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium/en_US-amy-medium',
+    'en_ryan': 'https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/ryan/medium/en_US-ryan-medium',
+    'en_lessac': 'https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium',
+    'en_alan': 'https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/alan/medium/en_GB-alan-medium',
+    'en_joe': 'https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/joe/medium/en_US-joe-medium',
+}
+
 VOICE_MAP = {
+    # --- VIETNAMESE AUTHENTIC VITS VOICES ---
     'ngochuyen': 'ngochuyen.onnx',
     'ngoc_huyen': 'ngochuyen.onnx',
     'piper:ngochuyen': 'ngochuyen.onnx',
     'piper:ngoc_huyen': 'ngochuyen.onnx',
+
     'manhdung': 'manhdung.onnx',
     'manh_dung': 'manhdung.onnx',
     'piper:manhdung': 'manhdung.onnx',
     'piper:manh_dung': 'manhdung.onnx',
+
     'adam': 'adam1.onnx',
     'adam1': 'adam1.onnx',
     'piper:adam': 'adam1.onnx',
+
     'banmai': 'banmai.onnx',
     'piper:banmai': 'banmai.onnx',
+
     'tranthanh': 'tranthanh3870.onnx',
     'tranthanh3870': 'tranthanh3870.onnx',
     'piper:tranthanh': 'tranthanh3870.onnx',
+
     'vietthao': 'vietthao3886.onnx',
     'vietthao3886': 'vietthao3886.onnx',
     'piper:vietthao': 'vietthao3886.onnx',
+
     'ngocngan': 'ngocngan3701.onnx',
     'ngocngan3701': 'ngocngan3701.onnx',
     'piper:ngocngan': 'ngocngan3701.onnx',
+
     'maiphuong': 'maiphuong.onnx',
     'piper:maiphuong': 'maiphuong.onnx',
+
     'chieuthanh': 'chieuthanh.onnx',
     'piper:chieuthanh': 'chieuthanh.onnx',
+
+    # --- ENGLISH AUTHENTIC VITS VOICES ---
+    'en_amy': 'en_amy.onnx',
+    'piper:en_amy': 'en_amy.onnx',
+    'amy': 'en_amy.onnx',
+
+    'en_ryan': 'en_ryan.onnx',
+    'piper:en_ryan': 'en_ryan.onnx',
+    'ryan': 'en_ryan.onnx',
+
+    'en_lessac': 'en_lessac.onnx',
+    'piper:en_lessac': 'en_lessac.onnx',
+    'lessac': 'en_lessac.onnx',
+
+    'en_alan': 'en_alan.onnx',
+    'piper:en_alan': 'en_alan.onnx',
+    'alan': 'en_alan.onnx',
+
+    'en_joe': 'en_joe.onnx',
+    'piper:en_joe': 'en_joe.onnx',
+    'joe': 'en_joe.onnx',
 }
 
 _loaded_voices = {}
@@ -52,19 +90,29 @@ def ensure_model(model_filename):
     model_path = os.path.join(PIPER_DIR, model_filename)
     json_path = os.path.join(PIPER_DIR, f"{model_filename}.json")
     
-    # Check config
-    if not os.path.exists(json_path) or os.path.getsize(json_path) < 100:
-        global_config = os.path.join(PIPER_DIR, 'config.json')
-        if os.path.exists(global_config) and os.path.getsize(global_config) > 500:
-            with open(global_config, 'rb') as f_in, open(json_path, 'wb') as f_out:
-                f_out.write(f_in.read())
-        else:
-            urllib.request.urlretrieve(f"{BASE_HF_URL}/config.json", json_path)
-            
-    if not os.path.exists(model_path) or os.path.getsize(model_path) < 10000:
-        print(f"[Piper] Downloading model {model_filename} from Hugging Face ...", file=sys.stderr)
-        urllib.request.urlretrieve(f"{BASE_HF_URL}/{model_filename}", model_path)
-        print(f"[Piper] Downloaded {model_filename} successfully.", file=sys.stderr)
+    base_stem = model_filename.replace('.onnx', '')
+    
+    # If English model
+    if base_stem in HF_ENGLISH_MAP:
+        remote_base = HF_ENGLISH_MAP[base_stem]
+        if not os.path.exists(json_path) or os.path.getsize(json_path) < 100:
+            urllib.request.urlretrieve(f"{remote_base}.onnx.json", json_path)
+        if not os.path.exists(model_path) or os.path.getsize(model_path) < 10000:
+            print(f"[Piper] Downloading English model {model_filename} ...", file=sys.stderr)
+            urllib.request.urlretrieve(f"{remote_base}.onnx", model_path)
+    else:
+        # Vietnamese models
+        if not os.path.exists(json_path) or os.path.getsize(json_path) < 100:
+            global_config = os.path.join(PIPER_DIR, 'config.json')
+            if os.path.exists(global_config) and os.path.getsize(global_config) > 500:
+                with open(global_config, 'rb') as f_in, open(json_path, 'wb') as f_out:
+                    f_out.write(f_in.read())
+            else:
+                urllib.request.urlretrieve(f"{BASE_HF_URL}/config.json", json_path)
+                
+        if not os.path.exists(model_path) or os.path.getsize(model_path) < 10000:
+            print(f"[Piper] Downloading Vietnamese model {model_filename} ...", file=sys.stderr)
+            urllib.request.urlretrieve(f"{BASE_HF_URL}/{model_filename}", model_path)
         
     return model_path, json_path
 

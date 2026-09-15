@@ -116,21 +116,28 @@ export const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
             onChange={(e) => handleVoiceChange(e.target.value)}
             className="bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all cursor-pointer max-w-[210px] sm:max-w-[270px] truncate"
           >
-            <optgroup label="👑 GIỌNG ĐỌC THẬT PIPER VITS (100% Giọng Thật, Không Đánh Vần)">
-              {VIETNAMESE_VOICES.filter((v) => v.id.startsWith('piper:')).map((v) => (
+            <optgroup label="👑 GIỌNG ĐỌC THẬT TIẾNG VIỆT (Piper VITS 100% Giọng Thật)">
+              {VIETNAMESE_VOICES.filter((v) => v.id.startsWith('piper:') && v.locale.startsWith('vi')).map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.name}
                 </option>
               ))}
             </optgroup>
-            <optgroup label="🌸 GIỌNG NỮ TIẾNG VIỆT (100% Free - Ngọt Ngào, Truyền Cảm)">
+            <optgroup label="🇺🇸🇬🇧 GIỌNG ĐỌC THẬT TIẾNG ANH (Piper VITS US & UK Studio)">
+              {VIETNAMESE_VOICES.filter((v) => v.id.startsWith('piper:') && !v.locale.startsWith('vi')).map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.name}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="🌸 GIỌNG NỮ TIẾNG VIỆT (Edge-TTS 100% Free - Ngọt Ngào, Truyền Cảm)">
               {VIETNAMESE_VOICES.filter((v) => v.gender === 'Female' && v.locale.startsWith('vi') && !v.id.startsWith('piper:')).map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.name}
                 </option>
               ))}
             </optgroup>
-            <optgroup label="🎙️ GIỌNG NAM TIẾNG VIỆT (100% Free - Trầm Ấm, Uy Lực)">
+            <optgroup label="🎙️ GIỌNG NAM TIẾNG VIỆT (Edge-TTS 100% Free - Trầm Ấm, Uy Lực)">
               {VIETNAMESE_VOICES.filter((v) => v.gender === 'Male' && v.locale.startsWith('vi') && !v.id.startsWith('piper:') && !v.id.startsWith('elevenlabs:') && !v.id.startsWith('vclip:')).map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.name}
@@ -144,8 +151,8 @@ export const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
                 </option>
               ))}
             </optgroup>
-            <optgroup label="🇺🇸 GIỌNG QUỐC TẾ (Tiếng Anh - 100% Free)">
-              {VIETNAMESE_VOICES.filter((v) => v.locale.startsWith('en')).map((v) => (
+            <optgroup label="🇺🇸 GIỌNG TIẾNG ANH KHÁC (Edge-TTS 100% Free)">
+              {VIETNAMESE_VOICES.filter((v) => v.locale.startsWith('en') && !v.id.startsWith('piper:')).map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.name}
                 </option>
