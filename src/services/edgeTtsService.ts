@@ -36,23 +36,85 @@ export function parseVoicePreset(
   let effectiveRate = rate || '+0%';
   let effectivePitch = '+0Hz';
 
-  if (voice === 'google-vi-male' || voice === 'vi-male-ai') {
-    effectiveVoice = 'vi-VN-NamMinhNeural';
-  } else if (voice === 'google-vi' || voice === 'vi-female-ai') {
-    effectiveVoice = 'google-vi';
-  }
-
   return { effectiveVoice, effectiveRate, effectivePitch };
 }
 
 /**
- * Universal synthesis for Google Neural Vietnamese TTS
+ * Converts Web Audio API AudioBuffer to clean 16-bit WAV Base64 Data URL
  */
-async function synthesizeGoogleTTS(text: string, rate: string = '+0%'): Promise<SynthesizeResult> {
+function audioBufferToWavDataUrl(buffer: AudioBuffer): string {
+  const numOfChan = buffer.numberOfChannels;
+  const length = buffer.length * numOfChan * 2 + 44;
+  const out = new ArrayBuffer(length);
+  const view = new DataView(out);
+  const channels: Float32Array[] = [];
+  const sampleRate = buffer.sampleRate;
+  let offset = 0;
+  let pos = 0;
+
+  function setUint16(data: number) {
+    view.setUint16(pos, data, true);
+    pos += 2;
+  }
+  function setUint32(data: number) {
+    view.setUint32(pos, data, true);
+    pos += 4;
+  }
+
+  // RIFF header
+  setUint32(0x46464952); // "RIFF"
+  setUint32(length - 8);
+  setUint32(0x45564157); // "WAVE"
+
+  // fmt chunk
+  setUint32(0x20746d66); // "fmt "
+  setUint32(16); // format size (16 for PCM)
+  setUint16(1); // PCM
+  setUint16(numOfChan);
+  setUint32(sampleRate);
+  setUint32(sampleRate * 2 * numOfChan);
+  setUint16(numOfChan * 2);
+  setUint16(16); // 16-bit
+
+  // data chunk
+  setUint32(0x61746164); // "data"
+  setUint32(length - pos - 4);
+
+  for (let i = 0; i < buffer.numberOfChannels; i++) {
+    channels.push(buffer.getChannelData(i));
+  }
+
+  while (pos < length) {
+    for (let i = 0; i < numOfChan; i++) {
+      let sample = Math.max(-1, Math.min(1, channels[i][offset]));
+      sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0;
+      view.setInt16(pos, sample, true);
+      pos += 2;
+    }
+    offset++;
+  }
+
+  let binary = '';
+  const bytes = new Uint8Array(out);
+  const byteLen = bytes.byteLength;
+  for (let i = 0; i < byteLen; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return `data:audio/wav;base64,${btoa(binary)}`;
+}
+
+/**
+ * Universal synthesis for Google Neural Vietnamese TTS (Male & Female)
+ */
+async function synthesizeGoogleTTS(
+  text: string,
+  isMale: boolean = true,
+  rate: string = '+0%'
+): Promise<SynthesizeResult> {
   const cleanText = text.trim();
   const rawWords = cleanText.split(/\s+/).filter(Boolean);
   if (!rawWords.length) {
-    return { audioUrl: '', duration: 2.0, words: [], usedVoice: 'google-vi' };
+    return { audioUrl: '', duration: 2.0, words: [], usedVoice: isMale ? 'google-vi-male' : 'google-vi' };
   }
 
   // Split into chunks of max 180 chars to avoid URL limit
@@ -93,14 +155,70 @@ async function synthesizeGoogleTTS(text: string, rate: string = '+0%'): Promise<
     offset += ab.byteLength;
   }
 
-  // Convert to Base64 data URL
-  let binary = '';
-  const len = merged.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(merged[i]);
+  let finalAudioUrl = '';
+
+  // If Male voice requested and Web Audio API is available, apply male baritone vocal filter
+  if (isMale && typeof window !== 'undefined' && (window.AudioContext || (window as any).webkitAudioContext)) {
+    try {
+      const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+      const audioCtx = new AudioCtxClass();
+      const decoded = await audioCtx.decodeAudioData(merged.buffer.slice(0));
+
+      const speedMult = parseRateMultiplier(rate);
+      const playbackRate = 0.86 * speedMult; // Transform pitch down to male baritone ~120Hz while keeping speed
+      const targetDuration = decoded.duration / playbackRate;
+
+      const offlineCtx = new OfflineAudioContext(
+        decoded.numberOfChannels,
+        Math.ceil(targetDuration * decoded.sampleRate),
+        decoded.sampleRate
+      );
+
+      const source = offlineCtx.createBufferSource();
+      source.buffer = decoded;
+      source.playbackRate.value = playbackRate;
+
+      // 1. Male chest resonance low-shelf filter (+5dB at 160Hz)
+      const lowShelf = offlineCtx.createBiquadFilter();
+      lowShelf.type = 'lowshelf';
+      lowShelf.frequency.value = 160;
+      lowShelf.gain.value = 5.5;
+
+      // 2. Male warmth body filter (+2.5dB at 450Hz)
+      const midPeak = offlineCtx.createBiquadFilter();
+      midPeak.type = 'peaking';
+      midPeak.frequency.value = 450;
+      midPeak.Q.value = 1.0;
+      midPeak.gain.value = 2.5;
+
+      // 3. De-ess / female brightness rolloff (-4.5dB at 3600Hz)
+      const highShelf = offlineCtx.createBiquadFilter();
+      highShelf.type = 'highshelf';
+      highShelf.frequency.value = 3600;
+      highShelf.gain.value = -4.5;
+
+      source.connect(lowShelf);
+      lowShelf.connect(midPeak);
+      midPeak.connect(highShelf);
+      highShelf.connect(offlineCtx.destination);
+
+      source.start(0);
+      const rendered = await offlineCtx.startRendering();
+      finalAudioUrl = audioBufferToWavDataUrl(rendered);
+    } catch (e) {
+      console.warn('Male acoustic filter fallback to standard audio:', e);
+    }
   }
-  const base64 = typeof btoa !== 'undefined' ? btoa(binary) : Buffer.from(merged).toString('base64');
-  const audioUrl = `data:audio/mp3;base64,${base64}`;
+
+  if (!finalAudioUrl) {
+    let binary = '';
+    const len = merged.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(merged[i]);
+    }
+    const base64 = typeof btoa !== 'undefined' ? btoa(binary) : Buffer.from(merged).toString('base64');
+    finalAudioUrl = `data:audio/mp3;base64,${base64}`;
+  }
 
   // Calculate synchronized word-level timestamps scaled with speed/rate
   const speed = parseRateMultiplier(rate);
@@ -118,10 +236,10 @@ async function synthesizeGoogleTTS(text: string, rate: string = '+0%'): Promise<
   const duration = Number((curTime + 0.35 / speed).toFixed(2));
 
   return {
-    audioUrl,
+    audioUrl: finalAudioUrl,
     duration: Math.max(1.5, duration),
     words,
-    usedVoice: 'google-vi',
+    usedVoice: isMale ? 'google-vi-male' : 'google-vi',
     isFallback: false
   };
 }
@@ -174,12 +292,18 @@ export async function synthesizeEdgeTTS(
     isFallback = true;
   }
 
-  // 3. Primary Google Neural TTS (For Google-vi Female)
-  if (effectiveVoice === 'google-vi') {
+  // 3. Primary Google Neural TTS (Male & Female Vietnamese Voices - 100% Free)
+  if (
+    effectiveVoice === 'google-vi-male' ||
+    effectiveVoice === 'google-vi' ||
+    effectiveVoice.startsWith('google') ||
+    effectiveVoice.startsWith('vi-')
+  ) {
+    const isMaleVoice = effectiveVoice.includes('male') || effectiveVoice === 'google-vi-male';
     try {
-      const gRes = await synthesizeGoogleTTS(cleanText, effectiveRate);
+      const gRes = await synthesizeGoogleTTS(cleanText, isMaleVoice, effectiveRate);
       if (gRes && gRes.audioUrl) {
-        return { ...gRes, usedVoice: 'google-vi', isFallback };
+        return { ...gRes, usedVoice: effectiveVoice, isFallback };
       }
     } catch (gErr) {
       console.warn('Direct Google TTS failed, trying backend /api/tts endpoint:', gErr);
