@@ -10,14 +10,37 @@ export interface SynthesizeResult {
   isFallback?: boolean;
 }
 
+export function parseRateMultiplier(rate: string = '+0%'): number {
+  if (!rate) return 1.0;
+  const trimmed = rate.trim();
+  if (trimmed.endsWith('x') || trimmed.endsWith('X')) {
+    const val = parseFloat(trimmed.replace(/x/i, ''));
+    return isNaN(val) || val <= 0 ? 1.0 : val;
+  }
+  if (trimmed.includes('%')) {
+    const percent = parseFloat(trimmed.replace('%', ''));
+    if (!isNaN(percent)) {
+      return Math.max(0.5, Math.min(3.0, 1 + percent / 100));
+    }
+  }
+  const num = parseFloat(trimmed);
+  return isNaN(num) || num <= 0 ? 1.0 : num;
+}
+
 export function parseVoicePreset(
-  voice: string = 'google-vi',
+  voice: string = 'google-vi-male',
   rate: string = '+0%',
   pitch: string = '+0Hz'
 ): { effectiveVoice: string; effectiveRate: string; effectivePitch: string } {
-  let effectiveVoice = voice || 'google-vi';
+  let effectiveVoice = voice || 'google-vi-male';
   let effectiveRate = rate || '+0%';
   let effectivePitch = '+0Hz';
+
+  if (voice === 'google-vi-male' || voice === 'vi-male-ai') {
+    effectiveVoice = 'vi-VN-NamMinhNeural';
+  } else if (voice === 'google-vi' || voice === 'vi-female-ai') {
+    effectiveVoice = 'google-vi';
+  }
 
   return { effectiveVoice, effectiveRate, effectivePitch };
 }
@@ -25,7 +48,7 @@ export function parseVoicePreset(
 /**
  * Universal synthesis for Google Neural Vietnamese TTS
  */
-async function synthesizeGoogleTTS(text: string): Promise<SynthesizeResult> {
+async function synthesizeGoogleTTS(text: string, rate: string = '+0%'): Promise<SynthesizeResult> {
   const cleanText = text.trim();
   const rawWords = cleanText.split(/\s+/).filter(Boolean);
   if (!rawWords.length) {
@@ -79,10 +102,11 @@ async function synthesizeGoogleTTS(text: string): Promise<SynthesizeResult> {
   const base64 = typeof btoa !== 'undefined' ? btoa(binary) : Buffer.from(merged).toString('base64');
   const audioUrl = `data:audio/mp3;base64,${base64}`;
 
-  // Calculate synchronized word-level timestamps
-  const timePerWord = 0.35;
+  // Calculate synchronized word-level timestamps scaled with speed/rate
+  const speed = parseRateMultiplier(rate);
+  const timePerWord = 0.35 / speed;
   const words: WordTimestamp[] = [];
-  let curTime = 0.12;
+  let curTime = 0.12 / speed;
   for (const w of rawWords) {
     words.push({
       word: w,
@@ -91,11 +115,11 @@ async function synthesizeGoogleTTS(text: string): Promise<SynthesizeResult> {
     });
     curTime += timePerWord;
   }
-  const duration = Number((curTime + 0.35).toFixed(2));
+  const duration = Number((curTime + 0.35 / speed).toFixed(2));
 
   return {
     audioUrl,
-    duration: Math.max(2.0, duration),
+    duration: Math.max(1.5, duration),
     words,
     usedVoice: 'google-vi',
     isFallback: false
@@ -104,7 +128,7 @@ async function synthesizeGoogleTTS(text: string): Promise<SynthesizeResult> {
 
 export async function synthesizeEdgeTTS(
   text: string,
-  voice: string = 'google-vi',
+  voice: string = 'google-vi-male',
   rate: string = '+0%',
   pitch: string = '+0Hz'
 ): Promise<SynthesizeResult> {
@@ -130,7 +154,7 @@ export async function synthesizeEdgeTTS(
     } catch (err: any) {
       console.warn('VClip synthesis failed, falling back to Google Neural voice:', err);
     }
-    effectiveVoice = 'google-vi';
+    effectiveVoice = 'google-vi-male';
     isFallback = true;
   }
 
@@ -150,10 +174,10 @@ export async function synthesizeEdgeTTS(
     isFallback = true;
   }
 
-  // 3. Primary Google Neural TTS (100% Free Vietnamese Voice)
-  if (effectiveVoice === 'google-vi' || effectiveVoice.startsWith('google') || effectiveVoice.startsWith('vi-')) {
+  // 3. Primary Google Neural TTS (For Google-vi Female)
+  if (effectiveVoice === 'google-vi') {
     try {
-      const gRes = await synthesizeGoogleTTS(cleanText);
+      const gRes = await synthesizeGoogleTTS(cleanText, effectiveRate);
       if (gRes && gRes.audioUrl) {
         return { ...gRes, usedVoice: 'google-vi', isFallback };
       }

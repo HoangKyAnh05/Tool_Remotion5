@@ -274,11 +274,18 @@ export interface VoiceOption {
 export const VIETNAMESE_VOICES: VoiceOption[] = [
   // --- 🇻🇳 GIỌNG ĐỌC TIẾNG VIỆT AI CHUẨN MỚI (100% Miễn Phí, Tự Nhiên, Tròn Vành Rõ Chữ) ---
   {
+    id: 'google-vi-male',
+    name: '🎙️ Giọng Nam Tiếng Việt AI (Nam Trầm Ấm, Điềm Đạm, Truyền Cảm - 100% Free)',
+    locale: 'vi-VN',
+    gender: 'Male',
+    description: 'Giọng đọc Nam tiếng Việt AI thế hệ mới, âm sắc trầm ấm, đĩnh đạc, cuốn hút, phát âm rõ ràng, hoàn toàn miễn phí 100% không giới hạn token.'
+  },
+  {
     id: 'google-vi',
-    name: '🇻🇳 Giọng Đọc Tiếng Việt AI (Google Neural - Tự Nhiên, Chuẩn Ngữ Điệu, 100% Free)',
+    name: '🌸 Giọng Nữ Tiếng Việt AI (Google Neural - Tự Nhiên, Chuẩn Ngữ Điệu - 100% Free)',
     locale: 'vi-VN',
     gender: 'Female',
-    description: 'Giọng đọc tiếng Việt AI thế hệ mới, âm điệu tự nhiên, phát âm tròn vành rõ chữ, truyền cảm, hoàn toàn miễn phí 100% không giới hạn token.'
+    description: 'Giọng đọc Nữ tiếng Việt AI thế hệ mới, âm điệu tự nhiên, phát âm tròn vành rõ chữ, truyền cảm, hoàn toàn miễn phí 100% không giới hạn token.'
   },
 
   // --- 👑 GIỌNG ADAM CHUẨN TIKTOK (Dành cho tài khoản ElevenLabs / VClip) ---

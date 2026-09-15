@@ -27,7 +27,8 @@ import {
   Key,
   Bot,
   Sliders,
-  ChevronRight
+  ChevronRight,
+  FastForward
 } from 'lucide-react';
 import { VideoProject, VideoSegment, TrimOverflowOption, AspectRatio, TrimSide, Scene } from '../types/video';
 import {
@@ -154,7 +155,8 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
     const initialRanges = parseSplitPointsToRanges('5.4s, 6.2s, 7.3s, 8.4, 10.5s, 11.6s', { topic: project.topic || '' });
     return formatSplitRangesToTimestamps(initialRanges, project.topic || '');
   });
-  const [selectedVoice, setSelectedVoice] = useState<string>(project.voice?.name || 'google-vi');
+  const [selectedVoice, setSelectedVoice] = useState<string>(project.voice?.name || 'google-vi-male');
+  const [selectedVoiceRate, setSelectedVoiceRate] = useState<string>(project.voice?.rate || '+0%');
   const [isGeneratingAi, setIsGeneratingAi] = useState<boolean>(false);
   const [isSuggestingTimestamps, setIsSuggestingTimestamps] = useState<boolean>(false);
   const [suggestedStructure, setSuggestedStructure] = useState<SuggestedSceneStructure[]>([]);
@@ -719,6 +721,12 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
       setProject((prev) => ({
         ...prev,
         aspectRatio: selectedRatio,
+        voice: {
+          ...prev.voice,
+          name: selectedVoice,
+          rate: selectedVoiceRate,
+          pitch: '+0Hz'
+        },
         scenes: [...prev.scenes, ...renumberedNewScenes],
         totalDuration: Number((prev.totalDuration + totalDurationSeconds).toFixed(2))
       }));
@@ -730,6 +738,12 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
       setProject((prev) => ({
         ...prev,
         aspectRatio: selectedRatio,
+        voice: {
+          ...prev.voice,
+          name: selectedVoice,
+          rate: selectedVoiceRate,
+          pitch: '+0Hz'
+        },
         scenes: newScenes,
         totalDuration: totalDurationSeconds
       }));
@@ -858,8 +872,8 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                     />
                   </div>
 
-                  {/* Chọn giọng lồng tiếng */}
-                  <div className="md:col-span-6 space-y-1">
+                  {/* Chọn giọng lồng tiếng & Tốc độ */}
+                  <div className="md:col-span-6 space-y-1.5">
                     <label className="text-[11px] font-bold text-slate-300 flex items-center gap-1">
                       <Volume2 className="w-3 h-3 text-cyan-400" /> Giọng Lồng Tiếng AI:
                     </label>
@@ -868,11 +882,32 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
                       onChange={(e) => setSelectedVoice(e.target.value)}
                       className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-rose-500"
                     >
-                      <option value="google-vi">🇻🇳 Giọng Đọc Tiếng Việt AI (Google Neural - 100% Free)</option>
+                      <option value="google-vi-male">🎙️ Giọng Nam Tiếng Việt AI (Nam Trầm Ấm - 100% Free)</option>
+                      <option value="google-vi">🌸 Giọng Nữ Tiếng Việt AI (Google Neural - 100% Free)</option>
                       <option value="elevenlabs:pNInz6obpgDQGcFmaJgB">👑 Adam AI (ElevenLabs - Nam Trầm Chuẩn TikTok)</option>
                       <option value="vclip:adam">🎙️ Adam VClip AI (vclip.io)</option>
                       <option value="en-US-GuyNeural">Guy (English US - Male)</option>
                       <option value="en-US-JennyNeural">Jenny (English US - Female)</option>
+                    </select>
+                  </div>
+
+                  <div className="md:col-span-6 space-y-1.5">
+                    <label className="text-[11px] font-bold text-slate-300 flex items-center gap-1">
+                      <FastForward className="w-3 h-3 text-amber-400" /> Tốc Độ Đọc (Tua Nhanh):
+                    </label>
+                    <select
+                      value={selectedVoiceRate}
+                      onChange={(e) => setSelectedVoiceRate(e.target.value)}
+                      className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="-15%">🐢 0.85x - Chậm truyền cảm</option>
+                      <option value="+0%">⚡ 1.0x - Chuẩn bình thường</option>
+                      <option value="+15%">🚀 1.15x - Nhanh vừa TikTok</option>
+                      <option value="+25%">🔥 1.25x - Nhanh triệu view</option>
+                      <option value="+35%">⏩ 1.35x - Tóm tắt recap siêu tốc</option>
+                      <option value="+50%">⚡⚡ 1.5x - Cực nhanh</option>
+                      <option value="+75%">💨 1.75x - Siêu tốc</option>
+                      <option value="+100%">🏁 2.0x - Tối đa 2x</option>
                     </select>
                   </div>
 

@@ -43,6 +43,7 @@ import {
   CheckCircle2,
   Activity,
   Music,
+  FastForward,
   ListPlus,
   Scissors
 } from 'lucide-react';
@@ -1697,14 +1698,15 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
             </span>
           </div>
 
-          {/* Voice selector row */}
-          <div className="flex flex-col gap-1.5">
+          {/* Voice selector & Speed rate row */}
+          <div className="flex flex-col gap-2 bg-slate-50/80 p-2.5 rounded-xl border border-slate-200">
             <div className="flex items-center gap-2">
-              <label className="text-[11px] font-semibold text-slate-600 shrink-0 flex items-center gap-1">
+              <label className="text-[11px] font-semibold text-slate-700 shrink-0 flex items-center gap-1 min-w-[70px]">
+                <Volume2 className="w-3.5 h-3.5 text-emerald-600" />
                 <span>Giọng đọc:</span>
               </label>
               <select
-                value={project.voice?.name || 'google-vi'}
+                value={project.voice?.name || 'google-vi-male'}
                 onChange={(e) => {
                   const newVoice = e.target.value;
                   setProject((prev) => ({
@@ -1723,6 +1725,38 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                     {v.name}
                   </option>
                 ))}
+              </select>
+            </div>
+
+            {/* Tốc độ đọc (Tua nhanh giọng đọc) */}
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] font-semibold text-slate-700 shrink-0 flex items-center gap-1 min-w-[70px]">
+                <FastForward className="w-3.5 h-3.5 text-amber-600" />
+                <span>Tốc độ:</span>
+              </label>
+              <select
+                value={project.voice?.rate || '+0%'}
+                onChange={(e) => {
+                  const newRate = e.target.value;
+                  setProject((prev) => ({
+                    ...prev,
+                    voice: {
+                      ...prev.voice,
+                      rate: newRate
+                    }
+                  }));
+                }}
+                className="w-full bg-white hover:bg-amber-50/40 border border-slate-300 hover:border-amber-500 text-slate-800 rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer transition-colors shadow-2xs"
+                title="Tua nhanh hoặc làm chậm tốc độ đọc"
+              >
+                <option value="-15%">🐢 0.85x - Chậm truyền cảm, sâu lắng</option>
+                <option value="+0%">⚡ 1.0x - Tốc độ chuẩn bình thường</option>
+                <option value="+15%">🚀 1.15x - Nhanh vừa, review TikTok cuốn hút</option>
+                <option value="+25%">🔥 1.25x - Nhanh triệu view, giật tít kịch tính</option>
+                <option value="+35%">⏩ 1.35x - Tóm tắt phim, recap siêu tốc</option>
+                <option value="+50%">⚡⚡ 1.5x - Cực nhanh, dồn dập</option>
+                <option value="+75%">💨 1.75x - Siêu tốc độ</option>
+                <option value="+100%">🏁 2.0x - Tối đa 2x</option>
               </select>
             </div>
 

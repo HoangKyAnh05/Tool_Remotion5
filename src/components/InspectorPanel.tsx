@@ -853,28 +853,54 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
               )}
             </div>
 
-            {/* Giọng đọc mặc định */}
-            <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 space-y-2">
+            {/* Giọng đọc mặc định & Tốc độ */}
+            <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 space-y-2.5">
               <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                 <Volume2 className="w-3.5 h-3.5 text-emerald-700" />
-                Giọng đọc thuyết minh (Edge-TTS)
+                Giọng đọc thuyết minh & Tốc độ
               </span>
-              <select
-                value={project.voice.name}
-                onChange={(e) =>
-                  setProject((prev) => ({
-                    ...prev,
-                    voice: { ...prev.voice, name: e.target.value }
-                  }))
-                }
-                className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
-              >
-                {VIETNAMESE_VOICES.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.name} ({v.gender === 'Female' ? 'Nữ' : 'Nam'})
-                  </option>
-                ))}
-              </select>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-slate-600 block">Chọn giọng đọc AI:</label>
+                <select
+                  value={project.voice?.name || 'google-vi-male'}
+                  onChange={(e) =>
+                    setProject((prev) => ({
+                      ...prev,
+                      voice: { ...prev.voice, name: e.target.value }
+                    }))
+                  }
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
+                >
+                  {VIETNAMESE_VOICES.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name} ({v.gender === 'Female' ? 'Nữ' : 'Nam'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-slate-600 block">Tốc độ đọc (Tua nhanh):</label>
+                <select
+                  value={project.voice?.rate || '+0%'}
+                  onChange={(e) =>
+                    setProject((prev) => ({
+                      ...prev,
+                      voice: { ...prev.voice, rate: e.target.value }
+                    }))
+                  }
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-amber-500"
+                >
+                  <option value="-15%">🐢 0.85x - Chậm truyền cảm</option>
+                  <option value="+0%">⚡ 1.0x - Chuẩn bình thường</option>
+                  <option value="+15%">🚀 1.15x - Nhanh vừa TikTok</option>
+                  <option value="+25%">🔥 1.25x - Nhanh triệu view</option>
+                  <option value="+35%">⏩ 1.35x - Tóm tắt recap siêu tốc</option>
+                  <option value="+50%">⚡⚡ 1.5x - Cực nhanh</option>
+                  <option value="+75%">💨 1.75x - Siêu tốc</option>
+                  <option value="+100%">🏁 2.0x - Tối đa 2x</option>
+                </select>
+              </div>
             </div>
           </div>
         )}
