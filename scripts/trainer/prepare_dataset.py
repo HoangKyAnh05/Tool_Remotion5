@@ -60,11 +60,11 @@ def slice_wav_file(input_wav_path, output_dir, segment_duration=5.0, sample_rate
         with open(metadata_path, 'w', encoding='utf-8') as f:
             f.write('\n'.join(metadata_lines))
             
-        print(f"[Dataset] Sliced {idx-1} audio segments into '{wavs_dir}'")
-        print(f"[Dataset] Generated '{metadata_path}' with {idx-1} transcribed lines successfully!")
+        print(f"[Dataset] Sliced {idx-1} audio segments into '{wavs_dir}'", file=sys.stderr)
+        print(f"[Dataset] Generated '{metadata_path}' with {idx-1} transcribed lines successfully!", file=sys.stderr)
         return True
     except ImportError:
-        print("[Dataset] Tip: Install soundfile via 'pip install soundfile' for advanced audio slicing.")
+        print("[Dataset] Tip: Install soundfile via 'pip install soundfile' for advanced audio slicing.", file=sys.stderr)
         return False
 
 def main():

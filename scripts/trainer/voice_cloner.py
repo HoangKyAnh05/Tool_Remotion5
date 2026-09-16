@@ -15,15 +15,16 @@ try:
 except Exception:
     pass
 
-def convert_audio_to_clean_wav(input_path, output_path, target_sr=22050):
+def convert_audio_to_clean_wav(input_path, output_path, target_sr=22050, max_duration=25.0):
     """
-    Converts any audio format (.mp3, .m4a, .ogg, .wav) to clean 22050Hz Mono 16-bit PCM WAV
+    Converts any audio format (.mp3, .m4a, .ogg, .wav) to clean 22050Hz Mono 16-bit PCM WAV (optimized to first 25s)
     """
     import subprocess
     if FFMPEG_EXE and os.path.exists(FFMPEG_EXE):
         cmd = [
             FFMPEG_EXE, '-y',
             '-i', input_path,
+            '-t', str(max_duration),
             '-ar', str(target_sr),
             '-ac', '1',
             '-c:a', 'pcm_s16le',
@@ -33,7 +34,7 @@ def convert_audio_to_clean_wav(input_path, output_path, target_sr=22050):
         return True
     else:
         # Fallback via librosa / soundfile
-        y, sr = librosa.load(input_path, sr=target_sr, mono=True)
+        y, sr = librosa.load(input_path, sr=target_sr, mono=True, duration=max_duration)
         sf.write(output_path, y, target_sr, subtype='PCM_16')
         return True
 
@@ -41,7 +42,7 @@ def extract_speaker_profile(audio_path, target_sr=22050):
     """
     Extracts acoustic voiceprint features: F0 median, spectral envelope, formant shape, MFCC profile.
     """
-    y, sr = librosa.load(audio_path, sr=target_sr, mono=True)
+    y, sr = librosa.load(audio_path, sr=target_sr, mono=True, duration=15.0)
     if len(y) < sr * 0.5:
         raise ValueError("Audio sample is too short to extract vocal profile (minimum 0.5s required)")
 

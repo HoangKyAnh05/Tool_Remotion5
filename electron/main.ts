@@ -1041,33 +1041,75 @@ TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (KHÔNG KÈM KÝ TỰ MARKDOWN):
     }
   );
 
-  // Voice Training & Custom Model Builder Handler
+  // Voice Training & Custom Model Builder Handler (Robust File-based IPC)
   ipcMain.handle('voice:train', async (_, payload) => {
     return new Promise((resolve, reject) => {
-      const scriptPath = path.resolve(__dirname, '../scripts/trainer/auto_voice_builder.py');
-      const proc = spawn('python', [scriptPath, '--json'], { windowsHide: true });
-      let stdout = '';
-      let stderr = '';
+      try {
+        const tempDir = app.getPath('temp');
+        const timestamp = Date.now();
+        const configPath = path.join(tempDir, `voice_train_${timestamp}.json`);
+        const resultPath = path.join(tempDir, `voice_train_res_${timestamp}.json`);
 
-      proc.stdout.on('data', (d: any) => (stdout += d.toString('utf-8')));
-      proc.stderr.on('data', (d: any) => (stderr += d.toString('utf-8')));
-
-      proc.on('close', (code) => {
-        if (code !== 0) {
-          console.error(`Voice training process failed with code ${code}:`, stderr);
-          return reject(new Error(stderr || `Process exited with code ${code}`));
+        let filePath = payload.filePath || '';
+        // If fileBase64 is provided (e.g. from browser upload), write directly to disk in Node
+        if (payload.fileBase64) {
+          const ext = payload.fileType === 'onnx' ? 'onnx' : 'mp3';
+          const tempAudioPath = path.join(tempDir, `voice_upload_${timestamp}.${ext}`);
+          fs.writeFileSync(tempAudioPath, Buffer.from(payload.fileBase64, 'base64'));
+          filePath = tempAudioPath;
         }
-        try {
-          const res = JSON.parse(stdout);
-          resolve(res);
-        } catch (e: any) {
-          reject(new Error(`Failed to parse response from voice builder: ${e.message}`));
-        }
-      });
 
-      const inputBuffer = Buffer.from(JSON.stringify(payload), 'utf-8');
-      proc.stdin.write(inputBuffer);
-      proc.stdin.end();
+        const cleanPayload = {
+          name: payload.name || 'Custom Voice',
+          voiceId: payload.voiceId || 'custom_voice',
+          fileType: payload.fileType || 'audio',
+          filePath: filePath,
+          outputPath: resultPath
+        };
+
+        fs.writeFileSync(configPath, JSON.stringify(cleanPayload, null, 2), 'utf-8');
+
+        const scriptPath = path.resolve(__dirname, '../scripts/trainer/auto_voice_builder.py');
+        const proc = spawn('python', [scriptPath, '--config', configPath, '--out', resultPath], { windowsHide: true });
+        let stdout = '';
+        let stderr = '';
+
+        proc.stdout.on('data', (d: any) => (stdout += d.toString('utf-8')));
+        proc.stderr.on('data', (d: any) => (stderr += d.toString('utf-8')));
+
+        proc.on('close', (code) => {
+          // Cleanup config
+          try { if (fs.existsSync(configPath)) fs.unlinkSync(configPath); } catch {}
+
+          if (fs.existsSync(resultPath)) {
+            try {
+              const resData = JSON.parse(fs.readFileSync(resultPath, 'utf-8'));
+              try { fs.unlinkSync(resultPath); } catch {}
+              if (resData.error) {
+                return reject(new Error(resData.error));
+              }
+              return resolve(resData);
+            } catch (e: any) {
+              console.warn('Failed parsing result file, falling back to stdout:', e);
+            }
+          }
+
+          if (code !== 0) {
+            console.error(`Voice training process failed with code ${code}:`, stderr);
+            return reject(new Error(stderr || `Process exited with code ${code}`));
+          }
+
+          try {
+            const res = JSON.parse(stdout.trim());
+            resolve(res);
+          } catch (e: any) {
+            reject(new Error(`Failed to parse response from voice builder: ${e.message}`));
+          }
+        });
+      } catch (err: any) {
+        console.error('Error preparing voice train payload:', err);
+        reject(err);
+      }
     });
   });
 
