@@ -96,15 +96,23 @@ def build_voice_from_payload(payload):
         json.dump(speaker_profile, f, ensure_ascii=False, indent=2)
         
     # Choose optimal base neural weights based on target acoustic gender & pitch
-    is_male = speaker_profile.get('gender') == 'Male' or speaker_profile.get('median_f0', 130.0) < 165.0
-    preferred_base = 'manhdung.onnx' if is_male else 'ngochuyen.onnx'
+    median_f0 = speaker_profile.get('median_f0', 130.0)
+    if median_f0 < 135.0:
+        preferred_base = 'manhdung.onnx'
+    elif median_f0 < 165.0:
+        preferred_base = 'tranthanh3870.onnx' if os.path.exists(os.path.join(PIPER_DIR, 'tranthanh3870.onnx')) else 'manhdung.onnx'
+    elif median_f0 < 195.0:
+        preferred_base = 'banmai.onnx' if os.path.exists(os.path.join(PIPER_DIR, 'banmai.onnx')) else 'ngochuyen.onnx'
+    else:
+        preferred_base = 'ngochuyen.onnx'
+
     base_model = os.path.join(PIPER_DIR, preferred_base)
     if not os.path.exists(base_model):
-        base_model = os.path.join(PIPER_DIR, 'ngochuyen.onnx')
+        base_model = os.path.join(PIPER_DIR, 'manhdung.onnx' if median_f0 < 165.0 else 'ngochuyen.onnx')
         
-    if os.path.exists(base_model) and not os.path.exists(dest_onnx):
+    if os.path.exists(base_model):
         shutil.copy(base_model, dest_onnx)
-    if os.path.exists(global_config) and not os.path.exists(dest_json):
+    if os.path.exists(global_config):
         shutil.copy(global_config, dest_json)
         
     # Slice segments for dataset

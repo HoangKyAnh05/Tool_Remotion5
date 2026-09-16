@@ -42,9 +42,9 @@ def extract_speaker_profile(audio_path, target_sr=22050):
     """
     Extracts acoustic voiceprint features: F0 median, spectral envelope, formant shape, MFCC profile.
     """
-    y, sr = librosa.load(audio_path, sr=target_sr, mono=True, duration=15.0)
-    if len(y) < sr * 0.5:
-        raise ValueError("Audio sample is too short to extract vocal profile (minimum 0.5s required)")
+    y, sr = librosa.load(audio_path, sr=target_sr, mono=True, duration=25.0)
+    if len(y) < sr * 0.3:
+        raise ValueError("Audio sample is too short to extract vocal profile (minimum 0.3s required)")
 
     # 1. Pitch (F0) Extraction via Yin / Pyin
     f0, voiced_flag, voiced_probs = librosa.pyin(
@@ -55,6 +55,7 @@ def extract_speaker_profile(audio_path, target_sr=22050):
     )
     voiced_f0 = f0[voiced_flag] if voiced_flag is not None and np.any(voiced_flag) else np.array([])
     median_f0 = float(np.median(voiced_f0)) if len(voiced_f0) > 0 else 130.0 # default male
+    std_f0 = float(np.std(voiced_f0)) if len(voiced_f0) > 0 else 25.0
 
     # 2. Spectral Centroid & Spectral Envelope (Formant Distribution)
     stft = np.abs(librosa.stft(y, n_fft=1024, hop_length=256))
@@ -72,6 +73,7 @@ def extract_speaker_profile(audio_path, target_sr=22050):
     # 5. Build Compact Acoustic Profile
     profile = {
         "median_f0": round(median_f0, 2),
+        "std_f0": round(std_f0, 2),
         "spectral_centroid": round(spectral_centroid, 2),
         "spectral_bandwidth": round(spectral_bandwidth, 2),
         "gender": gender,
@@ -80,7 +82,7 @@ def extract_speaker_profile(audio_path, target_sr=22050):
     }
     return profile
 
-def morph_audio_to_profile(audio_data, sr, profile, intensity=0.92):
+def morph_audio_to_profile(audio_data, sr, profile, base_model='', intensity=0.96):
     """
     Transforms synthesized speech audio to match the target speaker's acoustic profile (pitch shift + formant filter).
     """
@@ -98,55 +100,78 @@ def morph_audio_to_profile(audio_data, sr, profile, intensity=0.92):
     if np.max(np.abs(y)) > 1.0:
         y = y / 32768.0
 
-    # 1. Pitch Shift adjustment to align with target fundamental frequency
-    # Estimate base audio pitch
+    # 1. Determine base neural voice fundamental pitch
+    base_lower = str(base_model).lower()
+    if 'manhdung' in base_lower or 'ngocngan' in base_lower:
+        base_f0 = 132.0
+    elif 'tranthanh' in base_lower:
+        base_f0 = 145.0
+    elif 'vietthao' in base_lower:
+        base_f0 = 138.0
+    elif 'adam' in base_lower:
+        base_f0 = 140.0
+    elif 'banmai' in base_lower:
+        base_f0 = 180.0
+    elif 'ngochuyen' in base_lower or 'maiphuong' in base_lower:
+        base_f0 = 210.0
+    else:
+        # Default estimation based on profile gender
+        base_f0 = 135.0 if profile.get('gender') == 'Male' else 210.0
+
+    # 2. Pitch Shift adjustment to align with target fundamental frequency
     try:
-        f0_base, v_flag, _ = librosa.pyin(
-            y,
-            fmin=librosa.note_to_hz('C2'),
-            fmax=librosa.note_to_hz('C7'),
-            sr=sr
-        )
-        base_voiced = f0_base[v_flag] if v_flag is not None and np.any(v_flag) else np.array([])
-        base_f0 = float(np.median(base_voiced)) if len(base_voiced) > 0 else 170.0
-        
-        # Calculate semitones shift
         if base_f0 > 40 and target_f0 > 40:
             semitones = 12.0 * np.log2(target_f0 / base_f0) * intensity
-            # Bound shift to avoid extreme chipmunk artifacts
-            semitones = max(-8.0, min(8.0, semitones))
-            if abs(semitones) > 0.4:
+            # Bound shift to avoid excessive artifacts
+            semitones = max(-9.0, min(9.0, semitones))
+            if abs(semitones) > 0.3:
                 y = librosa.effects.pitch_shift(y, sr=sr, n_steps=semitones)
     except Exception as pitch_err:
-        pass
+        print(f"[VoiceMorph] Pitch shift note: {pitch_err}", file=sys.stderr)
 
-    # 2. Formant Shaping via Spectral Filtering
-    if len(target_env) > 30:
-        n_fft = 1024
-        hop_length = 256
-        D = librosa.stft(y, n_fft=n_fft, hop_length=hop_length)
-        mag, phase = np.abs(D), np.angle(D)
-        
-        # Interpolate target envelope to match n_fft bins (513 bins)
-        src_bins = np.linspace(0, 1, len(target_env))
-        dst_bins = np.linspace(0, 1, mag.shape[0])
-        f_interp = interp1d(src_bins, target_env, kind='linear', fill_value='extrapolate')
-        filter_curve = f_interp(dst_bins)
-        filter_curve = np.clip(filter_curve, 0.1, 1.0)
-        
-        # Apply gentle spectral shaping
-        filter_2d = filter_curve[:, np.newaxis]
-        shaped_mag = mag * (1.0 - intensity + intensity * (filter_2d / (np.mean(filter_2d) + 1e-6)))
-        
-        # Reconstruct waveform
-        D_shaped = shaped_mag * np.exp(1j * phase)
-        y_out = librosa.istft(D_shaped, hop_length=hop_length, length=len(y))
-        
-        # Normalize and restore level
-        peak = np.max(np.abs(y_out))
-        if peak > 0:
-            y_out = y_out * (np.max(np.abs(y)) / peak)
+    # 3. Formant Shaping via High-Resolution Spectral Transfer Function
+    try:
+        if len(target_env) > 30:
+            n_fft = 1024
+            hop_length = 256
+            D = librosa.stft(y, n_fft=n_fft, hop_length=hop_length)
+            mag, phase = np.abs(D), np.angle(D)
             
-        return (y_out * 32767.0).astype(np.int16)
-    else:
-        return (y * 32767.0).astype(np.int16)
+            # Smooth current magnitude envelope
+            curr_mean = np.mean(mag, axis=1)
+            curr_smooth = signal.medfilt(curr_mean, kernel_size=15)
+            curr_norm = curr_smooth / (np.max(curr_smooth) + 1e-8)
+            
+            # Interpolate target envelope to 513 bins
+            src_bins = np.linspace(0, 1, len(target_env))
+            dst_bins = np.linspace(0, 1, mag.shape[0])
+            f_interp = interp1d(src_bins, target_env, kind='linear', fill_value='extrapolate')
+            target_full = f_interp(dst_bins)
+            target_full = np.clip(target_full, 0.05, 1.0)
+            
+            # Calculate transfer EQ curve
+            tf = (target_full / (curr_norm + 1e-4)) ** 0.7
+            tf = np.clip(tf, 0.3, 3.2)
+            tf_smoothed = signal.medfilt(tf, kernel_size=11)
+            
+            # Apply transfer function across all time frames
+            shaped_mag = mag * tf_smoothed[:, np.newaxis]
+            
+            # Reconstruct waveform
+            D_shaped = shaped_mag * np.exp(1j * phase)
+            y_out = librosa.istft(D_shaped, hop_length=hop_length, length=len(y))
+            
+            # Normalize peak
+            peak = np.max(np.abs(y_out))
+            if peak > 0:
+                y_out = y_out * (0.92 / peak)
+                
+            return (y_out * 32767.0).astype(np.int16)
+    except Exception as formant_err:
+        print(f"[VoiceMorph] Formant filter note: {formant_err}", file=sys.stderr)
+
+    peak = np.max(np.abs(y))
+    if peak > 0:
+        y = y * (0.92 / peak)
+    return (y * 32767.0).astype(np.int16)
+

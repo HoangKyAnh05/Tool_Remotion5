@@ -126,12 +126,13 @@ def ensure_model(model_filename):
 
 def get_voice(voice_name):
     norm_name = voice_name.lower().strip()
-    clean_name = norm_name.replace('piper:', '').strip()
+    clean_name = norm_name.replace('piper:', '').replace('f5:', '').replace('user_', '').replace(' ', '_').strip()
     
     # Check if a custom-trained or downloaded model file directly exists in models/piper/
     direct_candidates = [
         f"{clean_name}.onnx",
         clean_name if clean_name.endswith('.onnx') else None,
+        f"{clean_name.replace('_', '')}.onnx",
         f"{clean_name}1.onnx",
     ]
     
@@ -142,7 +143,7 @@ def get_voice(voice_name):
             break
             
     if not found_file:
-        found_file = VOICE_MAP.get(norm_name, VOICE_MAP.get(clean_name, 'ngochuyen.onnx'))
+        found_file = VOICE_MAP.get(norm_name, VOICE_MAP.get(clean_name, 'manhdung.onnx'))
         
     model_filename = found_file
     
@@ -169,7 +170,7 @@ def split_text_to_sentences(text, max_chars=180):
     return sentences
 
 def get_voice_profile(voice_name):
-    norm = voice_name.lower().strip().replace('piper:', '')
+    norm = voice_name.lower().strip().replace('piper:', '').replace('f5:', '').replace('user_', '').replace(' ', '_').strip()
     candidates = [
         f"{norm}.profile.json",
         f"{norm.replace('_', '')}.profile.json",
@@ -250,7 +251,7 @@ def synthesize_piper_audio(text, voice_name='ngochuyen', speed=1.0):
     if profile and morph_audio_to_profile:
         try:
             pcm_array = np.frombuffer(full_pcm, dtype=np.int16)
-            morphed_array = morph_audio_to_profile(pcm_array, sample_rate, profile, intensity=0.92)
+            morphed_array = morph_audio_to_profile(pcm_array, sample_rate, profile, base_model=model_file, intensity=0.96)
             full_pcm = morphed_array.tobytes()
         except Exception as morph_err:
             print(f"[Piper] Timbre morphing note: {morph_err}", file=sys.stderr)
