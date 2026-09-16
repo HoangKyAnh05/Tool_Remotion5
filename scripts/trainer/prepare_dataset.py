@@ -24,6 +24,14 @@ def slice_wav_file(input_wav_path, output_dir, segment_duration=5.0, sample_rate
         total_samples = len(data)
         
         idx = 1
+        whisper_model = None
+        try:
+            import whisper
+            print("[Dataset] Loading Whisper AI for automatic transcription...")
+            whisper_model = whisper.load_model("base")
+        except Exception:
+            pass
+
         for start in range(0, total_samples, samples_per_segment):
             end = min(start + samples_per_segment, total_samples)
             chunk = data[start:end]
@@ -34,8 +42,18 @@ def slice_wav_file(input_wav_path, output_dir, segment_duration=5.0, sample_rate
             chunk_path = os.path.join(wavs_dir, chunk_filename)
             sf.write(chunk_path, chunk, sr)
             
-            # Template text for transcription
-            metadata_lines.append(f"{chunk_filename}|Đoạn âm thanh mẫu số {idx} dùng để huấn luyện mô hình AI VITS|Đoạn âm thanh mẫu số {idx} dùng để huấn luyện mô hình AI VITS")
+            transcript = ""
+            if whisper_model:
+                try:
+                    res = whisper_model.transcribe(chunk_path, language="vi")
+                    transcript = res.get("text", "").strip()
+                except Exception:
+                    pass
+                    
+            if not transcript:
+                transcript = f"Đoạn âm thanh mẫu số {idx} dùng để huấn luyện mô hình AI VITS"
+                
+            metadata_lines.append(f"{chunk_filename}|{transcript}|{transcript}")
             idx += 1
             
         metadata_path = os.path.join(output_dir, 'metadata.csv')
@@ -43,7 +61,7 @@ def slice_wav_file(input_wav_path, output_dir, segment_duration=5.0, sample_rate
             f.write('\n'.join(metadata_lines))
             
         print(f"[Dataset] Sliced {idx-1} audio segments into '{wavs_dir}'")
-        print(f"[Dataset] Generated template '{metadata_path}' successfully!")
+        print(f"[Dataset] Generated '{metadata_path}' with {idx-1} transcribed lines successfully!")
         return True
     except ImportError:
         print("[Dataset] Tip: Install soundfile via 'pip install soundfile' for advanced audio slicing.")
