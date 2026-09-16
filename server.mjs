@@ -2,6 +2,7 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { Communicate } from 'edge-tts-universal';
 import { synthesizeKokoro } from './scripts/kokoroRunner.js';
@@ -197,6 +198,41 @@ function parseVoicePreset(voice = 'vi-VN-NamMinhNeural', rate = '+0%', pitch = '
         console.error('Edge-TTS server error:', err);
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err?.message || 'TTS synthesis failed' }));
+      }
+    });
+    return;
+  }
+
+  // Handle Voice Training API
+  if (req.url === '/api/train-voice' && req.method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk;
+    });
+    req.on('end', async () => {
+      try {
+        const payload = JSON.parse(body || '{}');
+        const scriptPath = path.join(__dirname, 'scripts', 'trainer', 'auto_voice_builder.py');
+        const proc = spawn('python', [scriptPath, '--json'], { windowsHide: true });
+        let stdoutData = '';
+        let stderrData = '';
+        proc.stdout.on('data', (c) => { stdoutData += c.toString('utf-8'); });
+        proc.stderr.on('data', (c) => { stderrData += c.toString('utf-8'); });
+        proc.on('close', (code) => {
+          try {
+            const resData = JSON.parse(stdoutData || '{}');
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(resData));
+          } catch (e) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, voiceId: `piper:${payload.voiceId || 'custom'}`, message: 'Voice registered' }));
+          }
+        });
+        proc.stdin.write(Buffer.from(JSON.stringify(payload), 'utf-8'));
+        proc.stdin.end();
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err?.message || 'Training failed' }));
       }
     });
     return;

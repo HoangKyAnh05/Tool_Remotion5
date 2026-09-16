@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { VideoProject, VIETNAMESE_VOICES } from '../types/video';
+import { VideoProject, VIETNAMESE_VOICES, VoiceOption } from '../types/video';
 import { buildMotionScenesFromScript, splitScriptIntoSentences } from '../services/scriptToMotionEngine';
+import { getSavedCustomVoices } from '../services/customVoicesService';
+import { VoiceTrainerModal } from './VoiceTrainerModal';
 import {
   Mic,
   CheckCircle2,
   Loader2,
   FileText,
   Sparkles,
-  HardDrive
+  HardDrive,
+  Plus
 } from 'lucide-react';
 import { WorkflowMode } from './SparkleBadge';
 
@@ -30,6 +33,8 @@ const DEFAULT_SCRIPT = '';
 export const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
   project,
   setProject,
+  apiKeyGemini,
+  apiKeyPexels,
   isGenerating,
   setIsGenerating,
   statusText,
@@ -38,7 +43,9 @@ export const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
   onOpenVideoSplitter,
   workflowMode
 }) => {
-  const [userScript, setUserScript] = useState(DEFAULT_SCRIPT);
+  const [userScript, setUserScript] = useState<string>(DEFAULT_SCRIPT);
+  const [isTrainerOpen, setIsTrainerOpen] = useState(false);
+  const [customVoices, setCustomVoices] = useState<VoiceOption[]>(() => getSavedCustomVoices());
   const detectedScenesCount = splitScriptIntoSentences(userScript).length;
   const currentVoice = project.voice?.name || 'google-vi';
 
@@ -105,7 +112,7 @@ export const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
           </h3>
         </div>
 
-        {/* Voice Selector */}
+        {/* Voice Selector & Trainer Trigger */}
         <div className="flex items-center gap-1.5">
           <label className="text-[11px] font-medium text-slate-500 flex items-center gap-1">
             <Mic className="w-3.5 h-3.5 text-emerald-600" />
@@ -116,6 +123,15 @@ export const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
             onChange={(e) => handleVoiceChange(e.target.value)}
             className="bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all cursor-pointer max-w-[210px] sm:max-w-[270px] truncate"
           >
+            {customVoices.length > 0 && (
+              <optgroup label="👑 GIỌNG AI TỰ TẠO / HUẤN LUYỆN (Custom Models)">
+                {customVoices.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
             <optgroup label="👑 GIỌNG ĐỌC THẬT TIẾNG VIỆT (Piper VITS 100% Giọng Thật)">
               {VIETNAMESE_VOICES.filter((v) => v.id.startsWith('piper:') && v.locale.startsWith('vi')).map((v) => (
                 <option key={v.id} value={v.id}>
@@ -159,6 +175,16 @@ export const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
               ))}
             </optgroup>
           </select>
+
+          <button
+            type="button"
+            onClick={() => setIsTrainerOpen(true)}
+            className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded-md border border-emerald-200 transition-colors shadow-2xs cursor-pointer shrink-0"
+            title="Tải lên file âm thanh để tự động huấn luyện hoặc nạp mô hình .onnx mới"
+          >
+            <Plus className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Train Giọng</span>
+          </button>
         </div>
       </div>
 
@@ -240,6 +266,15 @@ export const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
           </button>
         </div>
       </div>
+
+      <VoiceTrainerModal
+        isOpen={isTrainerOpen}
+        onClose={() => setIsTrainerOpen(false)}
+        onVoiceAdded={(v) => {
+          setCustomVoices(getSavedCustomVoices());
+          handleVoiceChange(v.id);
+        }}
+      />
     </div>
   );
 };

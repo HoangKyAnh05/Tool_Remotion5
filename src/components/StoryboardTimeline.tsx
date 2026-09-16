@@ -1,9 +1,11 @@
 import React, { useState, useRef } from 'react';
-import { VideoProject, Scene, TransitionType, KenBurnsEffect, VIETNAMESE_VOICES } from '../types/video';
+import { VideoProject, Scene, TransitionType, KenBurnsEffect, VIETNAMESE_VOICES, VoiceOption } from '../types/video';
 import { synthesizeEdgeTTS } from '../services/edgeTtsService';
 import { getSavedElevenLabsApiKey, getEquivalentFallbackVoice } from '../services/elevenLabsService';
 import { searchPexelsMedia, searchWebMedia, generateAiImageUrl, searchStockVideos, MediaAsset } from '../services/mediaService';
 import { transcribeCustomAudio, transcribeAndSplitFullAudio, syncWordsFromNarration, extractAudioBase64, extractAudioFromVideoData } from '../services/speechToTextService';
+import { getSavedCustomVoices, getAllMergedVoices } from '../services/customVoicesService';
+import { VoiceTrainerModal } from './VoiceTrainerModal';
 import { BatchVocabularyModal } from './BatchVocabularyModal';
 import { CreateCustomVisualModal } from './CreateCustomVisualModal';
 import { MotionTypographyModal } from './MotionTypographyModal';
@@ -151,6 +153,8 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
   const [activeTikTokStudioScene, setActiveTikTokStudioScene] = useState<Scene | null>(null);
   const [trimmerScene, setTrimmerScene] = useState<Scene | null>(null);
   const [isTrimmerOpen, setIsTrimmerOpen] = useState<boolean>(false);
+  const [isTrainerOpen, setIsTrainerOpen] = useState<boolean>(false);
+  const [customVoices, setCustomVoices] = useState<VoiceOption[]>(() => getSavedCustomVoices());
   const [expandedFxSceneId, setExpandedFxSceneId] = useState<string | null>(null);
   const [expandedKaraokeSceneId, setExpandedKaraokeSceneId] = useState<string | null>(null);
   const [ttsToastError, setTtsToastError] = useState<string | null>(null);
@@ -435,7 +439,8 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
 
     setIsBatchSynthesizing(true);
     const targetVoiceId = project.voice?.name || 'google-vi';
-    const voiceObj = VIETNAMESE_VOICES.find((v) => v.id === targetVoiceId);
+    const allVoices = getAllMergedVoices();
+    const voiceObj = allVoices.find((v) => v.id === targetVoiceId);
     const voiceDisplayName = voiceObj?.name ? voiceObj.name.replace(/^[⚡🎙️🌸🔥📖🎬🍰🛍️💅✨🤖👑💎🚀🌿🏄🏰\s]+/, '') : targetVoiceId;
 
     const elevenKey = getSavedElevenLabsApiKey().trim();
@@ -1720,6 +1725,15 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                 className="w-full bg-white hover:bg-emerald-50/40 border border-slate-300 hover:border-emerald-500 text-slate-800 rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer transition-colors shadow-2xs truncate"
                 title="Chọn giọng đọc AI cho toàn bộ video"
               >
+                {customVoices.length > 0 && (
+                  <optgroup label="👑 GIỌNG AI TỰ TẠO / HUẤN LUYỆN (Custom Models)">
+                    {customVoices.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
                 <optgroup label="👑 GIỌNG ĐỌC THẬT TIẾNG VIỆT (Piper VITS 100% Giọng Thật)">
                   {VIETNAMESE_VOICES.filter((v) => v.id.startsWith('piper:') && v.locale.startsWith('vi')).map((v) => (
                     <option key={v.id} value={v.id}>
@@ -1763,6 +1777,15 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
                   ))}
                 </optgroup>
               </select>
+              <button
+                type="button"
+                onClick={() => setIsTrainerOpen(true)}
+                className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-1.5 rounded-lg border border-emerald-200 transition-colors shadow-2xs cursor-pointer shrink-0"
+                title="Tải lên file âm thanh để tự động huấn luyện hoặc nạp mô hình .onnx mới"
+              >
+                <Plus className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Train Giọng</span>
+              </button>
             </div>
 
             {/* Tốc độ đọc (Tua nhanh giọng đọc) */}
@@ -3390,6 +3413,22 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
           />
         );
       })()}
+
+      {/* Modal Studio Tạo & Nạp Giọng Đọc AI */}
+      <VoiceTrainerModal
+        isOpen={isTrainerOpen}
+        onClose={() => setIsTrainerOpen(false)}
+        onVoiceAdded={(v) => {
+          setCustomVoices(getSavedCustomVoices());
+          setProject((prev) => ({
+            ...prev,
+            voice: {
+              ...prev.voice,
+              name: v.id
+            }
+          }));
+        }}
+      />
     </div>
   );
 };

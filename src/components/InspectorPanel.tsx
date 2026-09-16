@@ -1,7 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { VideoProject, SubtitleStyle, WatermarkConfig, SoundFxConfig, VIETNAMESE_VOICES } from '../types/video';
+import { VideoProject, SubtitleStyle, WatermarkConfig, SoundFxConfig, VIETNAMESE_VOICES, VoiceOption } from '../types/video';
 import { SparkleBadge, WorkflowMode } from './SparkleBadge';
 import { convertAudioOrVideoFileToAudio, extractAudioFromVideoData } from '../services/speechToTextService';
+import { getSavedCustomVoices } from '../services/customVoicesService';
+import { VoiceTrainerModal } from './VoiceTrainerModal';
 import {
   Type,
   Sparkles,
@@ -16,7 +18,8 @@ import {
   HelpCircle,
   Eye,
   EyeOff,
-  RefreshCw
+  RefreshCw,
+  Plus
 } from 'lucide-react';
 
 interface InspectorPanelProps {
@@ -75,6 +78,8 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
   const bgmFileInputRef = useRef<HTMLInputElement | null>(null);
   const [isExtractingBgm, setIsExtractingBgm] = useState<boolean>(false);
   const [bgmNoticeText, setBgmNoticeText] = useState<string | null>(null);
+  const [isTrainerOpen, setIsTrainerOpen] = useState<boolean>(false);
+  const [customVoices, setCustomVoices] = useState<VoiceOption[]>(() => getSavedCustomVoices());
 
   const updateSubtitleStyle = (updates: Partial<SubtitleStyle>) => {
     setProject((prev) => ({
@@ -855,10 +860,21 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
 
             {/* Giọng đọc mặc định & Tốc độ */}
             <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 space-y-2.5">
-              <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                <Volume2 className="w-3.5 h-3.5 text-emerald-700" />
-                Giọng đọc thuyết minh & Tốc độ
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Volume2 className="w-3.5 h-3.5 text-emerald-700" />
+                  Giọng đọc thuyết minh & Tốc độ
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsTrainerOpen(true)}
+                  className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 transition-colors shadow-2xs cursor-pointer"
+                  title="Tải lên file âm thanh để tự động huấn luyện hoặc nạp mô hình .onnx mới"
+                >
+                  <Plus className="w-3 h-3 text-emerald-600" />
+                  <span>Train Giọng</span>
+                </button>
+              </div>
               <div className="space-y-1.5">
                 <label className="text-[11px] font-semibold text-slate-600 block">Chọn giọng đọc AI:</label>
                 <select
@@ -871,6 +887,15 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                   }
                   className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
                 >
+                  {customVoices.length > 0 && (
+                    <optgroup label="👑 GIỌNG AI TỰ TẠO / HUẤN LUYỆN (Custom Models)">
+                      {customVoices.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                   <optgroup label="👑 GIỌNG ĐỌC THẬT TIẾNG VIỆT (Piper VITS 100% Giọng Thật)">
                     {VIETNAMESE_VOICES.filter((v) => v.id.startsWith('piper:') && v.locale.startsWith('vi')).map((v) => (
                       <option key={v.id} value={v.id}>
@@ -942,6 +967,18 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
           </div>
         )}
       </div>
+
+      <VoiceTrainerModal
+        isOpen={isTrainerOpen}
+        onClose={() => setIsTrainerOpen(false)}
+        onVoiceAdded={(v) => {
+          setCustomVoices(getSavedCustomVoices());
+          setProject((prev) => ({
+            ...prev,
+            voice: { ...prev.voice, name: v.id }
+          }));
+        }}
+      />
     </div>
   );
 };
