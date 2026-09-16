@@ -268,6 +268,37 @@ function synthesizeKokoroTTS(
   });
 }
 
+function synthesizeF5TTS(
+  text: string,
+  voice: string
+): Promise<{ audioUrl: string; duration: number; words: Array<{ word: string; start: number; end: number }> }> {
+  return new Promise((resolve, reject) => {
+    const scriptPath = path.resolve(__dirname, '../scripts/trainer/f5_tts_engine.py');
+    const proc = spawn('python', [scriptPath, '--json'], { windowsHide: true });
+    let stdout = '';
+    let stderr = '';
+
+    proc.stdout.on('data', (d: any) => (stdout += d.toString('utf-8')));
+    proc.stderr.on('data', (d: any) => (stderr += d.toString('utf-8')));
+
+    proc.on('close', (code) => {
+      if (code !== 0) {
+        return reject(new Error(`F5-TTS process exited with code ${code}: ${stderr}`));
+      }
+      try {
+        const res = JSON.parse(stdout);
+        resolve(res);
+      } catch (e: any) {
+        reject(new Error(`Failed to parse F5-TTS JSON: ${e.message}`));
+      }
+    });
+
+    const payload = Buffer.from(JSON.stringify({ text, voice }), 'utf-8');
+    proc.stdin.write(payload);
+    proc.stdin.end();
+  });
+}
+
 function synthesizePiperTTS(
   text: string,
   voice: string,
@@ -308,7 +339,7 @@ function synthesizePiperTTS(
 }
 
 function setupIpcHandlers() {
-  // TTS Handler: Synthesizes high quality natural speech with accurate word timing using Piper VITS, Edge-TTS, or Kokoro TTS
+  // TTS Handler: Synthesizes high quality natural speech with accurate word timing using F5-TTS Zero-Shot, Piper VITS, Edge-TTS, or Kokoro TTS
   ipcMain.handle(
     'tts:synthesize',
     async (_, { text, voice = 'vi-VN-NamMinhNeural', rate = '+0%', pitch = '+0Hz' }) => {
@@ -316,6 +347,18 @@ function setupIpcHandlers() {
         const cleanText = text.trim();
         if (!cleanText) {
           return { audioUrl: '', duration: 1.0, words: [] };
+        }
+
+        // 0. If F5-TTS Free Zero-Shot Voice Clone
+        if (voice.startsWith('f5:')) {
+          try {
+            const f5Res = await synthesizeF5TTS(cleanText, voice);
+            if (f5Res && f5Res.audioUrl) {
+              return f5Res;
+            }
+          } catch (f5Err) {
+            console.warn('F5-TTS Zero-Shot failed, falling back to Piper VITS:', f5Err);
+          }
         }
 
         // 1. If Piper VITS Voice (Ngoc Huyen, Manh Dung, Adam, Ban Mai, Tran Thanh, etc. - 100% real human models)

@@ -1,20 +1,20 @@
-import { app as C, BrowserWindow as B, ipcMain as _, shell as V, dialog as K, session as q } from "electron";
+import { app as E, BrowserWindow as B, ipcMain as _, shell as V, dialog as K, session as q } from "electron";
 import T from "path";
-import { spawn as A } from "child_process";
-import { fileURLToPath as L } from "url";
-import D from "https";
-import F from "http";
-import E from "fs";
-import { Communicate as j } from "edge-tts-universal";
-import { bundle as O } from "@remotion/bundler";
+import { spawn as P } from "child_process";
+import { fileURLToPath as F } from "url";
+import L from "https";
+import D from "http";
+import C from "fs";
+import { Communicate as O } from "edge-tts-universal";
+import { bundle as j } from "@remotion/bundler";
 import { selectComposition as H, renderMedia as z } from "@remotion/renderer";
-const G = L(import.meta.url), $ = T.dirname(G);
-process.env.DIST = T.join($, "../dist");
-process.env.VITE_PUBLIC = C.isPackaged ? process.env.DIST : T.join(process.env.DIST, "../public");
-let l, P = null;
+const G = F(import.meta.url), M = T.dirname(G);
+process.env.DIST = T.join(M, "../dist");
+process.env.VITE_PUBLIC = E.isPackaged ? process.env.DIST : T.join(process.env.DIST, "../public");
+let d, A = null;
 const W = process.env.VITE_DEV_SERVER_URL;
 function U() {
-  l = new B({
+  d = new B({
     width: 1440,
     height: 900,
     minWidth: 1100,
@@ -24,30 +24,30 @@ function U() {
     icon: T.join(process.env.VITE_PUBLIC || "", "icon.png"),
     backgroundColor: "#0B0F19",
     webPreferences: {
-      preload: E.existsSync(T.join($, "preload.cjs")) ? T.join($, "preload.cjs") : T.join($, "preload.js"),
+      preload: C.existsSync(T.join(M, "preload.cjs")) ? T.join(M, "preload.cjs") : T.join(M, "preload.js"),
       nodeIntegration: !1,
       contextIsolation: !0,
       webSecurity: !1
       // Allow loading local files and media preview
     }
-  }), q.defaultSession.setPermissionRequestHandler((g, b, p) => {
-    p(!0);
-  }), l.show(), l.focus(), l.webContents.on("did-finish-load", () => {
-    l == null || l.webContents.send("main-process-message", (/* @__PURE__ */ new Date()).toLocaleString());
-  }), W ? l.loadURL(W) : l.loadFile(T.join(process.env.DIST || "", "index.html"));
+  }), q.defaultSession.setPermissionRequestHandler((g, y, m) => {
+    m(!0);
+  }), d.show(), d.focus(), d.webContents.on("did-finish-load", () => {
+    d == null || d.webContents.send("main-process-message", (/* @__PURE__ */ new Date()).toLocaleString());
+  }), W ? d.loadURL(W) : d.loadFile(T.join(process.env.DIST || "", "index.html"));
 }
-C.on("window-all-closed", () => {
-  process.platform !== "darwin" && (C.quit(), l = null);
+E.on("window-all-closed", () => {
+  process.platform !== "darwin" && (E.quit(), d = null);
 });
-C.on("activate", () => {
+E.on("activate", () => {
   B.getAllWindows().length === 0 && U();
 });
-C.whenReady().then(() => {
-  U(), te();
+E.whenReady().then(() => {
+  U(), ne();
 });
 function J(g) {
-  return new Promise((b, p) => {
-    (g.startsWith("https") ? D : F).get(
+  return new Promise((y, m) => {
+    (g.startsWith("https") ? L : D).get(
       g,
       {
         headers: {
@@ -57,47 +57,47 @@ function J(g) {
       },
       (e) => {
         if (e.statusCode && e.statusCode >= 400)
-          return p(new Error(`HTTP error ${e.statusCode}`));
-        const o = [];
-        e.on("data", (r) => o.push(Buffer.isBuffer(r) ? r : Buffer.from(r))), e.on("end", () => b(Buffer.concat(o)));
+          return m(new Error(`HTTP error ${e.statusCode}`));
+        const r = [];
+        e.on("data", (o) => r.push(Buffer.isBuffer(o) ? o : Buffer.from(o))), e.on("end", () => y(Buffer.concat(r)));
       }
-    ).on("error", p);
+    ).on("error", m);
   });
 }
-async function Y(g, b) {
+async function Y(g, y) {
   try {
-    const t = g.trim().split(/\s+/).filter(Boolean), o = !b.startsWith("en-") ? "vi" : "en", r = [];
+    const t = g.trim().split(/\s+/).filter(Boolean), r = !y.startsWith("en-") ? "vi" : "en", o = [];
     let n = "";
-    for (const h of t)
-      (n + " " + h).length > 80 ? (r.push(n.trim()), n = h) : n += " " + h;
-    n.trim() && r.push(n.trim());
-    const m = [];
-    for (const h of r) {
+    for (const p of t)
+      (n + " " + p).length > 80 ? (o.push(n.trim()), n = p) : n += " " + p;
+    n.trim() && o.push(n.trim());
+    const u = [];
+    for (const p of o) {
       const w = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(
-        h
-      )}&tl=${o}&client=tw-ob`, u = await J(w);
-      m.push(u);
+        p
+      )}&tl=${r}&client=tw-ob`, l = await J(w);
+      u.push(l);
     }
-    const c = Buffer.concat(m), a = `data:audio/mp3;base64,${c.toString("base64")}`, s = Math.max(3, c.length / 3800), d = [], f = (s - 0.4) / Math.max(t.length, 1);
+    const a = Buffer.concat(u), c = `data:audio/mp3;base64,${a.toString("base64")}`, i = Math.max(3, a.length / 3800), h = [], f = (i - 0.4) / Math.max(t.length, 1);
     let v = 0.2;
-    for (const h of t) {
+    for (const p of t) {
       const w = Math.max(0.2, Math.min(0.7, f));
-      d.push({
-        word: h,
+      h.push({
+        word: p,
         start: Number(v.toFixed(2)),
         end: Number((v + w).toFixed(2))
       }), v += w;
     }
     return {
-      audioUrl: a,
+      audioUrl: c,
       duration: Number((v + 0.3).toFixed(2)),
-      words: d
+      words: h
     };
   } catch {
-    const t = g.trim().split(/\s+/).filter(Boolean), e = t.map((o, r) => ({
-      word: o,
-      start: Number((r * 0.35 + 0.2).toFixed(2)),
-      end: Number(((r + 1) * 0.35 + 0.2).toFixed(2))
+    const t = g.trim().split(/\s+/).filter(Boolean), e = t.map((r, o) => ({
+      word: r,
+      start: Number((o * 0.35 + 0.2).toFixed(2)),
+      end: Number(((o + 1) * 0.35 + 0.2).toFixed(2))
     }));
     return {
       audioUrl: "",
@@ -108,224 +108,250 @@ async function Y(g, b) {
 }
 function Q(g = "+0%") {
   if (!g) return "+0%";
-  const b = String(g).trim();
-  if (b.includes("%")) {
-    const t = parseInt(b.replace("%", ""));
-    return isNaN(t) ? b : t >= 0 ? `+${t}%` : `${t}%`;
+  const y = String(g).trim();
+  if (y.includes("%")) {
+    const t = parseInt(y.replace("%", ""));
+    return isNaN(t) ? y : t >= 0 ? `+${t}%` : `${t}%`;
   }
-  if (b.toLowerCase().endsWith("x")) {
-    const t = parseFloat(b.replace(/x/i, ""));
+  if (y.toLowerCase().endsWith("x")) {
+    const t = parseFloat(y.replace(/x/i, ""));
     if (!isNaN(t)) {
       const e = Math.round((t - 1) * 100);
       return e >= 0 ? `+${e}%` : `${e}%`;
     }
   }
-  const p = parseFloat(b);
-  if (!isNaN(p) && p > 0 && p <= 3) {
-    const t = Math.round((p - 1) * 100);
+  const m = parseFloat(y);
+  if (!isNaN(m) && m > 0 && m <= 3) {
+    const t = Math.round((m - 1) * 100);
     return t >= 0 ? `+${t}%` : `${t}%`;
   }
   return "+0%";
 }
-function Z(g = "vi-VN-NamMinhNeural", b = "+0%", p = "+0Hz") {
-  let t = g || "vi-VN-NamMinhNeural", e = Q(b), o = "+0Hz";
+function Z(g = "vi-VN-NamMinhNeural", y = "+0%", m = "+0Hz") {
+  let t = g || "vi-VN-NamMinhNeural", e = Q(y), r = "+0Hz";
   if (g === "google-vi-male" || g === "vi-male" || g === "adam" || g === "adam-tiktok" || g === "vclip:adam")
     t = "vi-VN-NamMinhNeural";
   else if (g === "google-vi" || g === "vi-female")
     t = "vi-VN-HoaiMyNeural";
   else if (g.includes(":") && !g.startsWith("elevenlabs:")) {
-    const [r, n] = g.split(":");
-    t = r || "vi-VN-NamMinhNeural", e === "+0%" && (n === "fast" || n === "live" || n === "adam" ? e = "+18%" : n === "recap" ? e = "+28%" : n === "sweet" ? e = "+8%" : n === "genz" ? e = "+20%" : n === "story" ? e = "-8%" : (n === "ngochuyen" || n === "manhdung") && (e = "+0%")), n === "manhdung" && (o = "-1Hz");
+    const [o, n] = g.split(":");
+    t = o || "vi-VN-NamMinhNeural", e === "+0%" && (n === "fast" || n === "live" || n === "adam" ? e = "+18%" : n === "recap" ? e = "+28%" : n === "sweet" ? e = "+8%" : n === "genz" ? e = "+20%" : n === "story" ? e = "-8%" : (n === "ngochuyen" || n === "manhdung") && (e = "+0%")), n === "manhdung" && (r = "-1Hz");
   }
-  return { effectiveVoice: t, effectiveRate: e, effectivePitch: o };
+  return { effectiveVoice: t, effectiveRate: e, effectivePitch: r };
 }
-function X(g, b, p = "+0%") {
+function X(g, y, m = "+0%") {
   return new Promise((t, e) => {
-    const o = T.resolve($, "../scripts/kokoro_tts_engine.py"), r = A("python", [o, "--json"], { windowsHide: !0 });
-    let n = "", m = "";
-    r.stdout.on("data", (a) => n += a.toString("utf-8")), r.stderr.on("data", (a) => m += a.toString("utf-8")), r.on("close", (a) => {
+    const r = T.resolve(M, "../scripts/kokoro_tts_engine.py"), o = P("python", [r, "--json"], { windowsHide: !0 });
+    let n = "", u = "";
+    o.stdout.on("data", (c) => n += c.toString("utf-8")), o.stderr.on("data", (c) => u += c.toString("utf-8")), o.on("close", (c) => {
+      if (c !== 0)
+        return e(new Error(`Kokoro process exited with code ${c}: ${u}`));
+      try {
+        const i = JSON.parse(n);
+        t(i);
+      } catch (i) {
+        e(new Error(`Failed to parse Kokoro JSON: ${i.message}`));
+      }
+    });
+    let a = 1;
+    if (m.includes("%")) {
+      const c = parseInt(m.replace("%", ""));
+      isNaN(c) || (a = Math.max(0.5, Math.min(2, 1 + c / 100)));
+    }
+    const s = y.toLowerCase().replace("kokoro:", "").replace("kokoro-", "").trim() || "ngoc_huyen";
+    o.stdin.write(JSON.stringify({ text: g, voice: s, speed: a })), o.stdin.end();
+  });
+}
+function ee(g, y) {
+  return new Promise((m, t) => {
+    const e = T.resolve(M, "../scripts/trainer/f5_tts_engine.py"), r = P("python", [e, "--json"], { windowsHide: !0 });
+    let o = "", n = "";
+    r.stdout.on("data", (a) => o += a.toString("utf-8")), r.stderr.on("data", (a) => n += a.toString("utf-8")), r.on("close", (a) => {
       if (a !== 0)
-        return e(new Error(`Kokoro process exited with code ${a}: ${m}`));
+        return t(new Error(`F5-TTS process exited with code ${a}: ${n}`));
       try {
-        const s = JSON.parse(n);
-        t(s);
+        const s = JSON.parse(o);
+        m(s);
       } catch (s) {
-        e(new Error(`Failed to parse Kokoro JSON: ${s.message}`));
+        t(new Error(`Failed to parse F5-TTS JSON: ${s.message}`));
       }
     });
-    let c = 1;
-    if (p.includes("%")) {
-      const a = parseInt(p.replace("%", ""));
-      isNaN(a) || (c = Math.max(0.5, Math.min(2, 1 + a / 100)));
-    }
-    const i = b.toLowerCase().replace("kokoro:", "").replace("kokoro-", "").trim() || "ngoc_huyen";
-    r.stdin.write(JSON.stringify({ text: g, voice: i, speed: c })), r.stdin.end();
+    const u = Buffer.from(JSON.stringify({ text: g, voice: y }), "utf-8");
+    r.stdin.write(u), r.stdin.end();
   });
 }
-function ee(g, b, p = "+0%") {
+function te(g, y, m = "+0%") {
   return new Promise((t, e) => {
-    const o = T.resolve($, "../scripts/piper_tts_engine.py"), r = A("python", [o, "--json"], { windowsHide: !0 });
-    let n = "", m = "";
-    r.stdout.on("data", (s) => n += s.toString("utf-8")), r.stderr.on("data", (s) => m += s.toString("utf-8")), r.on("close", (s) => {
-      if (s !== 0)
-        return e(new Error(`Piper process exited with code ${s}: ${m}`));
+    const r = T.resolve(M, "../scripts/piper_tts_engine.py"), o = P("python", [r, "--json"], { windowsHide: !0 });
+    let n = "", u = "";
+    o.stdout.on("data", (i) => n += i.toString("utf-8")), o.stderr.on("data", (i) => u += i.toString("utf-8")), o.on("close", (i) => {
+      if (i !== 0)
+        return e(new Error(`Piper process exited with code ${i}: ${u}`));
       try {
-        const d = JSON.parse(n);
-        t(d);
-      } catch (d) {
-        e(new Error(`Failed to parse Piper JSON: ${d.message}`));
+        const h = JSON.parse(n);
+        t(h);
+      } catch (h) {
+        e(new Error(`Failed to parse Piper JSON: ${h.message}`));
       }
     });
-    let c = 1;
-    if (p.includes("%")) {
-      const s = parseInt(p.replace("%", ""));
-      isNaN(s) || (c = Math.max(0.5, Math.min(2, 1 + s / 100)));
+    let a = 1;
+    if (m.includes("%")) {
+      const i = parseInt(m.replace("%", ""));
+      isNaN(i) || (a = Math.max(0.5, Math.min(2, 1 + i / 100)));
     }
-    const i = b.toLowerCase().replace("piper:", "").trim() || "ngochuyen", a = Buffer.from(JSON.stringify({ text: g, voice: i, speed: c }), "utf-8");
-    r.stdin.write(a), r.stdin.end();
+    const s = y.toLowerCase().replace("piper:", "").trim() || "ngochuyen", c = Buffer.from(JSON.stringify({ text: g, voice: s, speed: a }), "utf-8");
+    o.stdin.write(c), o.stdin.end();
   });
 }
-function te() {
+function ne() {
   _.handle(
     "tts:synthesize",
-    async (p, { text: t, voice: e = "vi-VN-NamMinhNeural", rate: o = "+0%", pitch: r = "+0Hz" }) => {
+    async (m, { text: t, voice: e = "vi-VN-NamMinhNeural", rate: r = "+0%", pitch: o = "+0Hz" }) => {
       try {
         const n = t.trim();
         if (!n)
           return { audioUrl: "", duration: 1, words: [] };
+        if (e.startsWith("f5:"))
+          try {
+            const l = await ee(n, e);
+            if (l && l.audioUrl)
+              return l;
+          } catch (l) {
+            console.warn("F5-TTS Zero-Shot failed, falling back to Piper VITS:", l);
+          }
         if (e.startsWith("piper:") || e === "piper_ngochuyen" || e === "piper_manhdung")
           try {
-            const u = await ee(n, e, o);
-            if (u && u.audioUrl)
-              return u;
-          } catch (u) {
-            console.warn("Piper VITS TTS failed, falling back to neural voice:", u);
+            const l = await te(n, e, r);
+            if (l && l.audioUrl)
+              return l;
+          } catch (l) {
+            console.warn("Piper VITS TTS failed, falling back to neural voice:", l);
           }
         if (e.startsWith("kokoro:") || e === "ngoc_huyen" || e === "manh_dung")
           try {
-            const u = await X(n, e, o);
-            if (u && u.audioUrl)
-              return u;
-          } catch (u) {
-            console.warn("Local Kokoro TTS execution failed, falling back to Edge-TTS:", u);
+            const l = await X(n, e, r);
+            if (l && l.audioUrl)
+              return l;
+          } catch (l) {
+            console.warn("Local Kokoro TTS execution failed, falling back to Edge-TTS:", l);
           }
-        const { effectiveVoice: m, effectiveRate: c, effectivePitch: i } = Z(e, o, r), a = new j(n, {
-          voice: m,
-          rate: c,
-          pitch: i
-        }), s = [], d = [];
-        for await (const u of a.stream()) {
-          const y = u;
-          if (y.type === "audio" && y.data)
-            d.push(Buffer.isBuffer(y.data) ? y.data : Buffer.from(y.data));
-          else if (y.type === "WordBoundary" && y.text) {
-            const x = Number(((y.offset || 0) / 1e7).toFixed(2)), k = Number(((y.duration || 0) / 1e7).toFixed(2));
-            s.push({
-              word: String(y.text),
+        const { effectiveVoice: u, effectiveRate: a, effectivePitch: s } = Z(e, r, o), c = new O(n, {
+          voice: u,
+          rate: a,
+          pitch: s
+        }), i = [], h = [];
+        for await (const l of c.stream()) {
+          const b = l;
+          if (b.type === "audio" && b.data)
+            h.push(Buffer.isBuffer(b.data) ? b.data : Buffer.from(b.data));
+          else if (b.type === "WordBoundary" && b.text) {
+            const x = Number(((b.offset || 0) / 1e7).toFixed(2)), k = Number(((b.duration || 0) / 1e7).toFixed(2));
+            i.push({
+              word: String(b.text),
               start: x,
               end: Number((x + k).toFixed(2))
             });
           }
         }
-        const f = Buffer.concat(d);
+        const f = Buffer.concat(h);
         if (f.length === 0)
           throw new Error("Empty audio received from Edge-TTS");
-        const h = `data:audio/mp3;base64,${f.toString("base64")}`;
+        const p = `data:audio/mp3;base64,${f.toString("base64")}`;
         let w = 3;
-        return s.length > 0 ? w = Number((s[s.length - 1].end + 0.3).toFixed(2)) : w = Number(Math.max(2.5, f.length / 5500).toFixed(2)), {
-          audioUrl: h,
+        return i.length > 0 ? w = Number((i[i.length - 1].end + 0.3).toFixed(2)) : w = Number(Math.max(2.5, f.length / 5500).toFixed(2)), {
+          audioUrl: p,
           duration: w,
-          words: s
+          words: i
         };
       } catch (n) {
         return console.warn("Edge-TTS direct synthesis error, falling back:", (n == null ? void 0 : n.message) || n), Y(t, e);
       }
     }
-  ), _.handle("render:video", async (p, { project: t, resolution: e = "1080p" }) => {
+  ), _.handle("render:video", async (m, { project: t, resolution: e = "1080p" }) => {
     try {
-      const o = T.resolve("out");
-      E.existsSync(o) || E.mkdirSync(o, { recursive: !0 });
-      const n = `${(t.title || "Video").replace(/[^a-zA-Z0-9_\u00C0-\u024F\u1EA0-\u1EF9]/g, "_").slice(0, 40)}_${Date.now()}.mp4`, m = T.join(o, n);
-      l == null || l.webContents.send("render:progress", {
+      const r = T.resolve("out");
+      C.existsSync(r) || C.mkdirSync(r, { recursive: !0 });
+      const n = `${(t.title || "Video").replace(/[^a-zA-Z0-9_\u00C0-\u024F\u1EA0-\u1EF9]/g, "_").slice(0, 40)}_${Date.now()}.mp4`, u = T.join(r, n);
+      d == null || d.webContents.send("render:progress", {
         progress: 5,
         stage: "bundle",
         message: "Đang chuẩn bị và đóng gói bundle Remotion..."
       });
-      const c = T.resolve("src/remotion/index.ts");
-      P = await O({
-        entryPoint: c,
-        onProgress: (h) => {
-          l == null || l.webContents.send("render:progress", {
-            progress: Math.min(25, Math.round(5 + h * 20 / 100)),
+      const a = T.resolve("src/remotion/index.ts");
+      A = await j({
+        entryPoint: a,
+        onProgress: (p) => {
+          d == null || d.webContents.send("render:progress", {
+            progress: Math.min(25, Math.round(5 + p * 20 / 100)),
             stage: "bundle",
-            message: `Đang biên dịch mã nguồn Remotion (${h}%)...`
+            message: `Đang biên dịch mã nguồn Remotion (${p}%)...`
           });
         }
-      }), l == null || l.webContents.send("render:progress", {
+      }), d == null || d.webContents.send("render:progress", {
         progress: 28,
         stage: "composition",
         message: "Đang thiết lập cấu hình video và phân cảnh..."
       });
-      const i = t.aspectRatio === "9:16" ? "Shorts916" : "Landscape169", a = await H({
-        serveUrl: P,
-        id: i,
+      const s = t.aspectRatio === "9:16" ? "Shorts916" : "Landscape169", c = await H({
+        serveUrl: A,
+        id: s,
         inputProps: { project: t }
-      }), s = t.fps || 30, d = Math.max(
+      }), i = t.fps || 30, h = Math.max(
         (t.scenes || []).reduce(
-          (h, w) => h + Math.max(Math.round((w.audioDuration || 4) * s), Math.round(2 * s)),
+          (p, w) => p + Math.max(Math.round((w.audioDuration || 4) * i), Math.round(2 * i)),
           0
         ),
         30
       );
       let f = t.aspectRatio === "9:16" ? 1080 : 1920, v = t.aspectRatio === "9:16" ? 1920 : 1080;
-      return e === "4k" && (f = t.aspectRatio === "9:16" ? 2160 : 3840, v = t.aspectRatio === "9:16" ? 3840 : 2160), l == null || l.webContents.send("render:progress", {
+      return e === "4k" && (f = t.aspectRatio === "9:16" ? 2160 : 3840, v = t.aspectRatio === "9:16" ? 3840 : 2160), d == null || d.webContents.send("render:progress", {
         progress: 32,
         stage: "rendering",
-        message: `Bắt đầu render ${d} khung hình (${f}x${v})...`
+        message: `Bắt đầu render ${h} khung hình (${f}x${v})...`
       }), await z({
         composition: {
-          ...a,
-          durationInFrames: d,
+          ...c,
+          durationInFrames: h,
           width: f,
           height: v,
-          fps: s
+          fps: i
         },
-        serveUrl: P,
+        serveUrl: A,
         codec: "h264",
-        outputLocation: m,
+        outputLocation: u,
         inputProps: { project: t },
-        onProgress: ({ progress: h }) => {
-          const w = Math.min(99, Math.round(32 + h * 66));
-          l == null || l.webContents.send("render:progress", {
+        onProgress: ({ progress: p }) => {
+          const w = Math.min(99, Math.round(32 + p * 66));
+          d == null || d.webContents.send("render:progress", {
             progress: w,
             stage: "rendering",
-            message: `Đang xử lý hình ảnh, phụ đề & âm thanh (${Math.round(h * 100)}%)...`
+            message: `Đang xử lý hình ảnh, phụ đề & âm thanh (${Math.round(p * 100)}%)...`
           });
         }
-      }), l == null || l.webContents.send("render:progress", {
+      }), d == null || d.webContents.send("render:progress", {
         progress: 100,
         stage: "complete",
         message: "Render video MP4 thành công!"
       }), {
         success: !0,
-        filePath: m
+        filePath: u
       };
-    } catch (o) {
-      throw console.error("Render media error in main process:", o), new Error(o.message || "Render video thất bại");
+    } catch (r) {
+      throw console.error("Render media error in main process:", r), new Error(r.message || "Render video thất bại");
     }
-  }), _.handle("shell:open-path", async (p, t) => V.openPath(t)), _.handle("dialog:select-file", async (p, t) => l ? (await K.showOpenDialog(l, t)).filePaths : null), _.handle("dialog:select-folder", async () => l && (await K.showOpenDialog(l, {
+  }), _.handle("shell:open-path", async (m, t) => V.openPath(t)), _.handle("dialog:select-file", async (m, t) => d ? (await K.showOpenDialog(d, t)).filePaths : null), _.handle("dialog:select-folder", async () => d && (await K.showOpenDialog(d, {
     properties: ["openDirectory"]
-  })).filePaths[0] || null), _.handle("audio:read-file-base64", async (p, t) => {
+  })).filePaths[0] || null), _.handle("audio:read-file-base64", async (m, t) => {
     try {
-      if (!t || !E.existsSync(t)) return null;
-      const e = await E.promises.readFile(t), o = T.extname(t).toLowerCase().replace(".", "");
-      let r = "audio/mp3";
-      o === "wav" ? r = "audio/wav" : o === "m4a" ? r = "audio/m4a" : o === "aac" ? r = "audio/aac" : o === "ogg" ? r = "audio/ogg" : o === "mp4" ? r = "video/mp4" : o === "mov" ? r = "video/quicktime" : o === "webm" ? r = "video/webm" : o === "mkv" && (r = "video/x-matroska");
+      if (!t || !C.existsSync(t)) return null;
+      const e = await C.promises.readFile(t), r = T.extname(t).toLowerCase().replace(".", "");
+      let o = "audio/mp3";
+      r === "wav" ? o = "audio/wav" : r === "m4a" ? o = "audio/m4a" : r === "aac" ? o = "audio/aac" : r === "ogg" ? o = "audio/ogg" : r === "mp4" ? o = "video/mp4" : r === "mov" ? o = "video/quicktime" : r === "webm" ? o = "video/webm" : r === "mkv" && (o = "video/x-matroska");
       const n = e.toString("base64");
       return {
-        dataUrl: `data:${r};base64,${n}`,
+        dataUrl: `data:${o};base64,${n}`,
         base64: n,
-        mimeType: r,
+        mimeType: o,
         sizeBytes: e.length
       };
     } catch (e) {
@@ -333,13 +359,13 @@ function te() {
     }
   });
   const g = process.env.GEMINI_API_KEY || "";
-  _.handle("audio:transcribe", async (p, t) => {
-    var c, i, a, s, d, f, v;
-    const { audioBase64: e, mimeType: o = "audio/mp3" } = t, r = t.apiKey && t.apiKey.trim() ? t.apiKey.trim() : g;
+  _.handle("audio:transcribe", async (m, t) => {
+    var a, s, c, i, h, f, v;
+    const { audioBase64: e, mimeType: r = "audio/mp3" } = t, o = t.apiKey && t.apiKey.trim() ? t.apiKey.trim() : g;
     if (!e) return { error: "Không tìm thấy dữ liệu âm thanh" };
-    const n = (o || "audio/mp3").split(";")[0].trim().toLowerCase(), m = n.includes("webm") ? "audio/webm" : n.includes("wav") ? "audio/wav" : n.includes("ogg") ? "audio/ogg" : n.includes("mp4") || n.includes("m4a") || n.includes("aac") ? "audio/mp4" : "audio/mp3";
-    if (r && r.trim()) {
-      const h = `Bạn là hệ thống chuyển âm thanh thành văn bản (Speech-to-Text) và đồng bộ phụ đề Karaoke.
+    const n = (r || "audio/mp3").split(";")[0].trim().toLowerCase(), u = n.includes("webm") ? "audio/webm" : n.includes("wav") ? "audio/wav" : n.includes("ogg") ? "audio/ogg" : n.includes("mp4") || n.includes("m4a") || n.includes("aac") ? "audio/mp4" : "audio/mp3";
+    if (o && o.trim()) {
+      const p = `Bạn là hệ thống chuyển âm thanh thành văn bản (Speech-to-Text) và đồng bộ phụ đề Karaoke.
 Nhiệm vụ: Nghe kỹ file âm thanh đính kèm và nhận diện chính xác toàn bộ câu từ được phát âm (tiếng Việt hoặc tiếng Anh).
 
 Yêu cầu BẮT BUỘC:
@@ -369,28 +395,28 @@ TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (KHÔNG KÈM KÝ TỰ MARKDOWN):
         "gemini-1.5-pro"
       ];
       try {
-        const y = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${r.trim()}`);
-        if (y.ok) {
-          const x = await y.json();
+        const b = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${o.trim()}`);
+        if (b.ok) {
+          const x = await b.json();
           if (Array.isArray(x.models)) {
-            const k = x.models.filter((N) => {
-              var S;
-              return (S = N.supportedGenerationMethods) == null ? void 0 : S.includes("generateContent");
-            }).map((N) => N.name.replace(/^models\//, ""));
-            k.length > 0 && (w = k.sort((N, S) => N.includes("2.0-flash") ? -1 : S.includes("2.0-flash") ? 1 : N.includes("flash") ? -1 : S.includes("flash") ? 1 : 0));
+            const k = x.models.filter((S) => {
+              var N;
+              return (N = S.supportedGenerationMethods) == null ? void 0 : N.includes("generateContent");
+            }).map((S) => S.name.replace(/^models\//, ""));
+            k.length > 0 && (w = k.sort((S, N) => S.includes("2.0-flash") ? -1 : N.includes("2.0-flash") ? 1 : S.includes("flash") ? -1 : N.includes("flash") ? 1 : 0));
           }
         } else {
-          const x = await y.json().catch(() => ({}));
-          if ((c = x == null ? void 0 : x.error) != null && c.message)
+          const x = await b.json().catch(() => ({}));
+          if ((a = x == null ? void 0 : x.error) != null && a.message)
             return { error: `Gemini API Key lỗi: ${x.error.message}` };
         }
-      } catch (y) {
-        console.warn("Auto-discover Gemini models warning:", y);
+      } catch (b) {
+        console.warn("Auto-discover Gemini models warning:", b);
       }
-      let u = "";
-      for (const y of w)
+      let l = "";
+      for (const b of w)
         try {
-          const x = `https://generativelanguage.googleapis.com/v1beta/models/${y}:generateContent?key=${r.trim()}`, k = await fetch(x, {
+          const x = `https://generativelanguage.googleapis.com/v1beta/models/${b}:generateContent?key=${o.trim()}`, k = await fetch(x, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -399,11 +425,11 @@ TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (KHÔNG KÈM KÝ TỰ MARKDOWN):
                   parts: [
                     {
                       inline_data: {
-                        mime_type: m,
+                        mime_type: u,
                         data: e
                       }
                     },
-                    { text: h }
+                    { text: p }
                   ]
                 }
               ],
@@ -414,36 +440,36 @@ TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (KHÔNG KÈM KÝ TỰ MARKDOWN):
             })
           });
           if (k.ok) {
-            const N = await k.json();
-            let S = (f = (d = (s = (a = (i = N == null ? void 0 : N.candidates) == null ? void 0 : i[0]) == null ? void 0 : a.content) == null ? void 0 : s.parts) == null ? void 0 : d[0]) == null ? void 0 : f.text;
-            if (S) {
-              S = S.trim().replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/```$/, "").trim();
-              const M = JSON.parse(S);
-              if (M && M.narration)
+            const S = await k.json();
+            let N = (f = (h = (i = (c = (s = S == null ? void 0 : S.candidates) == null ? void 0 : s[0]) == null ? void 0 : c.content) == null ? void 0 : i.parts) == null ? void 0 : h[0]) == null ? void 0 : f.text;
+            if (N) {
+              N = N.trim().replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/```$/, "").trim();
+              const $ = JSON.parse(N);
+              if ($ && $.narration)
                 return {
-                  narration: String(M.narration).trim(),
-                  language: M.language || "vi",
-                  audioDuration: Number(M.duration || 4),
-                  words: Array.isArray(M.words) ? M.words : []
+                  narration: String($.narration).trim(),
+                  language: $.language || "vi",
+                  audioDuration: Number($.duration || 4),
+                  words: Array.isArray($.words) ? $.words : []
                 };
             }
           } else {
-            const N = await k.json().catch(() => ({}));
-            u = ((v = N == null ? void 0 : N.error) == null ? void 0 : v.message) || `HTTP ${k.status}`;
+            const S = await k.json().catch(() => ({}));
+            l = ((v = S == null ? void 0 : S.error) == null ? void 0 : v.message) || `HTTP ${k.status}`;
           }
         } catch (x) {
-          u = x.message;
+          l = x.message;
         }
-      if (u)
-        return { error: `Gemini API: ${u}` };
+      if (l)
+        return { error: `Gemini API: ${l}` };
     }
     return { error: "Chưa có Gemini API Key. Vui lòng nhập API Key trong Cài đặt (Settings) trên thanh menu để AI tự động nghe và chuyển thành chữ." };
-  }), _.handle("media:search-web", async (p, t) => {
+  }), _.handle("media:search-web", async (m, t) => {
     try {
       const e = (t || "").trim();
       if (!e) return [];
       try {
-        const m = await fetch(
+        const u = await fetch(
           `https://www.bing.com/images/async?q=${encodeURIComponent(e)}&count=25&first=0`,
           {
             headers: {
@@ -453,20 +479,20 @@ TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (KHÔNG KÈM KÝ TỰ MARKDOWN):
             }
           }
         );
-        if (m.ok) {
-          const a = [...(await m.text()).matchAll(/murl&quot;:&quot;(http[^&]+)&quot;/g)].map((s) => decodeURIComponent(s[1])).filter((s) => s && !s.endsWith(".svg") && !s.includes("favicon"));
-          if (a.length > 0)
-            return a.slice(0, 20).map((s, d) => ({
-              id: `bing-img-${d}-${Date.now()}`,
+        if (u.ok) {
+          const c = [...(await u.text()).matchAll(/murl&quot;:&quot;(http[^&]+)&quot;/g)].map((i) => decodeURIComponent(i[1])).filter((i) => i && !i.endsWith(".svg") && !i.includes("favicon"));
+          if (c.length > 0)
+            return c.slice(0, 20).map((i, h) => ({
+              id: `bing-img-${h}-${Date.now()}`,
               type: "image",
-              url: s,
-              thumbnail: s,
+              url: i,
+              thumbnail: i,
               title: e,
               source: "web"
             }));
         }
-      } catch (m) {
-        console.warn("Bing search attempt failed, trying DuckDuckGo fallback:", m);
+      } catch (u) {
+        console.warn("Bing search attempt failed, trying DuckDuckGo fallback:", u);
       }
       const n = (await (await fetch(
         `https://duckduckgo.com/?q=${encodeURIComponent(e)}&iax=images&ia=images`,
@@ -477,8 +503,8 @@ TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (KHÔNG KÈM KÝ TỰ MARKDOWN):
         }
       )).text()).match(/vqd=([\d-]+)/);
       if (n) {
-        const m = n[1], i = await (await fetch(
-          `https://duckduckgo.com/i.js?l=wt-wt&o=json&q=${encodeURIComponent(e)}&vqd=${m}&f=,,,`,
+        const u = n[1], s = await (await fetch(
+          `https://duckduckgo.com/i.js?l=wt-wt&o=json&q=${encodeURIComponent(e)}&vqd=${u}&f=,,,`,
           {
             headers: {
               "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
@@ -486,13 +512,13 @@ TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (KHÔNG KÈM KÝ TỰ MARKDOWN):
             }
           }
         )).json();
-        if (i.results && i.results.length > 0)
-          return i.results.slice(0, 20).map((a, s) => ({
-            id: `ddg-img-${s}-${Date.now()}`,
+        if (s.results && s.results.length > 0)
+          return s.results.slice(0, 20).map((c, i) => ({
+            id: `ddg-img-${i}-${Date.now()}`,
             type: "image",
-            url: a.image,
-            thumbnail: a.thumbnail || a.image,
-            title: a.title || e,
+            url: c.image,
+            thumbnail: c.thumbnail || c.image,
+            title: c.title || e,
             source: "web"
           }));
       }
@@ -501,56 +527,56 @@ TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (KHÔNG KÈM KÝ TỰ MARKDOWN):
       return console.warn("Web image search error:", e), [];
     }
   });
-  const b = /* @__PURE__ */ new Map();
-  _.handle("media:search-videos", async (p, t, e = 1) => {
+  const y = /* @__PURE__ */ new Map();
+  _.handle("media:search-videos", async (m, t, e = 1) => {
     try {
-      const o = (t || "").trim();
-      if (!o) return [];
-      const r = Math.max(1, Number(e) || 1), n = `${o.toLowerCase()}_p${r}`;
-      if (b.has(n))
-        return b.get(n);
-      const m = (d) => d.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D"), c = o.toLowerCase();
-      let i = [];
-      if (/đi học|trường học|lớp học|học sinh|sinh viên|school|student|classroom/i.test(c))
-        i = ["school", "student", "classroom", "campus", "studying"];
-      else if (/tắm|đi tắm|gội đầu|ngâm mình|bơi|hồ bơi|bãi biển|nước mát/i.test(c))
-        i = ["shower", "bath", "swimming pool", "relaxing water"];
-      else if (/vũ trụ|thiên hà|ngân hà|galaxy|không gian|hành tinh|sao|cosmos|nebula|space/i.test(c))
-        i = ["galaxy", "space", "nebula", "stars"];
-      else if (/bún|cá|phở|món|ẩm thực|nước dùng|ăn|nấu|chiên|nướng|nhà hàng|quán|chế biến|tô|bát|thực khách|food|uống|cafe|cà phê|trà/i.test(c))
-        i = /cá/i.test(c) ? ["fish cooking", "cooking", "food"] : ["cooking", "delicious food", "kitchen"];
-      else if (/ngủ|thức dậy|buổi sáng|bình minh|giường|phòng ngủ/i.test(c))
-        i = ["waking up", "morning", "bed", "sunrise"];
-      else if (/mua sắm|shopping|siêu thị|thời trang|quần áo|váy|cửa hàng/i.test(c))
-        i = ["shopping", "fashion", "store", "clothes"];
-      else if (/tiền|tài chính|chứng khoán|cổ phiếu|doanh thu|lợi nhuận|ngân hàng|giàu|đầu tư|tỷ đồng|triệu|money|finance/i.test(c))
-        i = ["money", "finance", "business", "growth"];
-      else if (/code|lập trình|ai|trí tuệ nhân tạo|phần mềm|công nghệ|máy tính|developer|robot|thuật toán|tech/i.test(c))
-        i = ["technology", "coding", "artificial intelligence", "programming"];
-      else if (/máy bay|chuyến bay|sân bay|cất cánh|hàng không|airplane|flight/i.test(c))
-        i = ["airplane", "flight", "clouds", "travel"];
-      else if (/đua xe|cao tốc|lái xe|xe hơi|ô tô|đường cao tốc|highway|driving/i.test(c))
-        i = ["highway", "driving", "night drive", "cars"];
-      else if (/du lịch|biển|núi|khám phá|bãi biển|travel|nature|phong cảnh/i.test(c))
-        i = ["travel", "nature", "ocean", "landscape"];
-      else if (/thành phố|đô thị|tòa nhà|đường phố|city|urban/i.test(c))
-        i = ["city", "urban", "skyline", "traffic"];
-      else if (/thể thao|gym|chạy bộ|sức khỏe|fitness|workout|yoga/i.test(c))
-        i = ["fitness", "workout", "running", "gym"];
-      else if (/^[a-zA-Z0-9\s\-',.]+$/.test(o)) {
-        const d = o.split(/\s+/).filter(Boolean);
-        i = [o, d[0] || "lifestyle", d[d.length - 1] || "cinematic"];
+      const r = (t || "").trim();
+      if (!r) return [];
+      const o = Math.max(1, Number(e) || 1), n = `${r.toLowerCase()}_p${o}`;
+      if (y.has(n))
+        return y.get(n);
+      const u = (h) => h.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D"), a = r.toLowerCase();
+      let s = [];
+      if (/đi học|trường học|lớp học|học sinh|sinh viên|school|student|classroom/i.test(a))
+        s = ["school", "student", "classroom", "campus", "studying"];
+      else if (/tắm|đi tắm|gội đầu|ngâm mình|bơi|hồ bơi|bãi biển|nước mát/i.test(a))
+        s = ["shower", "bath", "swimming pool", "relaxing water"];
+      else if (/vũ trụ|thiên hà|ngân hà|galaxy|không gian|hành tinh|sao|cosmos|nebula|space/i.test(a))
+        s = ["galaxy", "space", "nebula", "stars"];
+      else if (/bún|cá|phở|món|ẩm thực|nước dùng|ăn|nấu|chiên|nướng|nhà hàng|quán|chế biến|tô|bát|thực khách|food|uống|cafe|cà phê|trà/i.test(a))
+        s = /cá/i.test(a) ? ["fish cooking", "cooking", "food"] : ["cooking", "delicious food", "kitchen"];
+      else if (/ngủ|thức dậy|buổi sáng|bình minh|giường|phòng ngủ/i.test(a))
+        s = ["waking up", "morning", "bed", "sunrise"];
+      else if (/mua sắm|shopping|siêu thị|thời trang|quần áo|váy|cửa hàng/i.test(a))
+        s = ["shopping", "fashion", "store", "clothes"];
+      else if (/tiền|tài chính|chứng khoán|cổ phiếu|doanh thu|lợi nhuận|ngân hàng|giàu|đầu tư|tỷ đồng|triệu|money|finance/i.test(a))
+        s = ["money", "finance", "business", "growth"];
+      else if (/code|lập trình|ai|trí tuệ nhân tạo|phần mềm|công nghệ|máy tính|developer|robot|thuật toán|tech/i.test(a))
+        s = ["technology", "coding", "artificial intelligence", "programming"];
+      else if (/máy bay|chuyến bay|sân bay|cất cánh|hàng không|airplane|flight/i.test(a))
+        s = ["airplane", "flight", "clouds", "travel"];
+      else if (/đua xe|cao tốc|lái xe|xe hơi|ô tô|đường cao tốc|highway|driving/i.test(a))
+        s = ["highway", "driving", "night drive", "cars"];
+      else if (/du lịch|biển|núi|khám phá|bãi biển|travel|nature|phong cảnh/i.test(a))
+        s = ["travel", "nature", "ocean", "landscape"];
+      else if (/thành phố|đô thị|tòa nhà|đường phố|city|urban/i.test(a))
+        s = ["city", "urban", "skyline", "traffic"];
+      else if (/thể thao|gym|chạy bộ|sức khỏe|fitness|workout|yoga/i.test(a))
+        s = ["fitness", "workout", "running", "gym"];
+      else if (/^[a-zA-Z0-9\s\-',.]+$/.test(r)) {
+        const h = r.split(/\s+/).filter(Boolean);
+        s = [r, h[0] || "lifestyle", h[h.length - 1] || "cinematic"];
       } else
-        i = [m(o).replace(/[^\w\s]/gi, " ").trim(), "lifestyle", "cinematic"];
-      const a = (r - 1) % i.length, s = [
-        i[a],
-        ...i.filter((d, f) => f !== a)
+        s = [u(r).replace(/[^\w\s]/gi, " ").trim(), "lifestyle", "cinematic"];
+      const c = (o - 1) % s.length, i = [
+        s[c],
+        ...s.filter((h, f) => f !== c)
       ];
-      for (const d of s)
-        if (d)
+      for (const h of i)
+        if (h)
           try {
-            const f = new AbortController(), v = setTimeout(() => f.abort(), 3500), h = Math.floor((r - 1) / i.length) + 1, w = await fetch(
-              `https://coverr.co/api/videos?query=${encodeURIComponent(d)}&page=${h}&urls=true`,
+            const f = new AbortController(), v = setTimeout(() => f.abort(), 3500), p = Math.floor((o - 1) / s.length) + 1, w = await fetch(
+              `https://coverr.co/api/videos?query=${encodeURIComponent(h)}&page=${p}&urls=true`,
               {
                 signal: f.signal,
                 headers: {
@@ -559,44 +585,44 @@ TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (KHÔNG KÈM KÝ TỰ MARKDOWN):
               }
             );
             if (clearTimeout(v), w.ok) {
-              const y = (await w.json()).hits || [];
-              if (y.length > 0) {
-                const x = y.slice(0, 12).map((k, N) => {
-                  var S, M, R, I;
+              const b = (await w.json()).hits || [];
+              if (b.length > 0) {
+                const x = b.slice(0, 12).map((k, S) => {
+                  var N, $, R, I;
                   return {
-                    id: `coverr-video-${N}-${Date.now()}`,
+                    id: `coverr-video-${S}-${Date.now()}`,
                     type: "video",
-                    url: ((S = k.urls) == null ? void 0 : S.mp4) || ((M = k.urls) == null ? void 0 : M.mp4_preview),
+                    url: ((N = k.urls) == null ? void 0 : N.mp4) || (($ = k.urls) == null ? void 0 : $.mp4_preview),
                     previewUrl: ((R = k.urls) == null ? void 0 : R.mp4_preview) || ((I = k.urls) == null ? void 0 : I.mp4),
                     thumbnail: k.thumbnail || k.poster,
-                    title: k.title || o,
+                    title: k.title || r,
                     source: "web",
                     duration: Math.round(Number(k.duration || 8))
                   };
                 });
-                return b.set(n, x), x;
+                return y.set(n, x), x;
               }
             }
           } catch (f) {
-            console.warn(`Coverr fetch failed for keyword: ${d}`, f);
+            console.warn(`Coverr fetch failed for keyword: ${h}`, f);
           }
       return [];
-    } catch (o) {
-      return console.warn("Video search error in main process:", o), [];
+    } catch (r) {
+      return console.warn("Video search error in main process:", r), [];
     }
   }), _.handle(
     "ai:gemini-generate",
-    async (p, t) => {
-      var e, o, r, n, m, c;
+    async (m, t) => {
+      var e, r, o, n, u, a;
       try {
-        const { prompt: i, cookie: a, apiKey: s } = t || {}, d = (i || "").trim();
-        if (!d)
+        const { prompt: s, cookie: c, apiKey: i } = t || {}, h = (s || "").trim();
+        if (!h)
           throw new Error("Prompt is required");
-        const f = (s || a || process.env.DEEPSEEK_API_KEY || process.env.GROQ_API_KEY || "").trim();
+        const f = (i || c || process.env.DEEPSEEK_API_KEY || process.env.GROQ_API_KEY || "").trim();
         if (f.startsWith("sk-") || f.length > 20)
           for (const v of ["deepseek-chat", "deepseek-reasoner"])
             try {
-              const h = await fetch("https://api.deepseek.com/chat/completions", {
+              const p = await fetch("https://api.deepseek.com/chat/completions", {
                 method: "POST",
                 headers: {
                   Authorization: `Bearer ${f}`,
@@ -609,23 +635,23 @@ TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (KHÔNG KÈM KÝ TỰ MARKDOWN):
                       role: "system",
                       content: "You are an expert AI video scriptwriter, director, and creative content producer. Always return high quality, clear, and well-structured JSON or text responses."
                     },
-                    { role: "user", content: d }
+                    { role: "user", content: h }
                   ],
                   temperature: 0.7
                 })
               });
-              if (h.ok) {
-                const w = await h.json(), u = (r = (o = (e = w == null ? void 0 : w.choices) == null ? void 0 : e[0]) == null ? void 0 : o.message) == null ? void 0 : r.content;
-                if (u && typeof u == "string")
-                  return { text: u.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/```(?:python|javascript|text|json)\?code_(?:reference|stdout)&code_event_index=\d+\n[\s\S]*?```\n?/g, "").trim(), rawLength: u.length };
+              if (p.ok) {
+                const w = await p.json(), l = (o = (r = (e = w == null ? void 0 : w.choices) == null ? void 0 : e[0]) == null ? void 0 : r.message) == null ? void 0 : o.content;
+                if (l && typeof l == "string")
+                  return { text: l.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/```(?:python|javascript|text|json)\?code_(?:reference|stdout)&code_event_index=\d+\n[\s\S]*?```\n?/g, "").trim(), rawLength: l.length };
               }
-            } catch (h) {
-              console.warn("DeepSeek model failed in Electron main:", v, h);
+            } catch (p) {
+              console.warn("DeepSeek model failed in Electron main:", v, p);
             }
         if (f.startsWith("gsk_") || f.length > 20)
           for (const v of ["deepseek-r1-distill-llama-70b", "llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"])
             try {
-              const h = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+              const p = await fetch("https://api.groq.com/openai/v1/chat/completions", {
                 method: "POST",
                 headers: {
                   Authorization: `Bearer ${f}`,
@@ -638,42 +664,42 @@ TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (KHÔNG KÈM KÝ TỰ MARKDOWN):
                       role: "system",
                       content: "You are an expert AI video scriptwriter, director, and creative content producer. Always return high quality, clear, and well-structured JSON or text responses."
                     },
-                    { role: "user", content: d }
+                    { role: "user", content: h }
                   ],
                   temperature: 0.7
                 })
               });
-              if (h.ok) {
-                const w = await h.json(), u = (c = (m = (n = w == null ? void 0 : w.choices) == null ? void 0 : n[0]) == null ? void 0 : m.message) == null ? void 0 : c.content;
-                if (u && typeof u == "string")
-                  return { text: u.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/```(?:python|javascript|text|json)\?code_(?:reference|stdout)&code_event_index=\d+\n[\s\S]*?```\n?/g, "").trim(), rawLength: u.length };
+              if (p.ok) {
+                const w = await p.json(), l = (a = (u = (n = w == null ? void 0 : w.choices) == null ? void 0 : n[0]) == null ? void 0 : u.message) == null ? void 0 : a.content;
+                if (l && typeof l == "string")
+                  return { text: l.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/```(?:python|javascript|text|json)\?code_(?:reference|stdout)&code_event_index=\d+\n[\s\S]*?```\n?/g, "").trim(), rawLength: l.length };
               }
-            } catch (h) {
-              console.warn("Groq model failed in Electron main:", v, h);
+            } catch (p) {
+              console.warn("Groq model failed in Electron main:", v, p);
             }
         return { text: "", rawLength: 0 };
-      } catch (i) {
-        throw console.error("Electron AI Generate error:", i), i;
+      } catch (s) {
+        throw console.error("Electron AI Generate error:", s), s;
       }
     }
-  ), _.handle("voice:train", async (p, t) => new Promise((e, o) => {
-    const r = T.resolve($, "../scripts/trainer/auto_voice_builder.py"), n = A("python", [r, "--json"], { windowsHide: !0 });
-    let m = "", c = "";
-    n.stdout.on("data", (a) => m += a.toString("utf-8")), n.stderr.on("data", (a) => c += a.toString("utf-8")), n.on("close", (a) => {
-      if (a !== 0)
-        return console.error(`Voice training process failed with code ${a}:`, c), o(new Error(c || `Process exited with code ${a}`));
+  ), _.handle("voice:train", async (m, t) => new Promise((e, r) => {
+    const o = T.resolve(M, "../scripts/trainer/auto_voice_builder.py"), n = P("python", [o, "--json"], { windowsHide: !0 });
+    let u = "", a = "";
+    n.stdout.on("data", (c) => u += c.toString("utf-8")), n.stderr.on("data", (c) => a += c.toString("utf-8")), n.on("close", (c) => {
+      if (c !== 0)
+        return console.error(`Voice training process failed with code ${c}:`, a), r(new Error(a || `Process exited with code ${c}`));
       try {
-        const s = JSON.parse(m);
-        e(s);
-      } catch (s) {
-        o(new Error(`Failed to parse response from voice builder: ${s.message}`));
+        const i = JSON.parse(u);
+        e(i);
+      } catch (i) {
+        r(new Error(`Failed to parse response from voice builder: ${i.message}`));
       }
     });
-    const i = Buffer.from(JSON.stringify(t), "utf-8");
-    n.stdin.write(i), n.stdin.end();
+    const s = Buffer.from(JSON.stringify(t), "utf-8");
+    n.stdin.write(s), n.stdin.end();
   })), _.handle("app:restart", () => {
-    C.relaunch(), C.exit(0);
+    E.relaunch(), E.exit(0);
   }), _.handle("app:reload", () => {
-    l == null || l.webContents.reload();
+    d == null || d.webContents.reload();
   });
 }
