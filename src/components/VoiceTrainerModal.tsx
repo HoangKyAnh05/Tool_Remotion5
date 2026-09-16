@@ -78,26 +78,33 @@ export const VoiceTrainerModal: React.FC<VoiceTrainerModalProps> = ({
 
       setProgressStatus('Đang phân tích ngữ âm và tạo cấu hình mạng nơ-ron VITS...');
 
-      // Call server/electron API
-      const res = await fetch('/api/train-voice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: voiceName.trim(),
-          voiceId: voiceId.trim() || 'custom_voice',
-          fileType: uploadType,
-          fileName: selectedFile.name,
-          fileBase64
-        })
-      });
+      // Call server or Electron IPC API
+      let result: any = null;
+      const payload = {
+        name: voiceName.trim(),
+        voiceId: voiceId.trim() || 'custom_voice',
+        fileType: uploadType,
+        fileName: selectedFile.name,
+        fileBase64
+      };
 
-      if (!res.ok) {
-        throw new Error(`Server returned status ${res.status}`);
+      if ((window as any).electronAPI?.trainVoice) {
+        result = await (window as any).electronAPI.trainVoice(payload);
+      } else {
+        const res = await fetch('/api/train-voice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          throw new Error(`Server returned status ${res.status}`);
+        }
+        result = await res.json();
       }
 
-      const result = await res.json();
-      if (result.error) {
-        throw new Error(result.error);
+      if (!result || result.error) {
+        throw new Error(result?.error || 'Huấn luyện giọng không thành công');
       }
 
       const newVoice: VoiceOption = {

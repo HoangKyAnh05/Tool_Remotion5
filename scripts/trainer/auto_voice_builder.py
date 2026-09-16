@@ -60,16 +60,20 @@ def build_voice_from_payload(payload):
         shutil.copy(file_path, input_audio_path)
         
     # Slicing audio & building dataset
-    from prepare_dataset import slice_wav_file
-    slice_wav_file(input_audio_path, voice_dataset_dir, segment_duration=4.5)
+    try:
+        sys.path.insert(0, os.path.dirname(__file__))
+        from prepare_dataset import slice_wav_file
+        slice_wav_file(input_audio_path, voice_dataset_dir, segment_duration=4.5)
+    except Exception as slice_err:
+        print(f"[AutoBuilder] Dataset slicing note: {slice_err}", file=sys.stderr)
     
     # Deploy a ready-to-run voice model package
     # Check if base model can be initialized
     base_model = os.path.join(PIPER_DIR, 'ngochuyen.onnx')
     if os.path.exists(base_model) and not os.path.exists(dest_onnx):
         shutil.copy(base_model, dest_onnx)
-        if os.path.exists(global_config):
-            shutil.copy(global_config, dest_json)
+    if os.path.exists(global_config) and not os.path.exists(dest_json):
+        shutil.copy(global_config, dest_json)
             
     return {
         'success': True,

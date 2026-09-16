@@ -19,6 +19,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectFolder: () => ipcRenderer.invoke('dialog:select-folder'),
   readAudioBase64: (filePath) => ipcRenderer.invoke('audio:read-file-base64', filePath),
   transcribeAudio: (params) => ipcRenderer.invoke('audio:transcribe', params),
+  geminiGenerate: (params) => ipcRenderer.invoke('ai:gemini-generate', params),
+  trainVoice: (params) => ipcRenderer.invoke('voice:train', params),
   onProcessMessage: (callback) => {
     ipcRenderer.on('main-process-message', (_event, value) => callback(value));
   }

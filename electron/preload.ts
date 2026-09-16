@@ -24,6 +24,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('audio:transcribe', params),
   geminiGenerate: (params: { prompt: string; modelId?: number; thinkMode?: number; cookie?: string; xsrfToken?: string }) =>
     ipcRenderer.invoke('ai:gemini-generate', params),
+  trainVoice: (params: { name: string; voiceId: string; fileType: string; fileName: string; fileBase64: string }) =>
+    ipcRenderer.invoke('voice:train', params),
   onProcessMessage: (callback: (message: string) => void) => {
     ipcRenderer.on('main-process-message', (_event, value) => callback(value));
   }

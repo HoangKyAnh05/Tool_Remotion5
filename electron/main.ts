@@ -998,6 +998,36 @@ TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (KHÔNG KÈM KÝ TỰ MARKDOWN):
     }
   );
 
+  // Voice Training & Custom Model Builder Handler
+  ipcMain.handle('voice:train', async (_, payload) => {
+    return new Promise((resolve, reject) => {
+      const scriptPath = path.resolve(__dirname, '../scripts/trainer/auto_voice_builder.py');
+      const proc = spawn('python', [scriptPath, '--json'], { windowsHide: true });
+      let stdout = '';
+      let stderr = '';
+
+      proc.stdout.on('data', (d: any) => (stdout += d.toString('utf-8')));
+      proc.stderr.on('data', (d: any) => (stderr += d.toString('utf-8')));
+
+      proc.on('close', (code) => {
+        if (code !== 0) {
+          console.error(`Voice training process failed with code ${code}:`, stderr);
+          return reject(new Error(stderr || `Process exited with code ${code}`));
+        }
+        try {
+          const res = JSON.parse(stdout);
+          resolve(res);
+        } catch (e: any) {
+          reject(new Error(`Failed to parse response from voice builder: ${e.message}`));
+        }
+      });
+
+      const inputBuffer = Buffer.from(JSON.stringify(payload), 'utf-8');
+      proc.stdin.write(inputBuffer);
+      proc.stdin.end();
+    });
+  });
+
   // App Lifecycle: Restart & Reload
   ipcMain.handle('app:restart', () => {
     app.relaunch();
