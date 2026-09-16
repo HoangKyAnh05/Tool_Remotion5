@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, Mic, Upload, Sparkles, CheckCircle2, AlertCircle, Loader2, Trash2, Volume2, FileAudio } from 'lucide-react';
+import { X, Mic, Upload, Sparkles, CheckCircle2, AlertCircle, Loader2, Trash2, Volume2, FileAudio, Key, ShieldCheck } from 'lucide-react';
 import { VoiceOption } from '../types/video';
 import { getSavedCustomVoices, saveCustomVoice, deleteCustomVoice } from '../services/customVoicesService';
+import { cloneElevenLabsVoice, getSavedElevenLabsApiKey, saveElevenLabsApiKey } from '../services/elevenLabsService';
 
 interface VoiceTrainerModalProps {
   isOpen: boolean;
@@ -18,6 +19,8 @@ export const VoiceTrainerModal: React.FC<VoiceTrainerModalProps> = ({
   const [voiceId, setVoiceId] = useState('');
   const [uploadType, setUploadType] = useState<'audio' | 'onnx'>('audio');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [elevenApiKey, setElevenApiKey] = useState<string>(() => getSavedElevenLabsApiKey());
+  const [useElevenClone, setUseElevenClone] = useState<boolean>(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progressStatus, setProgressStatus] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -40,6 +43,7 @@ export const VoiceTrainerModal: React.FC<VoiceTrainerModalProps> = ({
       setSelectedFile(file);
       if (file.name.endsWith('.onnx')) {
         setUploadType('onnx');
+        setUseElevenClone(false);
       } else {
         setUploadType('audio');
       }
@@ -49,7 +53,7 @@ export const VoiceTrainerModal: React.FC<VoiceTrainerModalProps> = ({
 
   const handleStartTrainAndDeploy = async () => {
     if (!voiceName.trim()) {
-      setErrorMessage('Vui lòng nhập tên cho giọng đọc AI (ví dụ: Độ Mixi, PewPew...)');
+      setErrorMessage('Vui lòng nhập tên cho giọng đọc AI (ví dụ: Độ Mixi, PewPew, Shark Hưng...)');
       return;
     }
     if (!selectedFile) {
@@ -60,9 +64,50 @@ export const VoiceTrainerModal: React.FC<VoiceTrainerModalProps> = ({
     setIsProcessing(true);
     setErrorMessage(null);
     setSuccessMessage(null);
-    setProgressStatus('Đang đọc tệp dữ liệu âm thanh từ máy tính...');
+
+    // Save ElevenLabs API Key if entered
+    if (elevenApiKey.trim()) {
+      saveElevenLabsApiKey(elevenApiKey.trim());
+    }
 
     try {
+      // 1. Nếu người dùng chọn ElevenLabs Instant Voice Clone (Chuẩn 100% giọng thật)
+      if (useElevenClone && uploadType === 'audio') {
+        const activeKey = elevenApiKey.trim() || getSavedElevenLabsApiKey().trim();
+        if (!activeKey) {
+          throw new Error('Vui lòng nhập ElevenLabs API Key bên dưới để nhân bản giọng đọc thật 100%!');
+        }
+
+        setProgressStatus('Đang gửi mẫu giọng lên AI Neural Cloning Engine để nhân bản 100% chất giọng...');
+        const cloneRes = await cloneElevenLabsVoice(voiceName.trim(), selectedFile, activeKey);
+
+        const newVoice: VoiceOption = {
+          id: cloneRes.voiceId,
+          name: cloneRes.name,
+          locale: 'vi-VN',
+          gender: 'Male',
+          description: `Mô hình giọng đọc AI nhân bản 100% chuẩn giọng cho ${voiceName.trim()}.`
+        };
+
+        saveCustomVoice(newVoice);
+        setCustomList(getSavedCustomVoices());
+        setSuccessMessage(`✨ Đã nhân bản 100% chuẩn giọng "${voiceName}" thành công!`);
+        setProgressStatus('');
+
+        if (onVoiceAdded) {
+          onVoiceAdded(newVoice);
+        }
+
+        // Reset form
+        setVoiceName('');
+        setVoiceId('');
+        setSelectedFile(null);
+        return;
+      }
+
+      // 2. Huấn luyện / Nạp Offline (.onnx hoặc local acoustic profile)
+      setProgressStatus('Đang trích xuất đặc trưng âm học và cấu hình mô hình offline...');
+
       // Convert file to base64
       const reader = new FileReader();
       const fileDataPromise = new Promise<string>((resolve, reject) => {
@@ -76,9 +121,6 @@ export const VoiceTrainerModal: React.FC<VoiceTrainerModalProps> = ({
       reader.readAsDataURL(selectedFile);
       const fileBase64 = await fileDataPromise;
 
-      setProgressStatus('Đang phân tích ngữ âm và tạo cấu hình mạng nơ-ron VITS...');
-
-      // Call server or Electron IPC API
       let result: any = null;
       const payload = {
         name: voiceName.trim(),
@@ -109,15 +151,15 @@ export const VoiceTrainerModal: React.FC<VoiceTrainerModalProps> = ({
 
       const newVoice: VoiceOption = {
         id: result.voiceId || `piper:${voiceId.trim()}`,
-        name: `👑 ${voiceName.trim()} (100% Model Thật)`,
+        name: `👑 ${voiceName.trim()} (Offline Model Đã Nạp)`,
         locale: 'vi-VN',
         gender: 'Male',
-        description: `Mô hình giọng đọc AI VITS tự huấn luyện cho ${voiceName.trim()}.`
+        description: `Mô hình giọng đọc AI VITS cho ${voiceName.trim()}.`
       };
 
       saveCustomVoice(newVoice);
       setCustomList(getSavedCustomVoices());
-      setSuccessMessage(`✨ Huấn luyện & nạp thành công giọng "${voiceName}" vào App!`);
+      setSuccessMessage(`✨ Nạp thành công giọng offline "${voiceName}" vào App!`);
       setProgressStatus('');
 
       if (onVoiceAdded) {
@@ -130,20 +172,7 @@ export const VoiceTrainerModal: React.FC<VoiceTrainerModalProps> = ({
       setSelectedFile(null);
     } catch (err: any) {
       console.error('Training error:', err);
-      // Fallback local save
-      const fallbackVoice: VoiceOption = {
-        id: `piper:${voiceId.trim()}`,
-        name: `👑 ${voiceName.trim()} (Model Đã Nạp)`,
-        locale: 'vi-VN',
-        gender: 'Male',
-        description: `Mô hình giọng đọc AI VITS tự nạp cho ${voiceName.trim()}.`
-      };
-      saveCustomVoice(fallbackVoice);
-      setCustomList(getSavedCustomVoices());
-      setSuccessMessage(`✅ Đã nạp thành công giọng "${voiceName}" vào danh sách chọn giọng!`);
-      if (onVoiceAdded) {
-        onVoiceAdded(fallbackVoice);
-      }
+      setErrorMessage(err.message || 'Có lỗi xảy ra trong quá trình nhân bản giọng nói.');
     } finally {
       setIsProcessing(false);
     }
@@ -164,8 +193,8 @@ export const VoiceTrainerModal: React.FC<VoiceTrainerModalProps> = ({
               <Mic className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-base font-bold tracking-tight">Studio Tạo & Nạp Giọng Đọc AI</h2>
-              <p className="text-xs text-emerald-100">Tự động huấn luyện mô hình giọng đọc AI từ file âm thanh máy tính</p>
+              <h2 className="text-base font-bold tracking-tight">Studio Nhân Bản & Huấn Luyện Giọng AI</h2>
+              <p className="text-xs text-emerald-100">Nhân bản 100% chuẩn giọng thật từ file âm thanh máy tính</p>
             </div>
           </div>
           <button
@@ -210,7 +239,7 @@ export const VoiceTrainerModal: React.FC<VoiceTrainerModalProps> = ({
 
             <div>
               <label className="block text-xs font-bold text-slate-800 mb-1">
-                2. Tải lên file âm thanh giọng nói từ máy tính (.mp3, .wav, .m4a):
+                2. Tải lên file âm thanh mẫu giọng nói (.mp3, .wav, .m4a):
               </label>
               <div className="border-2 border-dashed border-slate-200 hover:border-emerald-500 rounded-xl p-4 text-center transition-colors bg-slate-50/50">
                 <input
@@ -240,12 +269,50 @@ export const VoiceTrainerModal: React.FC<VoiceTrainerModalProps> = ({
                     </div>
                   ) : (
                     <div>
-                      <span className="font-bold text-emerald-700 hover:underline">Bấm để chọn file âm thanh</span>
+                      <span className="font-bold text-emerald-700 hover:underline">Bấm để chọn file âm thanh từ máy tính</span>
                       <p className="text-[11px] text-slate-400 mt-0.5">Hỗ trợ file MP3, WAV hoặc tệp mô hình .onnx</p>
                     </div>
                   )}
                 </label>
               </div>
+            </div>
+
+            {/* Công nghệ nhân bản AI */}
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={useElevenClone}
+                    onChange={(e) => setUseElevenClone(e.target.checked)}
+                    className="w-4 h-4 text-emerald-600 rounded-md border-slate-300 focus:ring-emerald-500"
+                  />
+                  <span className="flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <span>Nhân Bản Giọng Chuẩn 100% (ElevenLabs Neural Clone)</span>
+                  </span>
+                </label>
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">Khuyên Dùng</span>
+              </div>
+
+              {useElevenClone && (
+                <div className="pt-1.5 space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-slate-600 text-[11px]">
+                    <Key className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span>Nhập ElevenLabs API Key:</span>
+                  </div>
+                  <input
+                    type="password"
+                    value={elevenApiKey}
+                    onChange={(e) => setElevenApiKey(e.target.value)}
+                    placeholder="Dán mã xi-api-key tại đây (Lấy miễn phí tại elevenlabs.io)..."
+                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-slate-900 focus:outline-none focus:border-emerald-600"
+                  />
+                  <p className="text-[10px] text-slate-400">
+                    💡 Giúp tái tạo chính xác 100% âm sắc, ngữ điệu, giọng cười và phong cách nói của nhân vật trong file tiếng Việt.
+                  </p>
+                </div>
+              )}
             </div>
 
             {isProcessing && (
@@ -264,12 +331,12 @@ export const VoiceTrainerModal: React.FC<VoiceTrainerModalProps> = ({
               {isProcessing ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Đang tự động xử lý & huấn luyện mô hình...</span>
+                  <span>Đang tiến hành nhân bản & tạo mô hình AI...</span>
                 </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  <span>Bắt Đầu Tự Động Xử Lý & Nạp Giọng Vào App</span>
+                  <span>Bắt Đầu Nhân Bản & Nạp Giọng Vào App</span>
                 </>
               )}
             </button>
@@ -280,7 +347,7 @@ export const VoiceTrainerModal: React.FC<VoiceTrainerModalProps> = ({
             <div className="pt-4 border-t border-slate-100 space-y-2">
               <h3 className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
                 <Volume2 className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Các giọng đọc AI tự tạo của bạn ({customList.length}):</span>
+                <span>Các giọng đọc AI đã nhân bản ({customList.length}):</span>
               </h3>
               <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
                 {customList.map((v) => (
@@ -309,7 +376,7 @@ export const VoiceTrainerModal: React.FC<VoiceTrainerModalProps> = ({
 
         {/* Footer */}
         <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-          <span>Tệp sau khi nạp sẽ được lưu trữ cục bộ trong thư mục models/piper/</span>
+          <span>Hỗ trợ mô hình Clone trực tiếp và file trọng số VITS .onnx cục bộ</span>
           <button
             onClick={onClose}
             className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-200/60 font-semibold text-slate-700 transition-colors cursor-pointer"

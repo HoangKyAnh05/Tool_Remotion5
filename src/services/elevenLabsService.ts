@@ -12,6 +12,55 @@ export function saveElevenLabsApiKey(key: string): void {
   localStorage.setItem(STORAGE_KEY_ELEVENLABS_KEY, key.trim());
 }
 
+/**
+ * Gọi API Instant Voice Cloning của ElevenLabs để tạo model giọng chuẩn 100% từ file âm thanh
+ */
+export async function cloneElevenLabsVoice(
+  name: string,
+  audioFile: File,
+  apiKey?: string,
+  description: string = 'Mô hình giọng đọc AI nhân bản'
+): Promise<{ voiceId: string; name: string }> {
+  const effectiveKey = (apiKey || getSavedElevenLabsApiKey()).trim();
+  if (!effectiveKey) {
+    throw new Error('Vui lòng nhập ElevenLabs API Key để tiến hành nhân bản giọng nói thật chuẩn 100%!');
+  }
+
+  const formData = new FormData();
+  formData.append('name', name);
+  formData.append('files', audioFile);
+  formData.append('description', description);
+
+  const res = await fetch('https://api.elevenlabs.io/v1/voices/add', {
+    method: 'POST',
+    headers: {
+      'xi-api-key': effectiveKey
+    },
+    body: formData
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    let parsedErr = errText;
+    try {
+      const jsonErr = JSON.parse(errText);
+      parsedErr = jsonErr.detail?.message || jsonErr.message || errText;
+    } catch (_) {}
+    throw new Error(`Lỗi ElevenLabs Clone (${res.status}): ${parsedErr}`);
+  }
+
+  const data = await res.json();
+  const voiceId = data.voice_id;
+  if (!voiceId) {
+    throw new Error('ElevenLabs không trả về voice_id hợp lệ');
+  }
+
+  return {
+    voiceId: `elevenlabs:${voiceId}`,
+    name: `👑 ${name} (100% Chuẩn Giọng File Thật)`
+  };
+}
+
 export interface ElevenLabsVoiceConfig {
   id: string;
   name: string;
