@@ -7,8 +7,16 @@ import time
 import base64
 import re
 import urllib.request
+import numpy as np
 from piper import PiperVoice
 from piper.config import SynthesisConfig
+
+# Add trainer to path for voice cloner
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'trainer'))
+try:
+    from voice_cloner import morph_audio_to_profile
+except Exception:
+    morph_audio_to_profile = None
 
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -160,6 +168,24 @@ def split_text_to_sentences(text, max_chars=180):
         sentences = [text]
     return sentences
 
+def get_voice_profile(voice_name):
+    norm = voice_name.lower().strip().replace('piper:', '')
+    candidates = [
+        f"{norm}.profile.json",
+        f"{norm.replace('_', '')}.profile.json",
+        f"{norm.replace('-', '_')}.profile.json",
+        f"{norm.split(':')[0]}.profile.json"
+    ]
+    for c in candidates:
+        p_path = os.path.join(PIPER_DIR, c)
+        if os.path.exists(p_path):
+            try:
+                with open(p_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception:
+                pass
+    return None
+
 def synthesize_piper_audio(text, voice_name='ngochuyen', speed=1.0):
     voice, model_file = get_voice(voice_name)
     sentences = split_text_to_sentences(text)
@@ -218,6 +244,17 @@ def synthesize_piper_audio(text, voice_name='ngochuyen', speed=1.0):
         return b'', 1.0, []
         
     full_pcm = b''.join(audio_buffers)
+    
+    # Check if this voice has an acoustic voiceprint / timbre profile (from user upload)
+    profile = get_voice_profile(voice_name)
+    if profile and morph_audio_to_profile:
+        try:
+            pcm_array = np.frombuffer(full_pcm, dtype=np.int16)
+            morphed_array = morph_audio_to_profile(pcm_array, sample_rate, profile, intensity=0.92)
+            full_pcm = morphed_array.tobytes()
+        except Exception as morph_err:
+            print(f"[Piper] Timbre morphing note: {morph_err}", file=sys.stderr)
+            
     total_frames = len(full_pcm) // (channels * sampwidth)
     total_duration = total_frames / float(sample_rate)
     
