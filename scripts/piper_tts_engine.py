@@ -118,7 +118,25 @@ def ensure_model(model_filename):
 
 def get_voice(voice_name):
     norm_name = voice_name.lower().strip()
-    model_filename = VOICE_MAP.get(norm_name, VOICE_MAP.get(norm_name.replace('piper:', ''), 'ngochuyen.onnx'))
+    clean_name = norm_name.replace('piper:', '').strip()
+    
+    # Check if a custom-trained or downloaded model file directly exists in models/piper/
+    direct_candidates = [
+        f"{clean_name}.onnx",
+        clean_name if clean_name.endswith('.onnx') else None,
+        f"{clean_name}1.onnx",
+    ]
+    
+    found_file = None
+    for cand in direct_candidates:
+        if cand and os.path.exists(os.path.join(PIPER_DIR, cand)):
+            found_file = cand
+            break
+            
+    if not found_file:
+        found_file = VOICE_MAP.get(norm_name, VOICE_MAP.get(clean_name, 'ngochuyen.onnx'))
+        
+    model_filename = found_file
     
     if model_filename not in _loaded_voices:
         model_path, config_path = ensure_model(model_filename)
