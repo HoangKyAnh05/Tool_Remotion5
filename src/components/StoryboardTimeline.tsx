@@ -255,15 +255,20 @@ export const StoryboardTimeline: React.FC<StoryboardTimelineProps> = ({
   };
 
   // Cập nhật 1 từ đơn lẻ trong chip từ
-  const handleSaveWordEdit = (sceneId: string, wordIdx: number, newWord: string, newStart: number, newEnd: number) => {
+  const handleSaveWordEdit = (sceneId: string, wordIdx: number, newWord: string, newStart: number, newEnd?: number) => {
     const scene = project.scenes.find((s) => s.id === sceneId);
     if (!scene || !scene.words) return;
 
     const updatedWords = [...scene.words];
+    const s = Number(Number(newStart).toFixed(2));
+    const nextStart = updatedWords[wordIdx + 1]?.start;
+    const defaultEnd = nextStart && nextStart > s ? nextStart : Number((s + 0.35).toFixed(2));
+    const e = typeof newEnd === 'number' && !isNaN(newEnd) && newEnd > s ? Number(Number(newEnd).toFixed(2)) : defaultEnd;
+
     updatedWords[wordIdx] = {
       word: newWord.trim(),
-      start: Number(Number(newStart).toFixed(2)),
-      end: Number(Number(newEnd).toFixed(2))
+      start: s,
+      end: e
     };
 
     const reconstructedNarration = updatedWords.map((w) => w.word).join(' ');

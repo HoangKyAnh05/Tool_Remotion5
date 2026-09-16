@@ -111,45 +111,96 @@ export const SubtitlesRenderer: React.FC<SubtitlesRendererProps> = ({
   const rotateVal = customPos?.rotate ?? subtitleStyle?.rotation ?? subtitleStyle?.rotate ?? 0;
   const finalTransform = `translate(-50%, -50%) scale(${scaleVal}) rotate(${rotateVal}deg)`;
 
-  // Nếu words rỗng nhưng có fallbackText, tự động tạo nhịp thời gian để chữ luôn chạy từng chữ một (karaoke)
+  // 1. Monotonic Sanitization: Đảm bảo toàn bộ mốc thời gian tăng dần liên tục, không bị nhảy ngược hoặc đè nhau
   const effectiveWords: WordTimestamp[] = React.useMemo(() => {
-    if (words && words.length > 0) return words;
-    if (!fallbackText || fallbackText.trim() === '') return [];
-    const tokens = fallbackText.trim().split(/\s+/);
-    if (tokens.length === 0) return [];
-    const wordDuration = 0.35;
-    return tokens.map((w, idx) => ({
-      word: w,
-      start: idx * wordDuration,
-      end: (idx + 1) * wordDuration
-    }));
+    let sourceWords: WordTimestamp[] = [];
+    if (words && words.length > 0) {
+      sourceWords = words;
+    } else if (fallbackText && fallbackText.trim() !== '') {
+      const tokens = fallbackText.trim().split(/\s+/).filter(Boolean);
+      const wordDuration = 0.35;
+      sourceWords = tokens.map((w, idx) => ({
+        word: w,
+        start: Number((idx * wordDuration).toFixed(2)),
+        end: Number(((idx + 1) * wordDuration).toFixed(2))
+      }));
+    }
+
+    if (sourceWords.length === 0) return [];
+
+    let currentStart = 0.05;
+    return sourceWords.map((item, idx) => {
+      let s = typeof item.start === 'number' && !isNaN(item.start) ? item.start : currentStart;
+      // Tránh việc timestamp bị thụt lùi
+      if (s < currentStart && idx > 0) {
+        s = Number((currentStart + 0.08).toFixed(2));
+      }
+      let e = typeof item.end === 'number' && !isNaN(item.end) && item.end > s
+        ? item.end
+        : Number((s + 0.3).toFixed(2));
+
+      currentStart = s;
+      return {
+        word: item.word || '',
+        start: s,
+        end: e
+      };
+    });
   }, [words, fallbackText]);
 
-  if (!effectiveWords || effectiveWords.length === 0) {
-    return null;
+  const maxWords = Math.max(1, subtitleStyle.maxWordsPerLine || 4);
+
+  // 2. Continuous Chunk Boundaries: Kết nối liền mạch các cụm để KHÔNG BAO GIỜ bị mất chữ giữa các nhịp
+  const chunks = React.useMemo(() => {
+    if (effectiveWords.length === 0) return [];
+    const rawChunks: Array<{ words: WordTimestamp[]; start: number; end: number }> = [];
+
+    for (let i = 0; i < effectiveWords.length; i += maxWords) {
+      const chunkWords = effectiveWords.slice(i, i + maxWords);
+      rawChunks.push({
+        words: chunkWords,
+        start: chunkWords[0].start,
+        end: chunkWords[chunkWords.length - 1].end
+      });
+    }
+
+    // Kết nối liền mạch các cụm: Cụm trước kéo dài đúng tới khi cụm sau bắt đầu
+    for (let i = 0; i < rawChunks.length; i++) {
+      if (i === 0) {
+        rawChunks[i].start = 0; // Cụm đầu tiên hiển thị ngay từ đầu
+      }
+      if (i < rawChunks.length - 1) {
+        rawChunks[i].end = rawChunks[i + 1].start;
+      } else {
+        rawChunks[i].end = 999999; // Cụm cuối cùng giữ nguyên cho đến hết cảnh
+      }
+    }
+
+    return rawChunks;
+  }, [effectiveWords, maxWords]);
+
+  // Tìm cụm hiển thị đang hoạt động
+  const activeChunk = React.useMemo(() => {
+    if (chunks.length === 0) return null;
+    const found = chunks.find((c) => effectiveTime >= c.start && effectiveTime < c.end);
+    return found || chunks[chunks.length - 1] || chunks[0];
+  }, [chunks, effectiveTime]);
+
+  if (!activeChunk || activeChunk.words.length === 0) return null;
+
+  // Tính toán active word index cho chế độ spotlight
+  let spotlightActiveIdx = activeChunk.words.findIndex((w, idx) => {
+    const next = activeChunk.words[idx + 1];
+    const nStart = next ? next.start : w.end + 0.3;
+    return effectiveTime >= w.start && effectiveTime < nStart;
+  });
+  if (spotlightActiveIdx === -1) {
+    if (effectiveTime < activeChunk.words[0].start) {
+      spotlightActiveIdx = 0;
+    } else {
+      spotlightActiveIdx = activeChunk.words.length - 1;
+    }
   }
-
-  const maxWords = subtitleStyle.maxWordsPerLine || 4;
-
-  // Group words into display chunks
-  const chunks: Array<{ words: WordTimestamp[]; start: number; end: number }> = [];
-  for (let i = 0; i < effectiveWords.length; i += maxWords) {
-    const chunkWords = effectiveWords.slice(i, i + maxWords);
-    const chunkStart = Math.max(0, chunkWords[0].start - 0.2);
-    const chunkEnd = chunkWords[chunkWords.length - 1].end + 0.35;
-    chunks.push({
-      words: chunkWords,
-      start: chunkStart,
-      end: chunkEnd
-    });
-  }
-
-  // Find active chunk using effectiveTime, fallback to first chunk if beginning of scene
-  const activeChunk = chunks.find(
-    (c) => effectiveTime >= c.start && effectiveTime <= c.end
-  ) || (currentTime < 0.6 && chunks.length > 0 ? chunks[0] : null);
-
-  if (!activeChunk) return null;
 
   return (
     <div
@@ -162,15 +213,17 @@ export const SubtitlesRenderer: React.FC<SubtitlesRendererProps> = ({
     >
       <div className="flex flex-wrap justify-center items-center gap-2 md:gap-3 text-center px-4 py-2">
         {activeChunk.words.map((item, index) => {
-          const isSpoken = effectiveTime >= item.start && effectiveTime <= item.end + 0.05;
-          const hasPassed = effectiveTime > item.end + 0.05;
+          const nextWord = activeChunk.words[index + 1];
+          const nextWordStart = nextWord ? nextWord.start : item.end + 0.3;
+
+          const isSpoken = effectiveTime >= item.start && effectiveTime < nextWordStart;
+          const hasPassed = effectiveTime >= nextWordStart;
           const isUpcoming = effectiveTime < item.start;
 
           // Xử lý các chế độ hiển thị:
-          // 1. Chế độ 'single_word' (Mặc định khi chọn Từng chữ): Chữ xuất hiện nối tiếp lần lượt TỪ TRÁI SANG PHẢI!
-          // 2. Chế độ 'single_word_spotlight': Chỉ hiện đúng 1 chữ đang nói tại vị trí từ trái sang phải
+          // 1. Chế độ 'single_word_spotlight' (🎯 Nhảy Trái ➔ Phải / 1 chữ di chuyển):
           if (subtitleStyle.displayMode === 'single_word_spotlight') {
-            if (!isSpoken) {
+            if (index !== spotlightActiveIdx) {
               return (
                 <div
                   key={`${item.word}-${index}`}
@@ -182,7 +235,7 @@ export const SubtitlesRenderer: React.FC<SubtitlesRendererProps> = ({
               );
             }
           } else if (subtitleStyle.displayMode === 'single_word') {
-            // Chữ chưa đọc tới thì chưa xuất hiện -> Chữ tự động chạy từ trái sang phải theo nhịp nói!
+            // 2. Chế độ 'single_word' (⚡ Chạy Trái ➔ Phải / Xuất hiện nối tiếp):
             if (isUpcoming) {
               return null;
             }
@@ -195,8 +248,8 @@ export const SubtitlesRenderer: React.FC<SubtitlesRendererProps> = ({
                 frame: wordFrameOffset,
                 fps,
                 config: { damping: 10, stiffness: 220, mass: 0.4 },
-                from: 0.88,
-                to: 1.2
+                from: 0.92,
+                to: 1.18
               })
             : 1.0;
 
