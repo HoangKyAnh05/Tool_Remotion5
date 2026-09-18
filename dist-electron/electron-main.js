@@ -1,371 +1,372 @@
-import { app as M, BrowserWindow as V, ipcMain as _, shell as F, dialog as K, session as U } from "electron";
-import k from "path";
-import { spawn as C } from "child_process";
+import { app as A, BrowserWindow as O, ipcMain as T, shell as V, dialog as R, session as W } from "electron";
+import w from "path";
+import { spawn as B } from "child_process";
 import { fileURLToPath as q } from "url";
-import D from "https";
-import L from "http";
-import $ from "fs";
-import { Communicate as O } from "edge-tts-universal";
-import { bundle as j } from "@remotion/bundler";
-import { selectComposition as H, renderMedia as z } from "@remotion/renderer";
-const J = q(import.meta.url), E = k.dirname(J);
-process.env.DIST = k.join(E, "../dist");
-process.env.VITE_PUBLIC = M.isPackaged ? process.env.DIST : k.join(process.env.DIST, "../public");
-let m, A = null;
-const B = process.env.VITE_DEV_SERVER_URL;
-function W() {
-  m = new V({
+import z from "https";
+import H from "http";
+import S from "fs";
+import J from "readline";
+import { Communicate as G } from "edge-tts-universal";
+import { bundle as Y } from "@remotion/bundler";
+import { selectComposition as Z, renderMedia as Q } from "@remotion/renderer";
+const X = q(import.meta.url), j = w.dirname(X);
+process.env.DIST = w.join(j, "../dist");
+process.env.VITE_PUBLIC = A.isPackaged ? process.env.DIST : w.join(process.env.DIST, "../public");
+let l, K = null;
+const U = process.env.VITE_DEV_SERVER_URL;
+function L() {
+  l = new O({
     width: 1440,
     height: 900,
     minWidth: 1100,
     minHeight: 700,
     show: !0,
     title: "Remotion AI Video Auto-Editor",
-    icon: k.join(process.env.VITE_PUBLIC || "", "icon.png"),
+    icon: w.join(process.env.VITE_PUBLIC || "", "icon.png"),
     backgroundColor: "#0B0F19",
     webPreferences: {
-      preload: $.existsSync(k.join(E, "preload.cjs")) ? k.join(E, "preload.cjs") : k.join(E, "preload.js"),
+      preload: S.existsSync(w.join(j, "preload.cjs")) ? w.join(j, "preload.cjs") : w.join(j, "preload.js"),
       nodeIntegration: !1,
       contextIsolation: !0,
       webSecurity: !1
       // Allow loading local files and media preview
     }
-  }), U.defaultSession.setPermissionRequestHandler((f, b, g) => {
-    g(!0);
-  }), m.show(), m.focus(), m.webContents.on("did-finish-load", () => {
-    m == null || m.webContents.send("main-process-message", (/* @__PURE__ */ new Date()).toLocaleString());
-  }), B ? m.loadURL(B) : m.loadFile(k.join(process.env.DIST || "", "index.html"));
+  }), W.defaultSession.setPermissionRequestHandler((b, k, y) => {
+    y(!0);
+  }), l.show(), l.focus(), l.webContents.on("did-finish-load", () => {
+    l == null || l.webContents.send("main-process-message", (/* @__PURE__ */ new Date()).toLocaleString());
+  }), U ? l.loadURL(U) : l.loadFile(w.join(process.env.DIST || "", "index.html"));
 }
-M.on("window-all-closed", () => {
-  process.platform !== "darwin" && (M.quit(), m = null);
+A.on("window-all-closed", () => {
+  process.platform !== "darwin" && (A.quit(), l = null);
 });
-M.on("activate", () => {
-  V.getAllWindows().length === 0 && W();
+A.on("activate", () => {
+  O.getAllWindows().length === 0 && L();
 });
-M.whenReady().then(() => {
-  W(), ne();
+A.whenReady().then(() => {
+  L(), ae();
 });
-function G(f) {
-  return new Promise((b, g) => {
-    (f.startsWith("https") ? D : L).get(
-      f,
+function ee(b) {
+  return new Promise((k, y) => {
+    (b.startsWith("https") ? z : H).get(
+      b,
       {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
           Referer: "https://translate.google.com/"
         }
       },
-      (t) => {
-        if (t.statusCode && t.statusCode >= 400)
-          return g(new Error(`HTTP error ${t.statusCode}`));
-        const r = [];
-        t.on("data", (o) => r.push(Buffer.isBuffer(o) ? o : Buffer.from(o))), t.on("end", () => b(Buffer.concat(r)));
+      (g) => {
+        if (g.statusCode && g.statusCode >= 400)
+          return y(new Error(`HTTP error ${g.statusCode}`));
+        const _ = [];
+        g.on("data", (s) => _.push(Buffer.isBuffer(s) ? s : Buffer.from(s))), g.on("end", () => k(Buffer.concat(_)));
       }
-    ).on("error", g);
+    ).on("error", y);
   });
 }
-async function Y(f, b) {
+async function te(b, k) {
   try {
-    const e = f.trim().split(/\s+/).filter(Boolean), r = !b.startsWith("en-") ? "vi" : "en", o = [];
-    let n = "";
-    for (const c of e)
-      (n + " " + c).length > 80 ? (o.push(n.trim()), n = c) : n += " " + c;
-    n.trim() && o.push(n.trim());
-    const p = [];
-    for (const c of o) {
-      const l = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(
-        c
-      )}&tl=${r}&client=tw-ob`, h = await G(l);
-      p.push(h);
+    const p = b.trim().split(/\s+/).filter(Boolean), _ = !k.startsWith("en-") ? "vi" : "en", s = [];
+    let e = "";
+    for (const h of p)
+      (e + " " + h).length > 80 ? (s.push(e.trim()), e = h) : e += " " + h;
+    e.trim() && s.push(e.trim());
+    const n = [];
+    for (const h of s) {
+      const u = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(
+        h
+      )}&tl=${_}&client=tw-ob`, x = await ee(u);
+      n.push(x);
     }
-    const i = Buffer.concat(p), u = `data:audio/mp3;base64,${i.toString("base64")}`, a = Math.max(3, i.length / 3800), d = [], w = (a - 0.4) / Math.max(e.length, 1);
-    let y = 0.2;
-    for (const c of e) {
-      const l = Math.max(0.2, Math.min(0.7, w));
-      d.push({
-        word: c,
-        start: Number(y.toFixed(2)),
-        end: Number((y + l).toFixed(2))
-      }), y += l;
+    const t = Buffer.concat(n), r = `data:audio/mp3;base64,${t.toString("base64")}`, i = Math.max(3, t.length / 3800), c = [], a = (i - 0.4) / Math.max(p.length, 1);
+    let v = 0.2;
+    for (const h of p) {
+      const u = Math.max(0.2, Math.min(0.7, a));
+      c.push({
+        word: h,
+        start: Number(v.toFixed(2)),
+        end: Number((v + u).toFixed(2))
+      }), v += u;
     }
     return {
-      audioUrl: u,
-      duration: Number((y + 0.3).toFixed(2)),
-      words: d
+      audioUrl: r,
+      duration: Number((v + 0.3).toFixed(2)),
+      words: c
     };
   } catch {
-    const e = f.trim().split(/\s+/).filter(Boolean), t = e.map((r, o) => ({
-      word: r,
-      start: Number((o * 0.35 + 0.2).toFixed(2)),
-      end: Number(((o + 1) * 0.35 + 0.2).toFixed(2))
+    const p = b.trim().split(/\s+/).filter(Boolean), g = p.map((_, s) => ({
+      word: _,
+      start: Number((s * 0.35 + 0.2).toFixed(2)),
+      end: Number(((s + 1) * 0.35 + 0.2).toFixed(2))
     }));
     return {
       audioUrl: "",
-      duration: Math.max(3.5, e.length * 0.35 + 0.5),
-      words: t
+      duration: Math.max(3.5, p.length * 0.35 + 0.5),
+      words: g
     };
   }
 }
-function Q(f = "+0%") {
-  if (!f) return "+0%";
-  const b = String(f).trim();
-  if (b.includes("%")) {
-    const e = parseInt(b.replace("%", ""));
-    return isNaN(e) ? b : e >= 0 ? `+${e}%` : `${e}%`;
+function ne(b = "+0%") {
+  if (!b) return "+0%";
+  const k = String(b).trim();
+  if (k.includes("%")) {
+    const p = parseInt(k.replace("%", ""));
+    return isNaN(p) ? k : p >= 0 ? `+${p}%` : `${p}%`;
   }
-  if (b.toLowerCase().endsWith("x")) {
-    const e = parseFloat(b.replace(/x/i, ""));
-    if (!isNaN(e)) {
-      const t = Math.round((e - 1) * 100);
-      return t >= 0 ? `+${t}%` : `${t}%`;
+  if (k.toLowerCase().endsWith("x")) {
+    const p = parseFloat(k.replace(/x/i, ""));
+    if (!isNaN(p)) {
+      const g = Math.round((p - 1) * 100);
+      return g >= 0 ? `+${g}%` : `${g}%`;
     }
   }
-  const g = parseFloat(b);
-  if (!isNaN(g) && g > 0 && g <= 3) {
-    const e = Math.round((g - 1) * 100);
-    return e >= 0 ? `+${e}%` : `${e}%`;
+  const y = parseFloat(k);
+  if (!isNaN(y) && y > 0 && y <= 3) {
+    const p = Math.round((y - 1) * 100);
+    return p >= 0 ? `+${p}%` : `${p}%`;
   }
   return "+0%";
 }
-function Z(f = "vi-VN-NamMinhNeural", b = "+0%", g = "+0Hz") {
-  let e = f || "vi-VN-NamMinhNeural", t = Q(b), r = "+0Hz";
-  if (f === "google-vi-male" || f === "vi-male" || f === "adam" || f === "adam-tiktok" || f === "vclip:adam")
-    e = "vi-VN-NamMinhNeural";
-  else if (f === "google-vi" || f === "vi-female")
-    e = "vi-VN-HoaiMyNeural";
-  else if (f.includes(":") && !f.startsWith("elevenlabs:")) {
-    const [o, n] = f.split(":");
-    e = o || "vi-VN-NamMinhNeural", t === "+0%" && (n === "fast" || n === "live" || n === "adam" ? t = "+18%" : n === "recap" ? t = "+28%" : n === "sweet" ? t = "+8%" : n === "genz" ? t = "+20%" : n === "story" ? t = "-8%" : (n === "ngochuyen" || n === "manhdung") && (t = "+0%")), n === "manhdung" && (r = "-1Hz");
+function re(b = "vi-VN-NamMinhNeural", k = "+0%", y = "+0Hz") {
+  let p = b || "vi-VN-NamMinhNeural", g = ne(k), _ = "+0Hz";
+  if (b === "google-vi-male" || b === "vi-male" || b === "adam" || b === "adam-tiktok" || b === "vclip:adam")
+    p = "vi-VN-NamMinhNeural";
+  else if (b === "google-vi" || b === "vi-female")
+    p = "vi-VN-HoaiMyNeural";
+  else if (b.includes(":") && !b.startsWith("elevenlabs:")) {
+    const [s, e] = b.split(":");
+    p = s || "vi-VN-NamMinhNeural", g === "+0%" && (e === "fast" || e === "live" || e === "adam" ? g = "+18%" : e === "recap" ? g = "+28%" : e === "sweet" ? g = "+8%" : e === "genz" ? g = "+20%" : e === "story" ? g = "-8%" : (e === "ngochuyen" || e === "manhdung") && (g = "+0%")), e === "manhdung" && (_ = "-1Hz");
   }
-  return { effectiveVoice: e, effectiveRate: t, effectivePitch: r };
+  return { effectiveVoice: p, effectiveRate: g, effectivePitch: _ };
 }
-function X(f, b, g = "+0%") {
-  return new Promise((e, t) => {
-    const r = k.resolve(E, "../scripts/kokoro_tts_engine.py"), o = C("python", [r, "--json"], { windowsHide: !0 });
-    let n = "", p = "";
-    o.stdout.on("data", (u) => n += u.toString("utf-8")), o.stderr.on("data", (u) => p += u.toString("utf-8")), o.on("close", (u) => {
-      if (u !== 0)
-        return t(new Error(`Kokoro process exited with code ${u}: ${p}`));
+function se(b, k, y = "+0%") {
+  return new Promise((p, g) => {
+    const _ = w.resolve(j, "../scripts/kokoro_tts_engine.py"), s = B("python", [_, "--json"], { windowsHide: !0 });
+    let e = "", n = "";
+    s.stdout.on("data", (r) => e += r.toString("utf-8")), s.stderr.on("data", (r) => n += r.toString("utf-8")), s.on("close", (r) => {
+      if (r !== 0)
+        return g(new Error(`Kokoro process exited with code ${r}: ${n}`));
       try {
-        const a = JSON.parse(n);
-        e(a);
-      } catch (a) {
-        t(new Error(`Failed to parse Kokoro JSON: ${a.message}`));
+        const i = JSON.parse(e);
+        p(i);
+      } catch (i) {
+        g(new Error(`Failed to parse Kokoro JSON: ${i.message}`));
       }
     });
-    let i = 1;
-    if (g.includes("%")) {
-      const u = parseInt(g.replace("%", ""));
-      isNaN(u) || (i = Math.max(0.5, Math.min(2, 1 + u / 100)));
+    let t = 1;
+    if (y.includes("%")) {
+      const r = parseInt(y.replace("%", ""));
+      isNaN(r) || (t = Math.max(0.5, Math.min(2, 1 + r / 100)));
     }
-    const s = b.toLowerCase().replace("kokoro:", "").replace("kokoro-", "").trim() || "ngoc_huyen";
-    o.stdin.write(JSON.stringify({ text: f, voice: s, speed: i })), o.stdin.end();
+    const o = k.toLowerCase().replace("kokoro:", "").replace("kokoro-", "").trim() || "ngoc_huyen";
+    s.stdin.write(JSON.stringify({ text: b, voice: o, speed: t })), s.stdin.end();
   });
 }
-function ee(f, b) {
-  return new Promise((g, e) => {
-    const t = k.resolve(E, "../scripts/trainer/f5_tts_engine.py"), r = C("python", [t, "--json"], { windowsHide: !0 });
-    let o = "", n = "";
-    r.stdout.on("data", (i) => o += i.toString("utf-8")), r.stderr.on("data", (i) => n += i.toString("utf-8")), r.on("close", (i) => {
+function oe(b, k) {
+  return new Promise((y, p) => {
+    const g = w.resolve(j, "../scripts/trainer/f5_tts_engine.py"), _ = B("python", [g, "--json"], { windowsHide: !0 });
+    let s = "", e = "";
+    _.stdout.on("data", (t) => s += t.toString("utf-8")), _.stderr.on("data", (t) => e += t.toString("utf-8")), _.on("close", (t) => {
+      if (t !== 0)
+        return p(new Error(`F5-TTS process exited with code ${t}: ${e}`));
+      try {
+        const o = JSON.parse(s);
+        y(o);
+      } catch (o) {
+        p(new Error(`Failed to parse F5-TTS JSON: ${o.message}`));
+      }
+    });
+    const n = Buffer.from(JSON.stringify({ text: b, voice: k }), "utf-8");
+    _.stdin.write(n), _.stdin.end();
+  });
+}
+function ie(b, k, y = "+0%") {
+  return new Promise((p, g) => {
+    const _ = w.resolve(j, "../scripts/piper_tts_engine.py"), s = B("python", [_, "--json"], { windowsHide: !0 });
+    let e = "", n = "";
+    s.stdout.on("data", (i) => e += i.toString("utf-8")), s.stderr.on("data", (i) => n += i.toString("utf-8")), s.on("close", (i) => {
       if (i !== 0)
-        return e(new Error(`F5-TTS process exited with code ${i}: ${n}`));
+        return g(new Error(`Piper process exited with code ${i}: ${n}`));
       try {
-        const s = JSON.parse(o);
-        g(s);
-      } catch (s) {
-        e(new Error(`Failed to parse F5-TTS JSON: ${s.message}`));
+        const c = JSON.parse(e);
+        p(c);
+      } catch (c) {
+        g(new Error(`Failed to parse Piper JSON: ${c.message}`));
       }
     });
-    const p = Buffer.from(JSON.stringify({ text: f, voice: b }), "utf-8");
-    r.stdin.write(p), r.stdin.end();
-  });
-}
-function te(f, b, g = "+0%") {
-  return new Promise((e, t) => {
-    const r = k.resolve(E, "../scripts/piper_tts_engine.py"), o = C("python", [r, "--json"], { windowsHide: !0 });
-    let n = "", p = "";
-    o.stdout.on("data", (a) => n += a.toString("utf-8")), o.stderr.on("data", (a) => p += a.toString("utf-8")), o.on("close", (a) => {
-      if (a !== 0)
-        return t(new Error(`Piper process exited with code ${a}: ${p}`));
-      try {
-        const d = JSON.parse(n);
-        e(d);
-      } catch (d) {
-        t(new Error(`Failed to parse Piper JSON: ${d.message}`));
-      }
-    });
-    let i = 1;
-    if (g.includes("%")) {
-      const a = parseInt(g.replace("%", ""));
-      isNaN(a) || (i = Math.max(0.5, Math.min(2, 1 + a / 100)));
+    let t = 1;
+    if (y.includes("%")) {
+      const i = parseInt(y.replace("%", ""));
+      isNaN(i) || (t = Math.max(0.5, Math.min(2, 1 + i / 100)));
     }
-    const s = b.toLowerCase().replace("piper:", "").trim() || "ngochuyen", u = Buffer.from(JSON.stringify({ text: f, voice: s, speed: i }), "utf-8");
-    o.stdin.write(u), o.stdin.end();
+    const o = k.toLowerCase().replace("piper:", "").trim() || "ngochuyen", r = Buffer.from(JSON.stringify({ text: b, voice: o, speed: t }), "utf-8");
+    s.stdin.write(r), s.stdin.end();
   });
 }
-function ne() {
-  _.handle(
+function ae() {
+  T.handle(
     "tts:synthesize",
-    async (g, { text: e, voice: t = "vi-VN-NamMinhNeural", rate: r = "+0%", pitch: o = "+0Hz" }) => {
+    async (s, { text: e, voice: n = "vi-VN-NamMinhNeural", rate: t = "+0%", pitch: o = "+0Hz" }) => {
       try {
-        const n = e.trim();
-        if (!n)
+        const r = e.trim();
+        if (!r)
           return { audioUrl: "", duration: 1, words: [] };
-        if (t.startsWith("f5:"))
+        if (n.startsWith("f5:"))
           try {
-            const h = await ee(n, t);
-            if (h && h.audioUrl)
-              return h;
-          } catch (h) {
-            console.warn("F5-TTS Zero-Shot failed, falling back to Piper VITS:", h);
+            const d = await oe(r, n);
+            if (d && d.audioUrl)
+              return d;
+          } catch (d) {
+            console.warn("F5-TTS Zero-Shot failed, falling back to Piper VITS:", d);
           }
-        if (t.startsWith("piper:") || t === "piper_ngochuyen" || t === "piper_manhdung")
+        if (n.startsWith("piper:") || n === "piper_ngochuyen" || n === "piper_manhdung")
           try {
-            const h = await te(n, t, r);
-            if (h && h.audioUrl)
-              return h;
-          } catch (h) {
-            console.warn("Piper VITS TTS failed, falling back to neural voice:", h);
+            const d = await ie(r, n, t);
+            if (d && d.audioUrl)
+              return d;
+          } catch (d) {
+            console.warn("Piper VITS TTS failed, falling back to neural voice:", d);
           }
-        if (t.startsWith("kokoro:") || t === "ngoc_huyen" || t === "manh_dung")
+        if (n.startsWith("kokoro:") || n === "ngoc_huyen" || n === "manh_dung")
           try {
-            const h = await X(n, t, r);
-            if (h && h.audioUrl)
-              return h;
-          } catch (h) {
-            console.warn("Local Kokoro TTS execution failed, falling back to Edge-TTS:", h);
+            const d = await se(r, n, t);
+            if (d && d.audioUrl)
+              return d;
+          } catch (d) {
+            console.warn("Local Kokoro TTS execution failed, falling back to Edge-TTS:", d);
           }
-        const { effectiveVoice: p, effectiveRate: i, effectivePitch: s } = Z(t, r, o), u = new O(n, {
-          voice: p,
-          rate: i,
-          pitch: s
-        }), a = [], d = [];
-        for await (const h of u.stream()) {
-          const v = h;
-          if (v.type === "audio" && v.data)
-            d.push(Buffer.isBuffer(v.data) ? v.data : Buffer.from(v.data));
-          else if (v.type === "WordBoundary" && v.text) {
-            const x = Number(((v.offset || 0) / 1e7).toFixed(2)), S = Number(((v.duration || 0) / 1e7).toFixed(2));
-            a.push({
-              word: String(v.text),
-              start: x,
-              end: Number((x + S).toFixed(2))
+        const { effectiveVoice: i, effectiveRate: c, effectivePitch: a } = re(n, t, o), v = new G(r, {
+          voice: i,
+          rate: c,
+          pitch: a
+        }), h = [], u = [];
+        for await (const d of v.stream()) {
+          const P = d;
+          if (P.type === "audio" && P.data)
+            u.push(Buffer.isBuffer(P.data) ? P.data : Buffer.from(P.data));
+          else if (P.type === "WordBoundary" && P.text) {
+            const M = Number(((P.offset || 0) / 1e7).toFixed(2)), $ = Number(((P.duration || 0) / 1e7).toFixed(2));
+            h.push({
+              word: String(P.text),
+              start: M,
+              end: Number((M + $).toFixed(2))
             });
           }
         }
-        const w = Buffer.concat(d);
-        if (w.length === 0)
+        const x = Buffer.concat(u);
+        if (x.length === 0)
           throw new Error("Empty audio received from Edge-TTS");
-        const c = `data:audio/mp3;base64,${w.toString("base64")}`;
-        let l = 3;
-        return a.length > 0 ? l = Number((a[a.length - 1].end + 0.3).toFixed(2)) : l = Number(Math.max(2.5, w.length / 5500).toFixed(2)), {
-          audioUrl: c,
-          duration: l,
-          words: a
+        const m = `data:audio/mp3;base64,${x.toString("base64")}`;
+        let f = 3;
+        return h.length > 0 ? f = Number((h[h.length - 1].end + 0.3).toFixed(2)) : f = Number(Math.max(2.5, x.length / 5500).toFixed(2)), {
+          audioUrl: m,
+          duration: f,
+          words: h
         };
-      } catch (n) {
-        return console.warn("Edge-TTS direct synthesis error, falling back:", (n == null ? void 0 : n.message) || n), Y(e, t);
+      } catch (r) {
+        return console.warn("Edge-TTS direct synthesis error, falling back:", (r == null ? void 0 : r.message) || r), te(e, n);
       }
     }
-  ), _.handle("render:video", async (g, { project: e, resolution: t = "1080p" }) => {
+  ), T.handle("render:video", async (s, { project: e, resolution: n = "1080p" }) => {
     try {
-      const r = k.resolve("out");
-      $.existsSync(r) || $.mkdirSync(r, { recursive: !0 });
-      const n = `${(e.title || "Video").replace(/[^a-zA-Z0-9_\u00C0-\u024F\u1EA0-\u1EF9]/g, "_").slice(0, 40)}_${Date.now()}.mp4`, p = k.join(r, n);
-      m == null || m.webContents.send("render:progress", {
+      const t = w.resolve("out");
+      S.existsSync(t) || S.mkdirSync(t, { recursive: !0 });
+      const r = `${(e.title || "Video").replace(/[^a-zA-Z0-9_\u00C0-\u024F\u1EA0-\u1EF9]/g, "_").slice(0, 40)}_${Date.now()}.mp4`, i = w.join(t, r);
+      l == null || l.webContents.send("render:progress", {
         progress: 5,
         stage: "bundle",
         message: "Đang chuẩn bị và đóng gói bundle Remotion..."
       });
-      const i = k.resolve("src/remotion/index.ts");
-      A = await j({
-        entryPoint: i,
-        onProgress: (c) => {
-          m == null || m.webContents.send("render:progress", {
-            progress: Math.min(25, Math.round(5 + c * 20 / 100)),
+      const c = w.resolve("src/remotion/index.ts");
+      K = await Y({
+        entryPoint: c,
+        onProgress: (m) => {
+          l == null || l.webContents.send("render:progress", {
+            progress: Math.min(25, Math.round(5 + m * 20 / 100)),
             stage: "bundle",
-            message: `Đang biên dịch mã nguồn Remotion (${c}%)...`
+            message: `Đang biên dịch mã nguồn Remotion (${m}%)...`
           });
         }
-      }), m == null || m.webContents.send("render:progress", {
+      }), l == null || l.webContents.send("render:progress", {
         progress: 28,
         stage: "composition",
         message: "Đang thiết lập cấu hình video và phân cảnh..."
       });
-      const s = e.aspectRatio === "9:16" ? "Shorts916" : "Landscape169", u = await H({
-        serveUrl: A,
-        id: s,
+      const a = e.aspectRatio === "9:16" ? "Shorts916" : "Landscape169", v = await Z({
+        serveUrl: K,
+        id: a,
         inputProps: { project: e }
-      }), a = e.fps || 30, d = Math.max(
+      }), h = e.fps || 30, u = Math.max(
         (e.scenes || []).reduce(
-          (c, l) => c + Math.max(Math.round((l.audioDuration || 4) * a), Math.round(2 * a)),
+          (m, f) => m + Math.max(Math.round((f.audioDuration || 4) * h), Math.round(2 * h)),
           0
         ),
         30
       );
-      let w = e.aspectRatio === "9:16" ? 1080 : 1920, y = e.aspectRatio === "9:16" ? 1920 : 1080;
-      return t === "4k" && (w = e.aspectRatio === "9:16" ? 2160 : 3840, y = e.aspectRatio === "9:16" ? 3840 : 2160), m == null || m.webContents.send("render:progress", {
+      let x = e.aspectRatio === "9:16" ? 1080 : 1920, N = e.aspectRatio === "9:16" ? 1920 : 1080;
+      return n === "4k" && (x = e.aspectRatio === "9:16" ? 2160 : 3840, N = e.aspectRatio === "9:16" ? 3840 : 2160), l == null || l.webContents.send("render:progress", {
         progress: 32,
         stage: "rendering",
-        message: `Bắt đầu render ${d} khung hình (${w}x${y})...`
-      }), await z({
+        message: `Bắt đầu render ${u} khung hình (${x}x${N})...`
+      }), await Q({
         composition: {
-          ...u,
-          durationInFrames: d,
-          width: w,
-          height: y,
-          fps: a
+          ...v,
+          durationInFrames: u,
+          width: x,
+          height: N,
+          fps: h
         },
-        serveUrl: A,
+        serveUrl: K,
         codec: "h264",
-        outputLocation: p,
+        outputLocation: i,
         inputProps: { project: e },
-        onProgress: ({ progress: c }) => {
-          const l = Math.min(99, Math.round(32 + c * 66));
-          m == null || m.webContents.send("render:progress", {
-            progress: l,
+        onProgress: ({ progress: m }) => {
+          const f = Math.min(99, Math.round(32 + m * 66));
+          l == null || l.webContents.send("render:progress", {
+            progress: f,
             stage: "rendering",
-            message: `Đang xử lý hình ảnh, phụ đề & âm thanh (${Math.round(c * 100)}%)...`
+            message: `Đang xử lý hình ảnh, phụ đề & âm thanh (${Math.round(m * 100)}%)...`
           });
         }
-      }), m == null || m.webContents.send("render:progress", {
+      }), l == null || l.webContents.send("render:progress", {
         progress: 100,
         stage: "complete",
         message: "Render video MP4 thành công!"
       }), {
         success: !0,
-        filePath: p
-      };
-    } catch (r) {
-      throw console.error("Render media error in main process:", r), new Error(r.message || "Render video thất bại");
-    }
-  }), _.handle("shell:open-path", async (g, e) => F.openPath(e)), _.handle("dialog:select-file", async (g, e) => m ? (await K.showOpenDialog(m, e)).filePaths : null), _.handle("dialog:select-folder", async () => m && (await K.showOpenDialog(m, {
-    properties: ["openDirectory"]
-  })).filePaths[0] || null), _.handle("audio:read-file-base64", async (g, e) => {
-    try {
-      if (!e || !$.existsSync(e)) return null;
-      const t = await $.promises.readFile(e), r = k.extname(e).toLowerCase().replace(".", "");
-      let o = "audio/mp3";
-      r === "wav" ? o = "audio/wav" : r === "m4a" ? o = "audio/m4a" : r === "aac" ? o = "audio/aac" : r === "ogg" ? o = "audio/ogg" : r === "mp4" ? o = "video/mp4" : r === "mov" ? o = "video/quicktime" : r === "webm" ? o = "video/webm" : r === "mkv" && (o = "video/x-matroska");
-      const n = t.toString("base64");
-      return {
-        dataUrl: `data:${o};base64,${n}`,
-        base64: n,
-        mimeType: o,
-        sizeBytes: t.length
+        filePath: i
       };
     } catch (t) {
-      return console.error("Error reading audio/video file base64:", t), null;
+      throw console.error("Render media error in main process:", t), new Error(t.message || "Render video thất bại");
+    }
+  }), T.handle("shell:open-path", async (s, e) => V.openPath(e)), T.handle("dialog:select-file", async (s, e) => l ? (await R.showOpenDialog(l, e)).filePaths : null), T.handle("dialog:select-folder", async () => l && (await R.showOpenDialog(l, {
+    properties: ["openDirectory"]
+  })).filePaths[0] || null), T.handle("audio:read-file-base64", async (s, e) => {
+    try {
+      if (!e || !S.existsSync(e)) return null;
+      const n = await S.promises.readFile(e), t = w.extname(e).toLowerCase().replace(".", "");
+      let o = "audio/mp3";
+      t === "wav" ? o = "audio/wav" : t === "m4a" ? o = "audio/m4a" : t === "aac" ? o = "audio/aac" : t === "ogg" ? o = "audio/ogg" : t === "mp4" ? o = "video/mp4" : t === "mov" ? o = "video/quicktime" : t === "webm" ? o = "video/webm" : t === "mkv" && (o = "video/x-matroska");
+      const r = n.toString("base64");
+      return {
+        dataUrl: `data:${o};base64,${r}`,
+        base64: r,
+        mimeType: o,
+        sizeBytes: n.length
+      };
+    } catch (n) {
+      return console.error("Error reading audio/video file base64:", n), null;
     }
   });
-  const f = process.env.GEMINI_API_KEY || "";
-  _.handle("audio:transcribe", async (g, e) => {
-    var i, s, u, a, d, w, y;
-    const { audioBase64: t, mimeType: r = "audio/mp3" } = e, o = e.apiKey && e.apiKey.trim() ? e.apiKey.trim() : f;
-    if (!t) return { error: "Không tìm thấy dữ liệu âm thanh" };
-    const n = (r || "audio/mp3").split(";")[0].trim().toLowerCase(), p = n.includes("webm") ? "audio/webm" : n.includes("wav") ? "audio/wav" : n.includes("ogg") ? "audio/ogg" : n.includes("mp4") || n.includes("m4a") || n.includes("aac") ? "audio/mp4" : "audio/mp3";
+  const b = process.env.GEMINI_API_KEY || "";
+  T.handle("audio:transcribe", async (s, e) => {
+    var c, a, v, h, u, x, N;
+    const { audioBase64: n, mimeType: t = "audio/mp3" } = e, o = e.apiKey && e.apiKey.trim() ? e.apiKey.trim() : b;
+    if (!n) return { error: "Không tìm thấy dữ liệu âm thanh" };
+    const r = (t || "audio/mp3").split(";")[0].trim().toLowerCase(), i = r.includes("webm") ? "audio/webm" : r.includes("wav") ? "audio/wav" : r.includes("ogg") ? "audio/ogg" : r.includes("mp4") || r.includes("m4a") || r.includes("aac") ? "audio/mp4" : "audio/mp3";
     if (o && o.trim()) {
-      const c = `Bạn là hệ thống chuyển âm thanh thành văn bản (Speech-to-Text) và đồng bộ phụ đề Karaoke.
+      const m = `Bạn là hệ thống chuyển âm thanh thành văn bản (Speech-to-Text) và đồng bộ phụ đề Karaoke.
 Nhiệm vụ: Nghe kỹ file âm thanh đính kèm và nhận diện chính xác toàn bộ câu từ được phát âm (tiếng Việt hoặc tiếng Anh).
 
 Yêu cầu BẮT BUỘC:
@@ -384,7 +385,7 @@ TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (KHÔNG KÈM KÝ TỰ MARKDOWN):
     { "word": "thứ", "start": 0.45, "end": 0.7 }
   ]
 }`;
-      let l = [
+      let f = [
         "gemini-2.5-flash",
         "gemini-2.0-flash",
         "gemini-1.5-flash-latest",
@@ -395,28 +396,28 @@ TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (KHÔNG KÈM KÝ TỰ MARKDOWN):
         "gemini-1.5-pro"
       ];
       try {
-        const v = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${o.trim()}`);
-        if (v.ok) {
-          const x = await v.json();
-          if (Array.isArray(x.models)) {
-            const S = x.models.filter((T) => {
-              var N;
-              return (N = T.supportedGenerationMethods) == null ? void 0 : N.includes("generateContent");
-            }).map((T) => T.name.replace(/^models\//, ""));
-            S.length > 0 && (l = S.sort((T, N) => T.includes("2.0-flash") ? -1 : N.includes("2.0-flash") ? 1 : T.includes("flash") ? -1 : N.includes("flash") ? 1 : 0));
+        const P = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${o.trim()}`);
+        if (P.ok) {
+          const M = await P.json();
+          if (Array.isArray(M.models)) {
+            const $ = M.models.filter((C) => {
+              var E;
+              return (E = C.supportedGenerationMethods) == null ? void 0 : E.includes("generateContent");
+            }).map((C) => C.name.replace(/^models\//, ""));
+            $.length > 0 && (f = $.sort((C, E) => C.includes("2.0-flash") ? -1 : E.includes("2.0-flash") ? 1 : C.includes("flash") ? -1 : E.includes("flash") ? 1 : 0));
           }
         } else {
-          const x = await v.json().catch(() => ({}));
-          if ((i = x == null ? void 0 : x.error) != null && i.message)
-            return { error: `Gemini API Key lỗi: ${x.error.message}` };
+          const M = await P.json().catch(() => ({}));
+          if ((c = M == null ? void 0 : M.error) != null && c.message)
+            return { error: `Gemini API Key lỗi: ${M.error.message}` };
         }
-      } catch (v) {
-        console.warn("Auto-discover Gemini models warning:", v);
+      } catch (P) {
+        console.warn("Auto-discover Gemini models warning:", P);
       }
-      let h = "";
-      for (const v of l)
+      let d = "";
+      for (const P of f)
         try {
-          const x = `https://generativelanguage.googleapis.com/v1beta/models/${v}:generateContent?key=${o.trim()}`, S = await fetch(x, {
+          const M = `https://generativelanguage.googleapis.com/v1beta/models/${P}:generateContent?key=${o.trim()}`, $ = await fetch(M, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -425,11 +426,11 @@ TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (KHÔNG KÈM KÝ TỰ MARKDOWN):
                   parts: [
                     {
                       inline_data: {
-                        mime_type: p,
-                        data: t
+                        mime_type: i,
+                        data: n
                       }
                     },
-                    { text: c }
+                    { text: m }
                   ]
                 }
               ],
@@ -439,38 +440,38 @@ TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (KHÔNG KÈM KÝ TỰ MARKDOWN):
               }
             })
           });
-          if (S.ok) {
-            const T = await S.json();
-            let N = (w = (d = (a = (u = (s = T == null ? void 0 : T.candidates) == null ? void 0 : s[0]) == null ? void 0 : u.content) == null ? void 0 : a.parts) == null ? void 0 : d[0]) == null ? void 0 : w.text;
-            if (N) {
-              N = N.trim().replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/```$/, "").trim();
-              const P = JSON.parse(N);
-              if (P && P.narration)
+          if ($.ok) {
+            const C = await $.json();
+            let E = (x = (u = (h = (v = (a = C == null ? void 0 : C.candidates) == null ? void 0 : a[0]) == null ? void 0 : v.content) == null ? void 0 : h.parts) == null ? void 0 : u[0]) == null ? void 0 : x.text;
+            if (E) {
+              E = E.trim().replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/```$/, "").trim();
+              const I = JSON.parse(E);
+              if (I && I.narration)
                 return {
-                  narration: String(P.narration).trim(),
-                  language: P.language || "vi",
-                  audioDuration: Number(P.duration || 4),
-                  words: Array.isArray(P.words) ? P.words : []
+                  narration: String(I.narration).trim(),
+                  language: I.language || "vi",
+                  audioDuration: Number(I.duration || 4),
+                  words: Array.isArray(I.words) ? I.words : []
                 };
             }
           } else {
-            const T = await S.json().catch(() => ({}));
-            h = ((y = T == null ? void 0 : T.error) == null ? void 0 : y.message) || `HTTP ${S.status}`;
+            const C = await $.json().catch(() => ({}));
+            d = ((N = C == null ? void 0 : C.error) == null ? void 0 : N.message) || `HTTP ${$.status}`;
           }
-        } catch (x) {
-          h = x.message;
+        } catch (M) {
+          d = M.message;
         }
-      if (h)
-        return { error: `Gemini API: ${h}` };
+      if (d)
+        return { error: `Gemini API: ${d}` };
     }
     return { error: "Chưa có Gemini API Key. Vui lòng nhập API Key trong Cài đặt (Settings) trên thanh menu để AI tự động nghe và chuyển thành chữ." };
-  }), _.handle("media:search-web", async (g, e) => {
+  }), T.handle("media:search-web", async (s, e) => {
     try {
-      const t = (e || "").trim();
-      if (!t) return [];
+      const n = (e || "").trim();
+      if (!n) return [];
       try {
-        const p = await fetch(
-          `https://www.bing.com/images/async?q=${encodeURIComponent(t)}&count=25&first=0`,
+        const i = await fetch(
+          `https://www.bing.com/images/async?q=${encodeURIComponent(n)}&count=25&first=0`,
           {
             headers: {
               "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
@@ -479,32 +480,32 @@ TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (KHÔNG KÈM KÝ TỰ MARKDOWN):
             }
           }
         );
-        if (p.ok) {
-          const u = [...(await p.text()).matchAll(/murl&quot;:&quot;(http[^&]+)&quot;/g)].map((a) => decodeURIComponent(a[1])).filter((a) => a && !a.endsWith(".svg") && !a.includes("favicon"));
-          if (u.length > 0)
-            return u.slice(0, 20).map((a, d) => ({
-              id: `bing-img-${d}-${Date.now()}`,
+        if (i.ok) {
+          const v = [...(await i.text()).matchAll(/murl&quot;:&quot;(http[^&]+)&quot;/g)].map((h) => decodeURIComponent(h[1])).filter((h) => h && !h.endsWith(".svg") && !h.includes("favicon"));
+          if (v.length > 0)
+            return v.slice(0, 20).map((h, u) => ({
+              id: `bing-img-${u}-${Date.now()}`,
               type: "image",
-              url: a,
-              thumbnail: a,
-              title: t,
+              url: h,
+              thumbnail: h,
+              title: n,
               source: "web"
             }));
         }
-      } catch (p) {
-        console.warn("Bing search attempt failed, trying DuckDuckGo fallback:", p);
+      } catch (i) {
+        console.warn("Bing search attempt failed, trying DuckDuckGo fallback:", i);
       }
-      const n = (await (await fetch(
-        `https://duckduckgo.com/?q=${encodeURIComponent(t)}&iax=images&ia=images`,
+      const r = (await (await fetch(
+        `https://duckduckgo.com/?q=${encodeURIComponent(n)}&iax=images&ia=images`,
         {
           headers: {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
           }
         }
       )).text()).match(/vqd=([\d-]+)/);
-      if (n) {
-        const p = n[1], s = await (await fetch(
-          `https://duckduckgo.com/i.js?l=wt-wt&o=json&q=${encodeURIComponent(t)}&vqd=${p}&f=,,,`,
+      if (r) {
+        const i = r[1], a = await (await fetch(
+          `https://duckduckgo.com/i.js?l=wt-wt&o=json&q=${encodeURIComponent(n)}&vqd=${i}&f=,,,`,
           {
             headers: {
               "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
@@ -512,225 +513,419 @@ TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (KHÔNG KÈM KÝ TỰ MARKDOWN):
             }
           }
         )).json();
-        if (s.results && s.results.length > 0)
-          return s.results.slice(0, 20).map((u, a) => ({
-            id: `ddg-img-${a}-${Date.now()}`,
+        if (a.results && a.results.length > 0)
+          return a.results.slice(0, 20).map((v, h) => ({
+            id: `ddg-img-${h}-${Date.now()}`,
             type: "image",
-            url: u.image,
-            thumbnail: u.thumbnail || u.image,
-            title: u.title || t,
+            url: v.image,
+            thumbnail: v.thumbnail || v.image,
+            title: v.title || n,
             source: "web"
           }));
       }
       return [];
-    } catch (t) {
-      return console.warn("Web image search error:", t), [];
+    } catch (n) {
+      return console.warn("Web image search error:", n), [];
     }
   });
-  const b = /* @__PURE__ */ new Map();
-  _.handle("media:search-videos", async (g, e, t = 1) => {
+  const k = /* @__PURE__ */ new Map();
+  T.handle("media:search-videos", async (s, e, n = 1) => {
     try {
-      const r = (e || "").trim();
-      if (!r) return [];
-      const o = Math.max(1, Number(t) || 1), n = `${r.toLowerCase()}_p${o}`;
-      if (b.has(n))
-        return b.get(n);
-      const p = (d) => d.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D"), i = r.toLowerCase();
-      let s = [];
-      if (/đi học|trường học|lớp học|học sinh|sinh viên|school|student|classroom/i.test(i))
-        s = ["school", "student", "classroom", "campus", "studying"];
-      else if (/tắm|đi tắm|gội đầu|ngâm mình|bơi|hồ bơi|bãi biển|nước mát/i.test(i))
-        s = ["shower", "bath", "swimming pool", "relaxing water"];
-      else if (/vũ trụ|thiên hà|ngân hà|galaxy|không gian|hành tinh|sao|cosmos|nebula|space/i.test(i))
-        s = ["galaxy", "space", "nebula", "stars"];
-      else if (/bún|cá|phở|món|ẩm thực|nước dùng|ăn|nấu|chiên|nướng|nhà hàng|quán|chế biến|tô|bát|thực khách|food|uống|cafe|cà phê|trà/i.test(i))
-        s = /cá/i.test(i) ? ["fish cooking", "cooking", "food"] : ["cooking", "delicious food", "kitchen"];
-      else if (/ngủ|thức dậy|buổi sáng|bình minh|giường|phòng ngủ/i.test(i))
-        s = ["waking up", "morning", "bed", "sunrise"];
-      else if (/mua sắm|shopping|siêu thị|thời trang|quần áo|váy|cửa hàng/i.test(i))
-        s = ["shopping", "fashion", "store", "clothes"];
-      else if (/tiền|tài chính|chứng khoán|cổ phiếu|doanh thu|lợi nhuận|ngân hàng|giàu|đầu tư|tỷ đồng|triệu|money|finance/i.test(i))
-        s = ["money", "finance", "business", "growth"];
-      else if (/code|lập trình|ai|trí tuệ nhân tạo|phần mềm|công nghệ|máy tính|developer|robot|thuật toán|tech/i.test(i))
-        s = ["technology", "coding", "artificial intelligence", "programming"];
-      else if (/máy bay|chuyến bay|sân bay|cất cánh|hàng không|airplane|flight/i.test(i))
-        s = ["airplane", "flight", "clouds", "travel"];
-      else if (/đua xe|cao tốc|lái xe|xe hơi|ô tô|đường cao tốc|highway|driving/i.test(i))
-        s = ["highway", "driving", "night drive", "cars"];
-      else if (/du lịch|biển|núi|khám phá|bãi biển|travel|nature|phong cảnh/i.test(i))
-        s = ["travel", "nature", "ocean", "landscape"];
-      else if (/thành phố|đô thị|tòa nhà|đường phố|city|urban/i.test(i))
-        s = ["city", "urban", "skyline", "traffic"];
-      else if (/thể thao|gym|chạy bộ|sức khỏe|fitness|workout|yoga/i.test(i))
-        s = ["fitness", "workout", "running", "gym"];
-      else if (/^[a-zA-Z0-9\s\-',.]+$/.test(r)) {
-        const d = r.split(/\s+/).filter(Boolean);
-        s = [r, d[0] || "lifestyle", d[d.length - 1] || "cinematic"];
+      const t = (e || "").trim();
+      if (!t) return [];
+      const o = Math.max(1, Number(n) || 1), r = `${t.toLowerCase()}_p${o}`;
+      if (k.has(r))
+        return k.get(r);
+      const i = (u) => u.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D"), c = t.toLowerCase();
+      let a = [];
+      if (/đi học|trường học|lớp học|học sinh|sinh viên|school|student|classroom/i.test(c))
+        a = ["school", "student", "classroom", "campus", "studying"];
+      else if (/tắm|đi tắm|gội đầu|ngâm mình|bơi|hồ bơi|bãi biển|nước mát/i.test(c))
+        a = ["shower", "bath", "swimming pool", "relaxing water"];
+      else if (/vũ trụ|thiên hà|ngân hà|galaxy|không gian|hành tinh|sao|cosmos|nebula|space/i.test(c))
+        a = ["galaxy", "space", "nebula", "stars"];
+      else if (/bún|cá|phở|món|ẩm thực|nước dùng|ăn|nấu|chiên|nướng|nhà hàng|quán|chế biến|tô|bát|thực khách|food|uống|cafe|cà phê|trà/i.test(c))
+        a = /cá/i.test(c) ? ["fish cooking", "cooking", "food"] : ["cooking", "delicious food", "kitchen"];
+      else if (/ngủ|thức dậy|buổi sáng|bình minh|giường|phòng ngủ/i.test(c))
+        a = ["waking up", "morning", "bed", "sunrise"];
+      else if (/mua sắm|shopping|siêu thị|thời trang|quần áo|váy|cửa hàng/i.test(c))
+        a = ["shopping", "fashion", "store", "clothes"];
+      else if (/tiền|tài chính|chứng khoán|cổ phiếu|doanh thu|lợi nhuận|ngân hàng|giàu|đầu tư|tỷ đồng|triệu|money|finance/i.test(c))
+        a = ["money", "finance", "business", "growth"];
+      else if (/code|lập trình|ai|trí tuệ nhân tạo|phần mềm|công nghệ|máy tính|developer|robot|thuật toán|tech/i.test(c))
+        a = ["technology", "coding", "artificial intelligence", "programming"];
+      else if (/máy bay|chuyến bay|sân bay|cất cánh|hàng không|airplane|flight/i.test(c))
+        a = ["airplane", "flight", "clouds", "travel"];
+      else if (/đua xe|cao tốc|lái xe|xe hơi|ô tô|đường cao tốc|highway|driving/i.test(c))
+        a = ["highway", "driving", "night drive", "cars"];
+      else if (/du lịch|biển|núi|khám phá|bãi biển|travel|nature|phong cảnh/i.test(c))
+        a = ["travel", "nature", "ocean", "landscape"];
+      else if (/thành phố|đô thị|tòa nhà|đường phố|city|urban/i.test(c))
+        a = ["city", "urban", "skyline", "traffic"];
+      else if (/thể thao|gym|chạy bộ|sức khỏe|fitness|workout|yoga/i.test(c))
+        a = ["fitness", "workout", "running", "gym"];
+      else if (/^[a-zA-Z0-9\s\-',.]+$/.test(t)) {
+        const u = t.split(/\s+/).filter(Boolean);
+        a = [t, u[0] || "lifestyle", u[u.length - 1] || "cinematic"];
       } else
-        s = [p(r).replace(/[^\w\s]/gi, " ").trim(), "lifestyle", "cinematic"];
-      const u = (o - 1) % s.length, a = [
-        s[u],
-        ...s.filter((d, w) => w !== u)
+        a = [i(t).replace(/[^\w\s]/gi, " ").trim(), "lifestyle", "cinematic"];
+      const v = (o - 1) % a.length, h = [
+        a[v],
+        ...a.filter((u, x) => x !== v)
       ];
-      for (const d of a)
-        if (d)
+      for (const u of h)
+        if (u)
           try {
-            const w = new AbortController(), y = setTimeout(() => w.abort(), 3500), c = Math.floor((o - 1) / s.length) + 1, l = await fetch(
-              `https://coverr.co/api/videos?query=${encodeURIComponent(d)}&page=${c}&urls=true`,
+            const x = new AbortController(), N = setTimeout(() => x.abort(), 3500), m = Math.floor((o - 1) / a.length) + 1, f = await fetch(
+              `https://coverr.co/api/videos?query=${encodeURIComponent(u)}&page=${m}&urls=true`,
               {
-                signal: w.signal,
+                signal: x.signal,
                 headers: {
                   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
                 }
               }
             );
-            if (clearTimeout(y), l.ok) {
-              const v = (await l.json()).hits || [];
-              if (v.length > 0) {
-                const x = v.slice(0, 12).map((S, T) => {
-                  var N, P, I, R;
+            if (clearTimeout(N), f.ok) {
+              const P = (await f.json()).hits || [];
+              if (P.length > 0) {
+                const M = P.slice(0, 12).map(($, C) => {
+                  var E, I, D, F;
                   return {
-                    id: `coverr-video-${T}-${Date.now()}`,
+                    id: `coverr-video-${C}-${Date.now()}`,
                     type: "video",
-                    url: ((N = S.urls) == null ? void 0 : N.mp4) || ((P = S.urls) == null ? void 0 : P.mp4_preview),
-                    previewUrl: ((I = S.urls) == null ? void 0 : I.mp4_preview) || ((R = S.urls) == null ? void 0 : R.mp4),
-                    thumbnail: S.thumbnail || S.poster,
-                    title: S.title || r,
+                    url: ((E = $.urls) == null ? void 0 : E.mp4) || ((I = $.urls) == null ? void 0 : I.mp4_preview),
+                    previewUrl: ((D = $.urls) == null ? void 0 : D.mp4_preview) || ((F = $.urls) == null ? void 0 : F.mp4),
+                    thumbnail: $.thumbnail || $.poster,
+                    title: $.title || t,
                     source: "web",
-                    duration: Math.round(Number(S.duration || 8))
+                    duration: Math.round(Number($.duration || 8))
                   };
                 });
-                return b.set(n, x), x;
+                return k.set(r, M), M;
               }
             }
-          } catch (w) {
-            console.warn(`Coverr fetch failed for keyword: ${d}`, w);
+          } catch (x) {
+            console.warn(`Coverr fetch failed for keyword: ${u}`, x);
           }
       return [];
-    } catch (r) {
-      return console.warn("Video search error in main process:", r), [];
+    } catch (t) {
+      return console.warn("Video search error in main process:", t), [];
     }
-  }), _.handle(
+  }), T.handle(
     "ai:gemini-generate",
-    async (g, e) => {
-      var t, r, o, n, p, i;
+    async (s, e) => {
+      var n, t, o, r, i, c;
       try {
-        const { prompt: s, cookie: u, apiKey: a } = e || {}, d = (s || "").trim();
-        if (!d)
+        const { prompt: a, cookie: v, apiKey: h } = e || {}, u = (a || "").trim();
+        if (!u)
           throw new Error("Prompt is required");
-        const w = (a || u || process.env.DEEPSEEK_API_KEY || process.env.GROQ_API_KEY || "").trim();
-        if (w.startsWith("sk-") || w.length > 20)
-          for (const y of ["deepseek-chat", "deepseek-reasoner"])
+        const x = (h || v || process.env.DEEPSEEK_API_KEY || process.env.GROQ_API_KEY || "").trim();
+        if (x.startsWith("sk-") || x.length > 20)
+          for (const N of ["deepseek-chat", "deepseek-reasoner"])
             try {
-              const c = await fetch("https://api.deepseek.com/chat/completions", {
+              const m = await fetch("https://api.deepseek.com/chat/completions", {
                 method: "POST",
                 headers: {
-                  Authorization: `Bearer ${w}`,
+                  Authorization: `Bearer ${x}`,
                   "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                  model: y,
+                  model: N,
                   messages: [
                     {
                       role: "system",
                       content: "You are an expert AI video scriptwriter, director, and creative content producer. Always return high quality, clear, and well-structured JSON or text responses."
                     },
-                    { role: "user", content: d }
+                    { role: "user", content: u }
                   ],
                   temperature: 0.7
                 })
               });
-              if (c.ok) {
-                const l = await c.json(), h = (o = (r = (t = l == null ? void 0 : l.choices) == null ? void 0 : t[0]) == null ? void 0 : r.message) == null ? void 0 : o.content;
-                if (h && typeof h == "string")
-                  return { text: h.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/```(?:python|javascript|text|json)\?code_(?:reference|stdout)&code_event_index=\d+\n[\s\S]*?```\n?/g, "").trim(), rawLength: h.length };
+              if (m.ok) {
+                const f = await m.json(), d = (o = (t = (n = f == null ? void 0 : f.choices) == null ? void 0 : n[0]) == null ? void 0 : t.message) == null ? void 0 : o.content;
+                if (d && typeof d == "string")
+                  return { text: d.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/```(?:python|javascript|text|json)\?code_(?:reference|stdout)&code_event_index=\d+\n[\s\S]*?```\n?/g, "").trim(), rawLength: d.length };
               }
-            } catch (c) {
-              console.warn("DeepSeek model failed in Electron main:", y, c);
+            } catch (m) {
+              console.warn("DeepSeek model failed in Electron main:", N, m);
             }
-        if (w.startsWith("gsk_") || w.length > 20)
-          for (const y of ["deepseek-r1-distill-llama-70b", "llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"])
+        if (x.startsWith("gsk_") || x.length > 20)
+          for (const N of ["deepseek-r1-distill-llama-70b", "llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"])
             try {
-              const c = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+              const m = await fetch("https://api.groq.com/openai/v1/chat/completions", {
                 method: "POST",
                 headers: {
-                  Authorization: `Bearer ${w}`,
+                  Authorization: `Bearer ${x}`,
                   "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                  model: y,
+                  model: N,
                   messages: [
                     {
                       role: "system",
                       content: "You are an expert AI video scriptwriter, director, and creative content producer. Always return high quality, clear, and well-structured JSON or text responses."
                     },
-                    { role: "user", content: d }
+                    { role: "user", content: u }
                   ],
                   temperature: 0.7
                 })
               });
-              if (c.ok) {
-                const l = await c.json(), h = (i = (p = (n = l == null ? void 0 : l.choices) == null ? void 0 : n[0]) == null ? void 0 : p.message) == null ? void 0 : i.content;
-                if (h && typeof h == "string")
-                  return { text: h.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/```(?:python|javascript|text|json)\?code_(?:reference|stdout)&code_event_index=\d+\n[\s\S]*?```\n?/g, "").trim(), rawLength: h.length };
+              if (m.ok) {
+                const f = await m.json(), d = (c = (i = (r = f == null ? void 0 : f.choices) == null ? void 0 : r[0]) == null ? void 0 : i.message) == null ? void 0 : c.content;
+                if (d && typeof d == "string")
+                  return { text: d.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/```(?:python|javascript|text|json)\?code_(?:reference|stdout)&code_event_index=\d+\n[\s\S]*?```\n?/g, "").trim(), rawLength: d.length };
               }
-            } catch (c) {
-              console.warn("Groq model failed in Electron main:", y, c);
+            } catch (m) {
+              console.warn("Groq model failed in Electron main:", N, m);
             }
         return { text: "", rawLength: 0 };
-      } catch (s) {
-        throw console.error("Electron AI Generate error:", s), s;
+      } catch (a) {
+        throw console.error("Electron AI Generate error:", a), a;
       }
     }
-  ), _.handle("voice:train", async (g, e) => new Promise((t, r) => {
+  ), T.handle("voice:train", async (s, e) => new Promise((n, t) => {
     try {
-      const o = M.getPath("temp"), n = Date.now(), p = k.join(o, `voice_train_${n}.json`), i = k.join(o, `voice_train_res_${n}.json`);
-      let s = e.filePath || "";
+      const o = A.getPath("temp"), r = Date.now(), i = w.join(o, `voice_train_${r}.json`), c = w.join(o, `voice_train_res_${r}.json`);
+      let a = e.filePath || "";
       if (e.fileBase64) {
-        const c = e.fileType === "onnx" ? "onnx" : "mp3", l = k.join(o, `voice_upload_${n}.${c}`);
-        $.writeFileSync(l, Buffer.from(e.fileBase64, "base64")), s = l;
+        const m = e.fileType === "onnx" ? "onnx" : "mp3", f = w.join(o, `voice_upload_${r}.${m}`);
+        S.writeFileSync(f, Buffer.from(e.fileBase64, "base64")), a = f;
       }
-      const u = {
+      const v = {
         name: e.name || "Custom Voice",
         voiceId: e.voiceId || "custom_voice",
         fileType: e.fileType || "audio",
-        filePath: s,
-        outputPath: i
+        filePath: a,
+        outputPath: c
       };
-      $.writeFileSync(p, JSON.stringify(u, null, 2), "utf-8");
-      const a = k.resolve(E, "../scripts/trainer/auto_voice_builder.py"), d = C("python", [a, "--config", p, "--out", i], { windowsHide: !0 });
-      let w = "", y = "";
-      d.stdout.on("data", (c) => w += c.toString("utf-8")), d.stderr.on("data", (c) => y += c.toString("utf-8")), d.on("close", (c) => {
+      S.writeFileSync(i, JSON.stringify(v, null, 2), "utf-8");
+      const h = w.resolve(j, "../scripts/trainer/auto_voice_builder.py"), u = B("python", [h, "--config", i, "--out", c], { windowsHide: !0 });
+      let x = "", N = "";
+      u.stdout.on("data", (m) => x += m.toString("utf-8")), u.stderr.on("data", (m) => N += m.toString("utf-8")), u.on("close", (m) => {
         try {
-          $.existsSync(p) && $.unlinkSync(p);
+          S.existsSync(i) && S.unlinkSync(i);
         } catch {
         }
-        if ($.existsSync(i))
+        if (S.existsSync(c))
           try {
-            const l = JSON.parse($.readFileSync(i, "utf-8"));
+            const f = JSON.parse(S.readFileSync(c, "utf-8"));
             try {
-              $.unlinkSync(i);
+              S.unlinkSync(c);
             } catch {
             }
-            return l.error ? r(new Error(l.error)) : t(l);
-          } catch (l) {
-            console.warn("Failed parsing result file, falling back to stdout:", l);
+            return f.error ? t(new Error(f.error)) : n(f);
+          } catch (f) {
+            console.warn("Failed parsing result file, falling back to stdout:", f);
           }
-        if (c !== 0)
-          return console.error(`Voice training process failed with code ${c}:`, y), r(new Error(y || `Process exited with code ${c}`));
+        if (m !== 0)
+          return console.error(`Voice training process failed with code ${m}:`, N), t(new Error(N || `Process exited with code ${m}`));
         try {
-          const l = JSON.parse(w.trim());
-          t(l);
-        } catch (l) {
-          r(new Error(`Failed to parse response from voice builder: ${l.message}`));
+          const f = JSON.parse(x.trim());
+          n(f);
+        } catch (f) {
+          t(new Error(`Failed to parse response from voice builder: ${f.message}`));
         }
       });
     } catch (o) {
-      console.error("Error preparing voice train payload:", o), r(o);
+      console.error("Error preparing voice train payload:", o), t(o);
     }
-  })), _.handle("app:restart", () => {
-    M.relaunch(), M.exit(0);
-  }), _.handle("app:reload", () => {
-    m == null || m.webContents.reload();
+  }));
+  let y = null;
+  function p() {
+    const s = w.join(process.resourcesPath, "python_runtime", "python.exe");
+    if (S.existsSync(s)) return s;
+    const e = w.join(w.dirname(A.getPath("exe")), "resources", "python_runtime", "python.exe");
+    if (S.existsSync(e)) return e;
+    const n = w.join(A.getAppPath(), "python_runtime", "python.exe");
+    if (S.existsSync(n)) return n;
+    const t = w.resolve(j, "..", "python_runtime", "python.exe");
+    return S.existsSync(t) ? t : "python";
+  }
+  function g() {
+    const s = w.join(process.resourcesPath, "python", "beat_detector.py");
+    if (S.existsSync(s)) return s;
+    const e = w.join(w.dirname(A.getPath("exe")), "resources", "python", "beat_detector.py");
+    if (S.existsSync(e)) return e;
+    const n = w.resolve(j, "..", "python", "beat_detector.py");
+    return S.existsSync(n) ? n : w.join(A.getAppPath(), "python", "beat_detector.py");
+  }
+  async function _(s) {
+    if (!S.existsSync(s))
+      return {
+        success: !1,
+        error: "File âm thanh không tồn tại hoặc đã bị di chuyển."
+      };
+    if (y) {
+      try {
+        y.kill();
+      } catch {
+      }
+      y = null;
+    }
+    const e = p(), n = g();
+    return new Promise((t) => {
+      try {
+        const o = B(e, [n, "analyze", s], { windowsHide: !0 });
+        y = o;
+        const r = J.createInterface({
+          input: o.stdout,
+          crlfDelay: 1 / 0
+        });
+        let i = null, c = null, a = null;
+        r.on("line", (h) => {
+          try {
+            const u = JSON.parse(h.trim());
+            u.type === "progress" ? l == null || l.webContents.send("audio:progress", {
+              percent: u.percent,
+              message: u.message
+            }) : u.type === "result" ? i = u.data : u.type === "error" && (c = u.error, a = u.details);
+          } catch {
+          }
+        });
+        let v = "";
+        o.stderr.on("data", (h) => {
+          v += h.toString();
+        }), o.on("close", (h) => {
+          y = null, t(h === 0 && i ? { success: !0, data: i } : {
+            success: !1,
+            error: c || "Phân tích âm thanh không thành công.",
+            details: a || v
+          });
+        }), o.on("error", (h) => {
+          y = null, t({
+            success: !1,
+            error: "Không thể khởi chạy tiến trình Python.",
+            details: h.message
+          });
+        });
+      } catch (o) {
+        y = null, t({
+          success: !1,
+          error: "Lỗi thực thi quy trình phân tích.",
+          details: o.message
+        });
+      }
+    });
+  }
+  T.handle("dialog:openAudioFile", async () => {
+    if (!l) return { canceled: !0 };
+    const s = await R.showOpenDialog(l, {
+      title: "Chọn file âm thanh",
+      properties: ["openFile"],
+      filters: [
+        { name: "Audio Files (*.mp3, *.wav, *.m4a, *.flac, *.ogg)", extensions: ["mp3", "wav", "m4a", "flac", "ogg"] },
+        { name: "Tất cả file", extensions: ["*"] }
+      ]
+    });
+    if (s.canceled || s.filePaths.length === 0)
+      return { canceled: !0 };
+    const e = s.filePaths[0], n = w.basename(e), t = S.statSync(e), o = `file:///${e.replace(/\\/g, "/")}`;
+    return {
+      canceled: !1,
+      filePath: e,
+      fileName: n,
+      fileUrl: o,
+      size: t.size
+    };
+  }), T.handle("engine:check", async () => {
+    const s = p(), e = g();
+    return new Promise((n) => {
+      try {
+        const t = B(s, [e, "--check-env"], { windowsHide: !0 });
+        let o = "";
+        t.stdout.on("data", (r) => {
+          o += r.toString();
+        }), t.on("close", (r) => {
+          if (r === 0)
+            try {
+              const i = o.trim().split(`
+`);
+              for (const c of i) {
+                const a = JSON.parse(c.trim());
+                if (a.type === "env_check")
+                  return n(a.status);
+              }
+            } catch {
+            }
+          n({ ready: !1, error: "Không thể kết nối Audio Engine Python" });
+        }), t.on("error", () => {
+          n({ ready: !1, error: "Không tìm thấy Python executable" });
+        });
+      } catch (t) {
+        n({ ready: !1, error: t.message });
+      }
+    });
+  }), T.handle("audio:analyze", async (s, e) => _(e)), T.handle("audio:analyzeBuffer", async (s, { fileName: e, buffer: n }) => {
+    try {
+      const t = A.getPath("temp"), o = e.replace(/[^a-zA-Z0-9._-]/g, "_"), r = w.join(t, `beatcut_${Date.now()}_${o}`);
+      return S.writeFileSync(r, Buffer.from(n)), _(r);
+    } catch (t) {
+      return {
+        success: !1,
+        error: `Lỗi ghi file tạm để phân tích: ${t.message}`
+      };
+    }
+  }), T.handle("audio:cancelAnalysis", async () => {
+    if (y) {
+      try {
+        y.kill();
+      } catch {
+      }
+      y = null;
+    }
+    return { canceled: !0 };
+  }), T.handle("project:save", async (s, e) => {
+    if (!l) return { success: !1, error: "Không tìm thấy cửa sổ ứng dụng." };
+    const n = `${e.projectName || "My_Project"}.beatcut`, t = await R.showSaveDialog(l, {
+      title: "Lưu Project BEATCUT STUDIO",
+      defaultPath: n,
+      filters: [
+        { name: "BeatCut Project (*.beatcut)", extensions: ["beatcut"] },
+        { name: "JSON (*.json)", extensions: ["json"] }
+      ]
+    });
+    if (t.canceled || !t.filePath)
+      return { success: !1, error: "Đã hủy thao tác lưu project." };
+    try {
+      return S.writeFileSync(t.filePath, JSON.stringify(e, null, 2), "utf-8"), { success: !0, filePath: t.filePath };
+    } catch (o) {
+      return { success: !1, error: `Lỗi khi lưu file: ${o.message}` };
+    }
+  }), T.handle("project:open", async () => {
+    if (!l) return { success: !1, error: "Không tìm thấy cửa sổ ứng dụng." };
+    const s = await R.showOpenDialog(l, {
+      title: "Mở Project BEATCUT STUDIO",
+      properties: ["openFile"],
+      filters: [
+        { name: "BeatCut Project (*.beatcut, *.json)", extensions: ["beatcut", "json"] }
+      ]
+    });
+    if (s.canceled || s.filePaths.length === 0)
+      return { success: !1, error: "Đã hủy chọn file." };
+    const e = s.filePaths[0];
+    try {
+      const n = S.readFileSync(e, "utf-8");
+      return { success: !0, data: JSON.parse(n), filePath: e };
+    } catch (n) {
+      return { success: !1, error: `Không thể đọc dữ liệu project: ${n.message}` };
+    }
+  }), T.handle("data:export", async (s, { format: e, content: n, defaultName: t }) => {
+    if (!l) return { success: !1, error: "Không tìm thấy cửa sổ ứng dụng." };
+    const r = { json: "json", csv: "csv", txt: "txt" }[e] || "txt", i = await R.showSaveDialog(l, {
+      title: `Xuất dữ liệu (${e.toUpperCase()})`,
+      defaultPath: `${t}.${r}`,
+      filters: [{ name: `${e.toUpperCase()} Files`, extensions: [r] }]
+    });
+    if (i.canceled || !i.filePath)
+      return { success: !1, error: "Đã hủy thao tác xuất." };
+    try {
+      return S.writeFileSync(i.filePath, n, "utf-8"), { success: !0, filePath: i.filePath };
+    } catch (c) {
+      return { success: !1, error: `Lỗi khi ghi file: ${c.message}` };
+    }
+  }), T.handle("app:restart", () => {
+    A.relaunch(), A.exit(0);
+  }), T.handle("app:reload", () => {
+    l == null || l.webContents.reload();
   });
 }

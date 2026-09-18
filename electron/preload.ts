@@ -26,7 +26,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('ai:gemini-generate', params),
   trainVoice: (params: { name: string; voiceId: string; fileType: string; fileName: string; fileBase64: string }) =>
     ipcRenderer.invoke('voice:train', params),
+  // BeatCut Studio AI Beat Detector APIs
+  openAudioFile: () => ipcRenderer.invoke('dialog:openAudioFile'),
+  analyzeAudio: (filePath: string) => ipcRenderer.invoke('audio:analyze', filePath),
+  analyzeAudioBuffer: (fileName: string, buffer: ArrayBuffer) =>
+    ipcRenderer.invoke('audio:analyzeBuffer', { fileName, buffer }),
+  cancelAnalysis: () => ipcRenderer.invoke('audio:cancelAnalysis'),
+  checkEngine: () => ipcRenderer.invoke('engine:check'),
+  saveProject: (project: any) => ipcRenderer.invoke('project:save', project),
+  openProject: () => ipcRenderer.invoke('project:open'),
+  exportData: (format: string, content: string, defaultName: string) =>
+    ipcRenderer.invoke('data:export', { format, content, defaultName }),
+  onAudioProgress: (callback: (progress: any) => void) => {
+    const subscription = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('audio:progress', subscription);
+    return () => {
+      ipcRenderer.removeListener('audio:progress', subscription);
+    };
+  },
   onProcessMessage: (callback: (message: string) => void) => {
     ipcRenderer.on('main-process-message', (_event, value) => callback(value));
   }
 });
+

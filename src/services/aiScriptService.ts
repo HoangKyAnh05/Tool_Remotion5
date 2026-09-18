@@ -218,22 +218,25 @@ export function extractDescriptionsFromMultiLineText(text: string): string[] {
 }
 
 /**
- * Trích xuất danh sách các mốc giây bắt đầu phân cảnh mới từ chuỗi nhiều dòng (để đồng bộ vào ô nhập nhanh)
+ * Trích xuất danh sách các mốc giây bắt đầu phân cảnh mới từ chuỗi nhiều dòng hoặc phân tách bằng dấu phẩy
  */
 export function extractSplitPointsFromMultiLineText(text: string): { points: number[]; quickString: string } {
   if (!text || !text.trim()) return { points: [], quickString: '' };
-  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+  const rawItems = text.includes('\n')
+    ? text.split('\n').map((l) => l.trim()).filter(Boolean)
+    : text.split(/[,;]+/).map((l) => l.trim()).filter(Boolean);
   const points: number[] = [];
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const match = line.match(/^(\d+:\d+(?:\.\d+)?|\d+(?:\.\d+)?)\s*[-–—]\s*(\d+:\d+(?:\.\d+)?|\d+(?:\.\d+)?)/);
+  for (let i = 0; i < rawItems.length; i++) {
+    const item = rawItems[i];
+    const match = item.match(/^(\d+:\d+(?:\.\d+)?|\d+(?:\.\d+)?)\s*[-–—]\s*(\d+:\d+(?:\.\d+)?|\d+(?:\.\d+)?)/);
     if (match) {
       const start = parseTimeToSeconds(match[1]);
       const end = parseTimeToSeconds(match[2]);
-      if (i > 0 && start > 0) {
+      if (start > 0) {
         points.push(start);
-      } else if (i === 0 && end > 0 && lines.length > 1) {
+      }
+      if (end > 0) {
         points.push(end);
       }
     }
@@ -260,10 +263,10 @@ export function parseSplitPointsToRanges(
 ): ParsedTimeRange[] {
   if (!input || !input.trim()) return [];
 
-  // Tách chuỗi theo dấu phẩy, chấm phẩy, khoảng trắng, xuống dòng
+  // Tách chuỗi theo dấu phẩy, gạch nối, chấm phẩy, khoảng trắng, xuống dòng
   const rawTokens = input
     .replace(/[\[\]]/g, ' ')
-    .split(/[,;\n|\s]+/)
+    .split(/[,;\n|\s\-–—]+/)
     .map((t) => t.trim().replace(/s$/i, '').trim())
     .filter(Boolean);
 
@@ -330,31 +333,37 @@ export function formatSplitRangesToTimestamps(ranges: ParsedTimeRange[], topic?:
 }
 
 /**
- * Phân tích tổng quát mọi chuỗi mốc thời gian do người dùng nhập (chuỗi số rời rạc hoặc dạng multi-line range)
+ * Phân tích tổng quát mọi chuỗi mốc thời gian do người dùng nhập (chuỗi số rời rạc, khoảng range dấu phẩy "00 -12.85, 12.85-30.01" hoặc dạng multi-line)
  */
 export function parseCustomTimestampsToRanges(input: string, topic?: string): ParsedTimeRange[] {
   if (!input || !input.trim()) return [];
   const clean = input.trim();
 
-  // 1. Kiểm tra xem có phải định dạng nhiều dòng chứa dấu gạch ngang (0:00 - 0:10: ...) không
-  const lines = clean.split('\n').map((l) => l.trim()).filter(Boolean);
-  const isMultiLineRange = lines.some((l) => /[-–—]/.test(l));
+  // 1. Tách theo từng phân đoạn (hỗ trợ cả xuống dòng \n hoặc ngăn cách bằng dấu phẩy/chấm phẩy ",")
+  // Ví dụ: "00 -12.85, 12.85-30.01" hoặc "00:00 - 00:12: Đoạn 1 \n 00:12 - 00:30: Đoạn 2"
+  const rawItems = clean.includes('\n')
+    ? clean.split('\n').map((l) => l.trim()).filter(Boolean)
+    : clean.split(/[,;]+/).map((l) => l.trim()).filter(Boolean);
 
-  if (isMultiLineRange) {
+  const isRangeFormat = rawItems.some((l) => /[-–—]/.test(l));
+
+  if (isRangeFormat) {
     const ranges: ParsedTimeRange[] = [];
-    lines.forEach((line, idx) => {
-      const match = line.match(/^(\d+:\d+(?:\.\d+)?|\d+(?:\.\d+)?)\s*[-–—]\s*(\d+:\d+(?:\.\d+)?|\d+(?:\.\d+)?)\s*[:|-]?\s*(.*)$/);
+    rawItems.forEach((item) => {
+      const match = item.match(/^(\d+:\d+(?:\.\d+)?|\d+(?:\.\d+)?)\s*[-–—]\s*(\d+:\d+(?:\.\d+)?|\d+(?:\.\d+)?)\s*[:|-]?\s*(.*)$/);
       if (match) {
         const start = parseTimeToSeconds(match[1]);
         const end = parseTimeToSeconds(match[2]);
         const rawDesc = match[3]?.trim() || '';
-        ranges.push({
-          order: idx + 1,
-          start,
-          end,
-          duration: Number(Math.max(0.1, end - start).toFixed(2)),
-          description: rawDesc
-        });
+        if (end > start) {
+          ranges.push({
+            order: ranges.length + 1,
+            start,
+            end,
+            duration: Number(Math.max(0.1, end - start).toFixed(2)),
+            description: rawDesc
+          });
+        }
       }
     });
     if (ranges.length > 0) return ranges;
@@ -1292,15 +1301,19 @@ export async function suggestTimestampsAndStructureWithAI(params: {
   topic: string;
   sceneCount?: number;
   availableSources?: string;
+  customTimestamps?: string;
   apiKey?: string;
 }): Promise<SuggestedTimestampsResult> {
-  const { topic = 'Video clip tổng hợp', sceneCount = 6, availableSources, apiKey } = params;
+  const { topic = 'Video clip tổng hợp', sceneCount = 6, availableSources, customTimestamps, apiKey } = params;
   const count = Math.max(2, sceneCount || 6);
   const cleanKey = (apiKey || '').trim() || DEFAULT_GEMINI_KEY;
 
   let sourcesContext = '';
   if (availableSources && availableSources.trim()) {
     sourcesContext = `\nDanh sách các source/cảnh quay sẵn có:\n"""\n${availableSources.trim()}\n"""\n`;
+  }
+  if (customTimestamps && customTimestamps.trim()) {
+    sourcesContext += `\nCác mốc thời gian / nhịp Beat bắt buộc phải chia:\n"""\n${customTimestamps.trim()}\n"""\n(LƯU Ý QUAN TRỌNG: Giữ nguyên tuyệt đối các mốc startOffset và endOffset theo đúng danh sách nhịp này để khớp nhạc!)\n`;
   }
 
   const prompt = `Bạn là Đạo diễn kiêm Nhà sáng tạo nội dung Video Ngắn Triệu View (TikTok / Reels / Shorts / YouTube) hàng đầu hiện nay.

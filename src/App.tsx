@@ -9,13 +9,20 @@ import { SettingsModal } from './components/SettingsModal';
 import { BatchVocabularyModal } from './components/BatchVocabularyModal';
 import { VideoSplitterModal } from './components/VideoSplitterModal';
 import { AiVideoDirectorModal } from './components/AiVideoDirectorModal';
+import { BeatCutStudioModal } from './components/beatcut/BeatCutStudioModal';
 import { Step5WorkflowStepper, StepNumber } from './components/Step5WorkflowStepper';
 import { SfxTimelineManager } from './components/SfxTimelineManager';
-import { VideoProject } from './types/video';
+import { VideoProject, Scene } from './types/video';
 import { sampleHomestayProject } from './remotion/sampleHomestayProject';
 import { synthesizeEdgeTTS } from './services/edgeTtsService';
 import { WorkflowMode } from './components/SparkleBadge';
-import { DEFAULT_OPENAI_KEY, DEFAULT_GEMINI_KEY } from './services/aiScriptService';
+import { 
+  DEFAULT_OPENAI_KEY, 
+  DEFAULT_GEMINI_KEY,
+  parseCustomTimestampsToRanges,
+  formatSplitRangesToTimestamps,
+  generateSmartFallbackFromInput
+} from './services/aiScriptService';
 
 export const App: React.FC = () => {
   const [project, setProject] = useState<VideoProject>(() => {
@@ -42,10 +49,53 @@ export const App: React.FC = () => {
   const [isRenderOpen, setIsRenderOpen] = useState(false);
   const [isBatchVocabOpen, setIsBatchVocabOpen] = useState(false);
   const [isVideoSplitterOpen, setIsVideoSplitterOpen] = useState(false);
+  const [videoSplitterInitialQuickSplit, setVideoSplitterInitialQuickSplit] = useState<string>('');
+  const [videoSplitterInitialAudioUrl, setVideoSplitterInitialAudioUrl] = useState<string>('');
+  const [isBeatCutOpen, setIsBeatCutOpen] = useState(false);
   const [isAiDirectorOpen, setIsAiDirectorOpen] = useState(false);
   const [aiDirectorInitialTab, setAiDirectorInitialTab] = useState<'copy_prompt' | 'paste_json' | 'missing_sources'>('copy_prompt');
   const [activeView, setActiveView] = useState<'editor' | 'roadmap100'>('editor');
   const [previewCurrentTime, setPreviewCurrentTime] = useState<number>(0);
+
+  // Xử lý nạp mốc nhịp beat vào Video Splitter & AI Generation
+  const handleApplyBeatCutTimestamps = (splitSequence: string, audioUrl?: string) => {
+    setVideoSplitterInitialQuickSplit(splitSequence);
+    if (audioUrl) {
+      setVideoSplitterInitialAudioUrl(audioUrl);
+      setProject((prev) => ({
+        ...prev,
+        bgm: {
+          ...prev.bgm,
+          url: audioUrl,
+          volume: 0.35,
+          duckingVolume: 0.15
+        }
+      }));
+    }
+    setIsBeatCutOpen(false);
+    setIsVideoSplitterOpen(true);
+  };
+
+  // Xử lý nạp mốc nhịp beat trực tiếp vào Storyboard Remotion
+  const handleApplyBeatCutToStoryboard = (splitSequence: string, audioUrl?: string) => {
+    const ranges = parseCustomTimestampsToRanges(splitSequence, project.topic || 'Video Khớp Beat');
+    if (ranges.length > 0) {
+      const formatted = formatSplitRangesToTimestamps(ranges, project.topic || '');
+      const newScenes = generateSmartFallbackFromInput({
+        topic: project.topic || 'Video Khớp Theo Nhịp Beat Nhạc',
+        customTimestamps: formatted,
+        sceneCount: ranges.length
+      });
+      setProject((prev) => ({
+        ...prev,
+        scenes: newScenes as Scene[],
+        bgm: audioUrl
+          ? { ...prev.bgm, url: audioUrl, volume: 0.35, duckingVolume: 0.15 }
+          : prev.bgm
+      }));
+    }
+    setIsBeatCutOpen(false);
+  };
 
   const handleSeekPlayer = (timeInSeconds: number) => {
     setPreviewCurrentTime(timeInSeconds);
@@ -170,6 +220,7 @@ export const App: React.FC = () => {
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenRender={() => setIsRenderOpen(true)}
         onOpenVideoSplitter={() => setIsVideoSplitterOpen(true)}
+        onOpenBeatCut={() => setIsBeatCutOpen(true)}
         onOpenAiDirector={(tab) => {
           setAiDirectorInitialTab(tab || 'copy_prompt');
           setIsAiDirectorOpen(true);
@@ -259,6 +310,15 @@ export const App: React.FC = () => {
         onClose={() => setIsVideoSplitterOpen(false)}
         project={project}
         setProject={setProject}
+        initialQuickSplit={videoSplitterInitialQuickSplit}
+        initialAudioUrl={videoSplitterInitialAudioUrl}
+      />
+
+      <BeatCutStudioModal
+        isOpen={isBeatCutOpen}
+        onClose={() => setIsBeatCutOpen(false)}
+        onApplyToVideoSplitter={handleApplyBeatCutTimestamps}
+        onApplyToStoryboard={handleApplyBeatCutToStoryboard}
       />
 
       <BatchVocabularyModal

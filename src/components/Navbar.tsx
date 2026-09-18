@@ -9,7 +9,8 @@ import {
   Copy,
   FileJson,
   RotateCcw,
-  Settings
+  Settings,
+  Activity
 } from 'lucide-react';
 import { WorkflowMode } from './SparkleBadge';
 
@@ -19,6 +20,7 @@ interface NavbarProps {
   onOpenSettings?: () => void;
   onOpenRender: () => void;
   onOpenVideoSplitter?: () => void;
+  onOpenBeatCut?: () => void;
   onOpenAiDirector?: (tab?: 'copy_prompt' | 'paste_json' | 'missing_sources') => void;
   isGenerating: boolean;
   activeView: 'editor' | 'roadmap100';
@@ -33,6 +35,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenSettings,
   onOpenRender,
   onOpenVideoSplitter,
+  onOpenBeatCut,
   onOpenAiDirector,
   isGenerating,
   activeView,
@@ -127,6 +130,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>16:9</span>
           </button>
         </div>
+
+        {/* Nút Tách Beat Nhạc AI (BeatCut Studio) */}
+        {onOpenBeatCut && (
+          <button
+            onClick={onOpenBeatCut}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 shadow-xs transition-all active:scale-95 cursor-pointer"
+            title="Tách phách nhịp nhạc AI & Tự động sinh dãy số ngắt đoạn từ giây đầu (00 -12.85, 12.85-30.01)"
+          >
+            <Activity className="w-3.5 h-3.5 text-cyan-600" />
+            <span>Tách Beat AI</span>
+          </button>
+        )}
 
         {/* Nút Cắt Video Dài Thô */}
         {onOpenVideoSplitter && (

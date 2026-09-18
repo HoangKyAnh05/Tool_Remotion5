@@ -63,13 +63,17 @@ interface VideoSplitterModalProps {
   onClose: () => void;
   project: VideoProject;
   setProject: React.Dispatch<React.SetStateAction<VideoProject>>;
+  initialQuickSplit?: string;
+  initialAudioUrl?: string;
 }
 
 export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
   isOpen,
   onClose,
   project,
-  setProject
+  setProject,
+  initialQuickSplit,
+  initialAudioUrl
 }) => {
   // Video Splitter State (Bước 2)
   const [loadedVideos, setLoadedVideos] = useState<VideoMetadata[]>([]);
@@ -173,11 +177,12 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
       setIsSuggestingTimestamps(true);
       showNotification(`🤖 AI đang phân tích "${aiTopic}" để gợi ý các mốc thời gian & phân cảnh chi tiết...`);
 
-      const effectiveCount = targetCount || aiSceneCount || 6;
+      const effectiveCount = targetCount || aiSceneCount || (parsedSplitRanges.length > 0 ? parsedSplitRanges.length : 6);
       const res = await suggestTimestampsAndStructureWithAI({
         topic: aiTopic.trim(),
         sceneCount: effectiveCount,
         availableSources: aiAvailableSources,
+        customTimestamps: aiCustomTimestamps,
         apiKey: openaiKey.trim()
       });
 
@@ -258,6 +263,29 @@ export const VideoSplitterModal: React.FC<VideoSplitterModalProps> = ({
       setSelectedRatio(project.aspectRatio);
     }
   }, [project.aspectRatio]);
+
+  // Tự động nạp mốc thời gian từ BeatCut Studio nếu có initialQuickSplit truyền vào
+  useEffect(() => {
+    if (isOpen && initialQuickSplit && initialQuickSplit.trim()) {
+      handleQuickSplitChange(initialQuickSplit.trim());
+      showNotification(`🎵 Đã nạp thành công các mốc thời gian theo nhịp Bass từ BeatCut AI!`);
+    }
+  }, [isOpen, initialQuickSplit]);
+
+  // Tự động gán BGM bài hát beat vào dự án nếu có initialAudioUrl
+  useEffect(() => {
+    if (isOpen && initialAudioUrl && initialAudioUrl.trim()) {
+      setProject((prev) => ({
+        ...prev,
+        bgm: {
+          ...prev.bgm,
+          url: initialAudioUrl.trim(),
+          volume: 0.35,
+          duckingVolume: 0.15
+        }
+      }));
+    }
+  }, [isOpen, initialAudioUrl]);
 
   const activeSegment = segments[activeSegmentIndex] || null;
 

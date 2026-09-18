@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import https from 'https';
 import http from 'http';
 import fs from 'fs';
+import readline from 'readline';
 import { Communicate } from 'edge-tts-universal';
 // @ts-ignore
 import { bundle } from '@remotion/bundler';
@@ -1113,6 +1114,281 @@ TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (KHÔNG KÈM KÝ TỰ MARKDOWN):
     });
   });
 
+  // BeatCut Studio AI Music Beat Detector IPC Handlers
+  let currentBeatDetectorProcess: any = null;
+
+  function getPythonExecutable(): string {
+    const prodPython = path.join(process.resourcesPath, 'python_runtime', 'python.exe');
+    if (fs.existsSync(prodPython)) return prodPython;
+    const exeDirPython = path.join(path.dirname(app.getPath('exe')), 'resources', 'python_runtime', 'python.exe');
+    if (fs.existsSync(exeDirPython)) return exeDirPython;
+    const localPython = path.join(app.getAppPath(), 'python_runtime', 'python.exe');
+    if (fs.existsSync(localPython)) return localPython;
+    const devLocalPython = path.resolve(__dirname, '..', 'python_runtime', 'python.exe');
+    if (fs.existsSync(devLocalPython)) return devLocalPython;
+    return 'python';
+  }
+
+  function getBeatDetectorScriptPath(): string {
+    const prodScript = path.join(process.resourcesPath, 'python', 'beat_detector.py');
+    if (fs.existsSync(prodScript)) return prodScript;
+    const exeDirScript = path.join(path.dirname(app.getPath('exe')), 'resources', 'python', 'beat_detector.py');
+    if (fs.existsSync(exeDirScript)) return exeDirScript;
+    const devScript = path.resolve(__dirname, '..', 'python', 'beat_detector.py');
+    if (fs.existsSync(devScript)) return devScript;
+    return path.join(app.getAppPath(), 'python', 'beat_detector.py');
+  }
+
+  async function analyzeBeatAudioInternal(filePath: string): Promise<any> {
+    if (!fs.existsSync(filePath)) {
+      return {
+        success: false,
+        error: 'File âm thanh không tồn tại hoặc đã bị di chuyển.',
+      };
+    }
+
+    if (currentBeatDetectorProcess) {
+      try {
+        currentBeatDetectorProcess.kill();
+      } catch {}
+      currentBeatDetectorProcess = null;
+    }
+
+    const pythonBin = getPythonExecutable();
+    const scriptPath = getBeatDetectorScriptPath();
+
+    return new Promise((resolve) => {
+      try {
+        const proc = spawn(pythonBin, [scriptPath, 'analyze', filePath], { windowsHide: true });
+        currentBeatDetectorProcess = proc;
+
+        const rl = readline.createInterface({
+          input: proc.stdout,
+          crlfDelay: Infinity,
+        });
+
+        let finalResult: any = null;
+        let errorMessage: string | null = null;
+        let errorDetails: string | null = null;
+
+        rl.on('line', (line) => {
+          try {
+            const msg = JSON.parse(line.trim());
+            if (msg.type === 'progress') {
+              win?.webContents.send('audio:progress', {
+                percent: msg.percent,
+                message: msg.message,
+              });
+            } else if (msg.type === 'result') {
+              finalResult = msg.data;
+            } else if (msg.type === 'error') {
+              errorMessage = msg.error;
+              errorDetails = msg.details;
+            }
+          } catch {}
+        });
+
+        let stderrOutput = '';
+        proc.stderr.on('data', (data: any) => {
+          stderrOutput += data.toString();
+        });
+
+        proc.on('close', (code: any) => {
+          currentBeatDetectorProcess = null;
+          if (code === 0 && finalResult) {
+            resolve({ success: true, data: finalResult });
+          } else {
+            resolve({
+              success: false,
+              error: errorMessage || 'Phân tích âm thanh không thành công.',
+              details: errorDetails || stderrOutput,
+            });
+          }
+        });
+
+        proc.on('error', (err: any) => {
+          currentBeatDetectorProcess = null;
+          resolve({
+            success: false,
+            error: 'Không thể khởi chạy tiến trình Python.',
+            details: err.message,
+          });
+        });
+      } catch (err: any) {
+        currentBeatDetectorProcess = null;
+        resolve({
+          success: false,
+          error: 'Lỗi thực thi quy trình phân tích.',
+          details: err.message,
+        });
+      }
+    });
+  }
+
+  ipcMain.handle('dialog:openAudioFile', async () => {
+    if (!win) return { canceled: true };
+    const result = await dialog.showOpenDialog(win, {
+      title: 'Chọn file âm thanh',
+      properties: ['openFile'],
+      filters: [
+        { name: 'Audio Files (*.mp3, *.wav, *.m4a, *.flac, *.ogg)', extensions: ['mp3', 'wav', 'm4a', 'flac', 'ogg'] },
+        { name: 'Tất cả file', extensions: ['*'] },
+      ],
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { canceled: true };
+    }
+
+    const filePath = result.filePaths[0];
+    const fileName = path.basename(filePath);
+    const stats = fs.statSync(filePath);
+    const fileUrl = `file:///${filePath.replace(/\\/g, '/')}`;
+
+    return {
+      canceled: false,
+      filePath,
+      fileName,
+      fileUrl,
+      size: stats.size,
+    };
+  });
+
+  ipcMain.handle('engine:check', async () => {
+    const pythonBin = getPythonExecutable();
+    const scriptPath = getBeatDetectorScriptPath();
+
+    return new Promise((resolve) => {
+      try {
+        const proc = spawn(pythonBin, [scriptPath, '--check-env'], { windowsHide: true });
+        let output = '';
+        proc.stdout.on('data', (data: any) => {
+          output += data.toString();
+        });
+
+        proc.on('close', (code) => {
+          if (code === 0) {
+            try {
+              const lines = output.trim().split('\n');
+              for (const line of lines) {
+                const parsed = JSON.parse(line.trim());
+                if (parsed.type === 'env_check') {
+                  return resolve(parsed.status);
+                }
+              }
+            } catch {}
+          }
+          resolve({ ready: false, error: 'Không thể kết nối Audio Engine Python' });
+        });
+
+        proc.on('error', () => {
+          resolve({ ready: false, error: 'Không tìm thấy Python executable' });
+        });
+      } catch (e: any) {
+        resolve({ ready: false, error: e.message });
+      }
+    });
+  });
+
+  ipcMain.handle('audio:analyze', async (_event, filePath: string) => {
+    return analyzeBeatAudioInternal(filePath);
+  });
+
+  ipcMain.handle('audio:analyzeBuffer', async (_event, { fileName, buffer }: { fileName: string; buffer: ArrayBuffer }) => {
+    try {
+      const tempDir = app.getPath('temp');
+      const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const tempPath = path.join(tempDir, `beatcut_${Date.now()}_${safeName}`);
+      fs.writeFileSync(tempPath, Buffer.from(buffer));
+      return analyzeBeatAudioInternal(tempPath);
+    } catch (err: any) {
+      return {
+        success: false,
+        error: `Lỗi ghi file tạm để phân tích: ${err.message}`,
+      };
+    }
+  });
+
+  ipcMain.handle('audio:cancelAnalysis', async () => {
+    if (currentBeatDetectorProcess) {
+      try {
+        currentBeatDetectorProcess.kill();
+      } catch {}
+      currentBeatDetectorProcess = null;
+    }
+    return { canceled: true };
+  });
+
+  ipcMain.handle('project:save', async (_event, projectData: any) => {
+    if (!win) return { success: false, error: 'Không tìm thấy cửa sổ ứng dụng.' };
+    const defaultName = `${projectData.projectName || 'My_Project'}.beatcut`;
+    const result = await dialog.showSaveDialog(win, {
+      title: 'Lưu Project BEATCUT STUDIO',
+      defaultPath: defaultName,
+      filters: [
+        { name: 'BeatCut Project (*.beatcut)', extensions: ['beatcut'] },
+        { name: 'JSON (*.json)', extensions: ['json'] },
+      ],
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, error: 'Đã hủy thao tác lưu project.' };
+    }
+
+    try {
+      fs.writeFileSync(result.filePath, JSON.stringify(projectData, null, 2), 'utf-8');
+      return { success: true, filePath: result.filePath };
+    } catch (err: any) {
+      return { success: false, error: `Lỗi khi lưu file: ${err.message}` };
+    }
+  });
+
+  ipcMain.handle('project:open', async () => {
+    if (!win) return { success: false, error: 'Không tìm thấy cửa sổ ứng dụng.' };
+    const result = await dialog.showOpenDialog(win, {
+      title: 'Mở Project BEATCUT STUDIO',
+      properties: ['openFile'],
+      filters: [
+        { name: 'BeatCut Project (*.beatcut, *.json)', extensions: ['beatcut', 'json'] },
+      ],
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { success: false, error: 'Đã hủy chọn file.' };
+    }
+
+    const filePath = result.filePaths[0];
+    try {
+      const raw = fs.readFileSync(filePath, 'utf-8');
+      const data = JSON.parse(raw);
+      return { success: true, data, filePath };
+    } catch (err: any) {
+      return { success: false, error: `Không thể đọc dữ liệu project: ${err.message}` };
+    }
+  });
+
+  ipcMain.handle('data:export', async (_event, { format, content, defaultName }: { format: string; content: string; defaultName: string }) => {
+    if (!win) return { success: false, error: 'Không tìm thấy cửa sổ ứng dụng.' };
+    const extMap: Record<string, string> = { json: 'json', csv: 'csv', txt: 'txt' };
+    const ext = extMap[format] || 'txt';
+    const result = await dialog.showSaveDialog(win, {
+      title: `Xuất dữ liệu (${format.toUpperCase()})`,
+      defaultPath: `${defaultName}.${ext}`,
+      filters: [{ name: `${format.toUpperCase()} Files`, extensions: [ext] }],
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, error: 'Đã hủy thao tác xuất.' };
+    }
+
+    try {
+      fs.writeFileSync(result.filePath, content, 'utf-8');
+      return { success: true, filePath: result.filePath };
+    } catch (err: any) {
+      return { success: false, error: `Lỗi khi ghi file: ${err.message}` };
+    }
+  });
+
   // App Lifecycle: Restart & Reload
   ipcMain.handle('app:restart', () => {
     app.relaunch();
@@ -1123,4 +1399,5 @@ TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON (KHÔNG KÈM KÝ TỰ MARKDOWN):
     win?.webContents.reload();
   });
 }
+
 
